@@ -1,4 +1,4 @@
-module github.com/robbyt/go-mcpio
+module github.com/robbyt/mcp-io
 
 go 1.25.1
 
