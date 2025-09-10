@@ -1,7 +1,7 @@
 # mcp-io
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/robbyt/go-mcpio.svg)](https://pkg.go.dev/github.com/robbyt/go-mcpio)
-[![Go Report Card](https://goreportcard.com/badge/github.com/robbyt/go-mcpio)](https://goreportcard.com/report/github.com/robbyt/go-mcpio)
+[![Go Reference](https://pkg.go.dev/badge/github.com/robbyt/mcp-io.svg)](https://pkg.go.dev/github.com/robbyt/mcp-io)
+[![Go Report Card](https://goreportcard.com/badge/github.com/robbyt/mcp-io)](https://goreportcard.com/report/github.com/robbyt/mcp-io)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A high-level Go library that wraps the official [Model Context Protocol (MCP) SDK](https://github.com/modelcontextprotocol/go-sdk) to provide a functional options API with error handling for creating MCP servers.
@@ -25,7 +25,7 @@ A high-level Go library that wraps the official [Model Context Protocol (MCP) SD
 ## Installation
 
 ```bash
-go get github.com/robbyt/go-mcpio
+go get github.com/robbyt/mcp-io
 ```
 
 ## Quick Start
@@ -41,7 +41,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	mcpio "github.com/robbyt/go-mcpio"
+	mcpio "github.com/robbyt/mcp-io"
 )
 
 // Define your input and output types

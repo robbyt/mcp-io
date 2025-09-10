@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	mcpio "github.com/robbyt/go-mcpio"
+	mcpio "github.com/robbyt/mcp-io"
 )
 
 // Example input/output types for the calculator tool

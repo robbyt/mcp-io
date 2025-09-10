@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	mcpio "github.com/robbyt/go-mcpio"
+	mcpio "github.com/robbyt/mcp-io"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
