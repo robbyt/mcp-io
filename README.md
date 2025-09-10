@@ -8,18 +8,17 @@ A high-level Go library that wraps the official [Model Context Protocol (MCP) SD
 
 ## Overview
 
-`mcp-io` provides a simple wrapper around the MCP SDK that:
-- **Prevents panics** - Returns errors instead of panicking on invalid configuration
-- **Functional options** - Clean, composable API for tool registration
-- **Type safety** - Compile-time validation with automatic JSON schema generation
-- **Error handling** - Structured error types and graceful failure handling
+The official [Model Context Protocol (MCP) SDK](https://github.com/modelcontextprotocol/go-sdk) is simple, but it's too simple for my use case. It panics when required values are missing, uses bare structs instead of constructors, and while the API is flexible, it's a bit too versatile for what I needed. 
 
-## Key Features
+This library provides a more opinionated wrapper that adds the functional options pattern I prefer, along with sentinel errors instead of panics.
+
+## Features
 
 - **Graceful Error Handling**: Configuration errors return meaningful error messages instead of panicking
 - **Functional Options**: Clean, composable API using the options pattern
-- **Type-Safe Tools**: Define tools with Go types and automatic schema generation
+- **Type-Safe Tools**: Define tools with Go types and automatic JSON schema generation  
 - **Multiple Transports**: HTTP, SSE, and stdio support through a single handler
+- **Structured Error Types**: Clear error categories for validation, processing, and tool errors
 - **MCP SDK Compatible**: Built on the official MCP SDK with error safety added
 
 ## Installation
