@@ -1,0 +1,44 @@
+name: Go
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Fetch all history for potential future integrations
+          fetch-depth: 0
+
+      - name: Set up Go
+        id: setup-go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Display Go version
+        run: go version
+
+      - name: go mod tidy (fails if changes are needed)
+        run: go mod tidy --diff
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+          cache-invalidation-interval: 30
+
+      - name: Go test
+        run: |
+          go test -short -timeout 1m ./...
+          # Run full test suite with coverage report
+          go test -race -cover -coverprofile=unit.coverage.out -timeout 5m ./...
