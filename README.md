@@ -337,42 +337,6 @@ if err != nil {
 }
 ```
 
-## API Reference
-
-### Options
-
-- `WithName(name string)` - Set server name (required, non-empty)
-- `WithVersion(version string)` - Set server version (required, non-empty)  
-- `WithTool(name, desc string, fn func)` - Add typed tool
-- `WithRawTool(name, desc string, schema *Schema, fn RawToolFunc)` - Add raw JSON tool
-- `WithScriptTool(name, desc string, evaluator ScriptEvaluator)` - Add script tool
-- `WithServer(server *mcp.Server)` - Inject custom server for testing
-
-### Transport Methods
-
-- `handler.ServeHTTP(w, r)` - Standard HTTP handler
-- `handler.ServeSSE(w, r)` - Server-sent events transport
-- `handler.ServeStdio(stdin, stdout)` - Stdio transport for CLI tools
-
-### Error Types
-
-- `mcpio.NewToolError(message)` - User-facing tool error
-- `mcpio.ValidationError(message)` - Input validation error
-- `mcpio.ProcessingError(message)` - Processing error
-
-## Benefits
-
-1. **Error Safety**: No panics - all configuration errors return meaningful messages
-2. **Type Safety**: Compile-time validation with automatic schema generation
-3. **Clean API**: Functional options pattern for readable, composable code
-4. **Transport Agnostic**: Single handler works with HTTP, SSE, and stdio
-5. **MCP Compatible**: Built on the official MCP SDK
-6. **Testing Friendly**: Dependency injection support with `WithServer`
-
-## Contributing
-
-Contributions welcome! Please ensure all code examples in the README are tested in `readme_test.go`.
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
