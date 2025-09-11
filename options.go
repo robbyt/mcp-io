@@ -7,10 +7,14 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// ToolFunc is the function signature for typed tools with automatic schema generation
+// ToolFunc is the function signature for typed tools with automatic schema generation.
+// The function receives a context and typed input, and returns typed output with an optional error.
+// Schema generation is handled automatically based on the TIn and TOut types.
 type ToolFunc[TIn, TOut any] func(context.Context, TIn) (TOut, error)
 
-// RawToolFunc is the function signature for raw JSON tools
+// RawToolFunc is the function signature for raw JSON tools.
+// The function receives a context and raw JSON bytes as input, and returns JSON bytes as output.
+// Schema must be provided explicitly when using WithRawTool.
 type RawToolFunc func(context.Context, []byte) ([]byte, error)
 
 // Option is a functional option for configuring handlers

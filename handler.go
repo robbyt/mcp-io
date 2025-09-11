@@ -19,7 +19,8 @@ type handlerConfig struct {
 	server  *mcp.Server // The MCP-SDK server instance
 }
 
-// toolRegisterFunc is a function that registers a tool on an MCP server
+// toolRegisterFunc is an internal function type that registers a tool on an MCP server.
+// This is used internally by the option functions to defer tool registration.
 type toolRegisterFunc func(*mcp.Server)
 
 // Handler is the main MCP handler struct
