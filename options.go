@@ -7,6 +7,19 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// ToolFunc is the function signature for typed tools with automatic schema generation.
+// The function receives a context and typed input, and returns typed output with an optional error.
+// Schema generation is handled automatically based on the TIn and TOut types.
+type ToolFunc[TIn, TOut any] func(context.Context, TIn) (TOut, error)
+
+// RawToolFunc is the function signature for raw JSON tools.
+// The function receives a context and raw JSON bytes as input, and returns JSON bytes as output.
+// Schema must be provided explicitly when using WithRawTool.
+type RawToolFunc func(context.Context, []byte) ([]byte, error)
+
+// Option is a functional option for configuring handlers
+type Option func(*handlerConfig) error
+
 // WithName sets the server name
 func WithName(name string) Option {
 	return func(cfg *handlerConfig) error {
@@ -30,7 +43,7 @@ func WithVersion(version string) Option {
 }
 
 // WithTool adds a type-safe tool with automatic schema generation
-func WithTool[TIn, TOut any](name, description string, fn func(ctx context.Context, input TIn) (TOut, error)) Option {
+func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut]) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
 			return ErrEmptyToolName
@@ -47,9 +60,7 @@ func WithTool[TIn, TOut any](name, description string, fn func(ctx context.Conte
 			mcp.AddTool(server, tool, handler)
 		}
 
-		cfg.tools = append(cfg.tools, &toolRegistration{
-			registerFunc: registerFunc,
-		})
+		cfg.tools = append(cfg.tools, registerFunc)
 
 		return nil
 	}
@@ -76,36 +87,9 @@ func WithRawTool(name, description string, inputSchema *jsonschema.Schema, fn Ra
 			server.AddTool(tool, handler)
 		}
 
-		cfg.tools = append(cfg.tools, &toolRegistration{
-			registerFunc: registerFunc,
-		})
+		cfg.tools = append(cfg.tools, registerFunc)
 
 		return nil
-	}
-}
-
-// WithScriptTool adds a tool backed by a script evaluator
-func WithScriptTool(name, description string, evaluator ScriptEvaluator) Option {
-	return func(cfg *handlerConfig) error {
-		if name == "" {
-			return ErrEmptyToolName
-		}
-		if evaluator == nil {
-			return ErrNilEvaluator
-		}
-
-		// Create a basic schema for script tools (they accept any JSON object)
-		inputSchema := &jsonschema.Schema{
-			Type:        "object",
-			Description: "Input data for script execution",
-		}
-
-		// Wrap the evaluator in a RawToolFunc
-		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
-			return evaluator.Execute(ctx, input)
-		}
-
-		return WithRawTool(name, description, inputSchema, rawFunc)(cfg)
 	}
 }
 

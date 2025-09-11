@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -432,90 +431,4 @@ func TestCreateTypedHandlerProtocolError(t *testing.T) {
 	assert.Nil(t, result)
 	assert.Equal(t, EchoOutput{}, output)
 	assert.Equal(t, "protocol error", err.Error())
-}
-
-// Mock ScriptEvaluator for testing
-type mockScriptEvaluator struct {
-	executeFunc func(ctx context.Context, input []byte) ([]byte, error)
-	timeout     time.Duration
-}
-
-func (m *mockScriptEvaluator) Execute(ctx context.Context, input []byte) ([]byte, error) {
-	if m.executeFunc != nil {
-		return m.executeFunc(ctx, input)
-	}
-	return []byte(`{"result": "script executed"}`), nil
-}
-
-func (m *mockScriptEvaluator) GetTimeout() time.Duration {
-	if m.timeout > 0 {
-		return m.timeout
-	}
-	return 5 * time.Second
-}
-
-func TestWithScriptTool(t *testing.T) {
-	tests := []struct {
-		name      string
-		toolName  string
-		evaluator ScriptEvaluator
-		wantErr   error
-	}{
-		{
-			name:     "valid script tool",
-			toolName: "script",
-			evaluator: &mockScriptEvaluator{
-				executeFunc: func(ctx context.Context, input []byte) ([]byte, error) {
-					return []byte(`{"output": "success"}`), nil
-				},
-			},
-			wantErr: nil,
-		},
-		{
-			name:      "empty tool name error",
-			toolName:  "",
-			evaluator: &mockScriptEvaluator{},
-			wantErr:   ErrEmptyToolName,
-		},
-		{
-			name:      "nil evaluator error",
-			toolName:  "script",
-			evaluator: nil,
-			wantErr:   ErrNilEvaluator,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := New(WithScriptTool(tt.toolName, "Script tool", tt.evaluator))
-
-			if tt.wantErr != nil {
-				assert.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestScriptToolIntegration(t *testing.T) {
-	evaluator := &mockScriptEvaluator{
-		executeFunc: func(ctx context.Context, input []byte) ([]byte, error) {
-			return []byte(`{"transformed": "data"}`), nil
-		},
-		timeout: 10 * time.Second,
-	}
-
-	handler, err := New(
-		WithName("script-server"),
-		WithScriptTool("transform", "Transform data", evaluator),
-	)
-	require.NoError(t, err)
-
-	// Test that the script tool was registered correctly
-	assert.NotNil(t, handler)
-	assert.NotNil(t, handler.GetServer())
-
-	// Test timeout accessor
-	assert.Equal(t, 10*time.Second, evaluator.GetTimeout())
 }

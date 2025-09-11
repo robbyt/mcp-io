@@ -48,7 +48,6 @@ var (
 	ErrNilSchema        = errors.New("schema cannot be nil")
 	ErrNilFunction      = errors.New("function cannot be nil")
 	ErrNilServer        = errors.New("server cannot be nil")
-	ErrNilEvaluator     = errors.New("evaluator cannot be nil")
 	ErrDuplicateTool    = errors.New("tool already registered")
 	ErrInvalidOperation = errors.New("invalid operation")
 	ErrInvalidJSON      = errors.New("tool returned invalid JSON")
