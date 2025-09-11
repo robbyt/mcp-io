@@ -2,10 +2,26 @@ package mcpio
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// ToolFunc is the function signature for typed tools with automatic schema generation
+type ToolFunc[TIn, TOut any] func(context.Context, TIn) (TOut, error)
+
+// RawToolFunc is the function signature for raw JSON tools
+type RawToolFunc func(context.Context, []byte) ([]byte, error)
+
+// ScriptEvaluator abstracts different script engines for dynamic tool execution
+type ScriptEvaluator interface {
+	Execute(ctx context.Context, input []byte) ([]byte, error)
+	GetTimeout() time.Duration
+}
+
+// Option is a functional option for configuring handlers
+type Option func(*handlerConfig) error
 
 // WithName sets the server name
 func WithName(name string) Option {
@@ -30,7 +46,7 @@ func WithVersion(version string) Option {
 }
 
 // WithTool adds a type-safe tool with automatic schema generation
-func WithTool[TIn, TOut any](name, description string, fn func(ctx context.Context, input TIn) (TOut, error)) Option {
+func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut]) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
 			return ErrEmptyToolName
@@ -47,9 +63,7 @@ func WithTool[TIn, TOut any](name, description string, fn func(ctx context.Conte
 			mcp.AddTool(server, tool, handler)
 		}
 
-		cfg.tools = append(cfg.tools, &toolRegistration{
-			registerFunc: registerFunc,
-		})
+		cfg.tools = append(cfg.tools, registerFunc)
 
 		return nil
 	}
@@ -76,9 +90,7 @@ func WithRawTool(name, description string, inputSchema *jsonschema.Schema, fn Ra
 			server.AddTool(tool, handler)
 		}
 
-		cfg.tools = append(cfg.tools, &toolRegistration{
-			registerFunc: registerFunc,
-		})
+		cfg.tools = append(cfg.tools, registerFunc)
 
 		return nil
 	}
