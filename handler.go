@@ -29,8 +29,8 @@ type Handler struct {
 	httpHandler http.Handler
 }
 
-// New creates a new MCP handler with the given options
-func New(opts ...Option) (*Handler, error) {
+// NewHandler creates a new MCP handler with the given options
+func NewHandler(opts ...Option) (*Handler, error) {
 	cfg := &handlerConfig{
 		name:    "mcp-server",
 		version: "1.0.0",

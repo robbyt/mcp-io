@@ -59,7 +59,7 @@ func echo(ctx context.Context, input EchoInput) (EchoOutput, error) {
 
 func main() {
 	// Create MCP handler with multiple tools
-	handler, err := mcpio.New(
+	handler, err := mcpio.NewHandler(
 		mcpio.WithName("example-calculator"),
 		mcpio.WithVersion("1.0.0"),
 		mcpio.WithTool("calculate", "Perform arithmetic operations", calculator),
