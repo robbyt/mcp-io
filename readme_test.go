@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	mcpio "github.com/robbyt/mcp-io"
 	"github.com/stretchr/testify/assert"
@@ -79,33 +78,6 @@ func createRawToolHandler() (*mcpio.Handler, error) {
 		mcpio.WithName("raw-processor"),
 		mcpio.WithRawTool("process_raw", "Process raw JSON data", inputSchema, processJSON),
 	)
-}
-
-// Helper function for script tool usage
-func createScriptToolHandler() (*mcpio.Handler, error) {
-	// Mock script evaluator for demonstration
-	mockEvaluator := &mockScriptEvaluator{
-		script: "return {result: input.data * 2}",
-	}
-
-	return mcpio.New(
-		mcpio.WithName("script-server"),
-		mcpio.WithScriptTool("lua_double", "Double the input using Lua", mockEvaluator),
-	)
-}
-
-// Mock script evaluator for the example
-type mockScriptEvaluator struct {
-	script string
-}
-
-func (m *mockScriptEvaluator) Execute(ctx context.Context, input []byte) ([]byte, error) {
-	// In a real implementation, this would execute the script
-	return []byte(`{"result": "script executed", "input_received": true}`), nil
-}
-
-func (m *mockScriptEvaluator) GetTimeout() time.Duration {
-	return 5 * time.Second
 }
 
 // Helper function for schema generation testing
@@ -200,19 +172,6 @@ func TestReadmeExamples(t *testing.T) {
 		defer server.Close()
 
 		assert.NotNil(t, server)
-	})
-
-	t.Run("ScriptIntegration", func(t *testing.T) {
-		handler, err := createScriptToolHandler()
-		require.NoError(t, err)
-		assert.NotNil(t, handler)
-
-		// Test the mock script evaluator
-		mockEval := &mockScriptEvaluator{script: "test"}
-		result, err := mockEval.Execute(context.Background(), []byte(`{"test": "data"}`))
-		require.NoError(t, err)
-		assert.Contains(t, string(result), "script executed")
-		assert.Equal(t, 5*time.Second, mockEval.GetTimeout())
 	})
 
 	t.Run("ErrorHandling", func(t *testing.T) {

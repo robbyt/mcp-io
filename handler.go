@@ -11,6 +11,18 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// handlerConfig holds the configuration built by options
+type handlerConfig struct {
+	name    string
+	version string
+	tools   []toolRegisterFunc
+	server  *mcp.Server // The MCP-SDK server instance
+}
+
+// toolRegisterFunc is an internal function type that registers a tool on an MCP server.
+// This is used internally by the option functions to defer tool registration.
+type toolRegisterFunc func(*mcp.Server)
+
 // Handler is the main MCP handler struct
 type Handler struct {
 	server      *mcp.Server
@@ -22,7 +34,7 @@ func New(opts ...Option) (*Handler, error) {
 	cfg := &handlerConfig{
 		name:    "mcp-server",
 		version: "1.0.0",
-		tools:   make([]*toolRegistration, 0),
+		tools:   make([]toolRegisterFunc, 0),
 	}
 
 	// Apply all options
@@ -45,8 +57,8 @@ func New(opts ...Option) (*Handler, error) {
 	}
 
 	// Register all tools
-	for _, tool := range cfg.tools {
-		tool.registerFunc(server)
+	for _, toolRegisterFunc := range cfg.tools {
+		toolRegisterFunc(server)
 	}
 
 	// Create transport handler
@@ -99,7 +111,7 @@ func (h *Handler) ServeStdio(stdin io.Reader, stdout io.Writer) error {
 //
 // Returns:
 //   - MCP ToolHandlerFor lambda that bridges user code to SDK interface
-func createTypedHandler[TIn, TOut any](fn func(context.Context, TIn) (TOut, error)) mcp.ToolHandlerFor[TIn, TOut] {
+func createTypedHandler[TIn, TOut any](fn ToolFunc[TIn, TOut]) mcp.ToolHandlerFor[TIn, TOut] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, input TIn) (*mcp.CallToolResult, TOut, error) {
 		// Execute the user-provided tool function
 		output, err := fn(ctx, input)
