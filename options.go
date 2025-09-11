@@ -2,7 +2,6 @@ package mcpio
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -13,12 +12,6 @@ type ToolFunc[TIn, TOut any] func(context.Context, TIn) (TOut, error)
 
 // RawToolFunc is the function signature for raw JSON tools
 type RawToolFunc func(context.Context, []byte) ([]byte, error)
-
-// ScriptEvaluator abstracts different script engines for dynamic tool execution
-type ScriptEvaluator interface {
-	Execute(ctx context.Context, input []byte) ([]byte, error)
-	GetTimeout() time.Duration
-}
 
 // Option is a functional option for configuring handlers
 type Option func(*handlerConfig) error
@@ -93,31 +86,6 @@ func WithRawTool(name, description string, inputSchema *jsonschema.Schema, fn Ra
 		cfg.tools = append(cfg.tools, registerFunc)
 
 		return nil
-	}
-}
-
-// WithScriptTool adds a tool backed by a script evaluator
-func WithScriptTool(name, description string, evaluator ScriptEvaluator) Option {
-	return func(cfg *handlerConfig) error {
-		if name == "" {
-			return ErrEmptyToolName
-		}
-		if evaluator == nil {
-			return ErrNilEvaluator
-		}
-
-		// Create a basic schema for script tools (they accept any JSON object)
-		inputSchema := &jsonschema.Schema{
-			Type:        "object",
-			Description: "Input data for script execution",
-		}
-
-		// Wrap the evaluator in a RawToolFunc
-		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
-			return evaluator.Execute(ctx, input)
-		}
-
-		return WithRawTool(name, description, inputSchema, rawFunc)(cfg)
 	}
 }
 
