@@ -25,7 +25,7 @@ func toUpper(ctx context.Context, input TextInput) (TextOutput, error) {
 }
 
 func main() {
-	handler, err := mcpio.New(
+	handler, err := mcpio.NewHandler(
 		mcpio.WithName("simple-text-processor"),
 		mcpio.WithVersion("1.0.0"),
 		mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),

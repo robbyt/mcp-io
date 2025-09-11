@@ -100,7 +100,7 @@ func TestHandlerConstruction(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, err := New(tt.opts...)
+			handler, err := NewHandler(tt.opts...)
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
@@ -139,7 +139,7 @@ func TestWithTypedTool(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := New(WithTool(tt.toolName, tt.description, echoFunc))
+			_, err := NewHandler(WithTool(tt.toolName, tt.description, echoFunc))
 
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
@@ -194,7 +194,7 @@ func TestWithRawTool(t *testing.T) {
 				schemaPtr = tt.schema.(*jsonschema.Schema)
 			}
 
-			_, err := New(WithRawTool(tt.toolName, tt.description, schemaPtr, rawFunc))
+			_, err := NewHandler(WithRawTool(tt.toolName, tt.description, schemaPtr, rawFunc))
 
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
@@ -212,7 +212,7 @@ func TestToolRegistration(t *testing.T) {
 		Version: "1.0.0",
 	}, nil)
 
-	handler, err := New(
+	handler, err := NewHandler(
 		WithServer(server),
 		WithTool("echo", "Echo text", echoFunc),
 		WithTool("calc", "Calculate", calculateFunc),
@@ -230,7 +230,7 @@ func TestMultipleOptions(t *testing.T) {
 		Version: "1.0.0",
 	}, nil)
 
-	handler, err := New(
+	handler, err := NewHandler(
 		WithName("multi-tool-server"),
 		WithVersion("1.2.3"),
 		WithServer(server),
@@ -245,7 +245,7 @@ func TestMultipleOptions(t *testing.T) {
 
 func TestServeHTTP(t *testing.T) {
 	// Create handler with real server for HTTP testing
-	handler, err := New(
+	handler, err := NewHandler(
 		WithName("test-server"),
 		WithTool("echo", "Echo input", echoFunc),
 	)
@@ -274,7 +274,7 @@ func TestServeStdio(t *testing.T) {
 		Version: "1.0.0",
 	}, nil)
 
-	handler, err := New(
+	handler, err := NewHandler(
 		WithServer(server),
 		WithTool("echo", "Echo input", echoFunc),
 	)
@@ -291,7 +291,7 @@ func TestGetServer(t *testing.T) {
 		Version: "1.0.0",
 	}, nil)
 
-	handler, err := New(WithServer(server))
+	handler, err := NewHandler(WithServer(server))
 	require.NoError(t, err)
 
 	retrievedServer := handler.GetServer()
@@ -324,7 +324,7 @@ func TestErrorHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, err := New(tt.opts...)
+			handler, err := NewHandler(tt.opts...)
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Nil(t, handler)
 		})
@@ -333,7 +333,7 @@ func TestErrorHandling(t *testing.T) {
 
 // Test concurrent safety (handlers should be immutable)
 func TestConcurrentAccess(t *testing.T) {
-	handler, err := New(
+	handler, err := NewHandler(
 		WithName("concurrent-test"),
 		WithTool("echo", "Echo input", echoFunc),
 	)
@@ -357,7 +357,7 @@ func TestConcurrentAccess(t *testing.T) {
 }
 
 func TestServeSSE(t *testing.T) {
-	handler, err := New(
+	handler, err := NewHandler(
 		WithName("test-server"),
 		WithTool("echo", "Echo input", echoFunc),
 	)
