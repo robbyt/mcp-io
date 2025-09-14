@@ -3,18 +3,29 @@ package mcpio
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// Resource registration function types
+type (
+	promptRegisterFunc           func(*mcp.Server)
+	resourceRegisterFunc         func(*mcp.Server)
+	resourceTemplateRegisterFunc func(*mcp.Server)
+)
+
 // handlerConfig holds the configuration built by options
 type handlerConfig struct {
-	name    string
-	version string
-	tools   []toolRegisterFunc
-	server  *mcp.Server // The MCP-SDK server instance
+	name              string
+	version           string
+	tools             []toolRegisterFunc
+	prompts           []promptRegisterFunc
+	resources         []resourceRegisterFunc
+	resourceTemplates []resourceTemplateRegisterFunc
+	server            *mcp.Server // The MCP-SDK server instance
 }
 
 // Handler is the main MCP handler struct
@@ -26,6 +37,60 @@ type Handler struct {
 // GetServer returns the underlying MCP server for advanced usage
 func (h *Handler) GetServer() *mcp.Server {
 	return h.server
+}
+
+// NewHandler creates a new MCP handler that supports any combination of MCP resources.
+// This is the unified constructor that can handle tools, prompts, resources, and resource templates.
+func NewHandler(opts ...Option) (*Handler, error) {
+	cfg := &handlerConfig{
+		name:              "mcp-server",
+		version:           "1.0.0",
+		tools:             make([]toolRegisterFunc, 0),
+		prompts:           make([]promptRegisterFunc, 0),
+		resources:         make([]resourceRegisterFunc, 0),
+		resourceTemplates: make([]resourceTemplateRegisterFunc, 0),
+	}
+
+	// Apply all options
+	for _, opt := range opts {
+		if err := opt(cfg); err != nil {
+			return nil, fmt.Errorf("failed to apply option: %w", err)
+		}
+	}
+
+	// Create a new MCP server if not provided
+	if cfg.server == nil {
+		impl := &mcp.Implementation{
+			Name:    cfg.name,
+			Version: cfg.version,
+		}
+		cfg.server = mcp.NewServer(impl, nil)
+	}
+
+	// Register all resources
+	for _, registerFunc := range cfg.tools {
+		registerFunc(cfg.server)
+	}
+	for _, registerFunc := range cfg.prompts {
+		registerFunc(cfg.server)
+	}
+	for _, registerFunc := range cfg.resources {
+		registerFunc(cfg.server)
+	}
+	for _, registerFunc := range cfg.resourceTemplates {
+		registerFunc(cfg.server)
+	}
+
+	// Create transport handler
+	httpHandler := mcp.NewStreamableHTTPHandler(
+		func(*http.Request) *mcp.Server { return cfg.server },
+		nil,
+	)
+
+	return &Handler{
+		server:      cfg.server,
+		httpHandler: httpHandler,
+	}, nil
 }
 
 // ServeHTTP implements http.Handler for HTTP transport
