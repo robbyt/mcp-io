@@ -3,7 +3,7 @@ module github.com/robbyt/mcp-io
 go 1.25.1
 
 require (
-	github.com/google/jsonschema-go v0.2.1
+	github.com/google/jsonschema-go v0.2.3
 	github.com/modelcontextprotocol/go-sdk v0.4.0
 	github.com/stretchr/testify v1.11.1
 )
