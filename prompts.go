@@ -2,7 +2,6 @@ package mcpio
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -68,20 +67,9 @@ func createPromptHandler(fn PromptFunc) mcp.PromptHandler {
 		// Execute user function
 		result, err := fn(ctx, args)
 		if err != nil {
-			// Handle ToolError types for consistent error handling
-			var toolErr *ToolError
-			if errors.As(err, &toolErr) {
-				// Return error in messages so LLM can see it and potentially self-correct
-				return &mcp.GetPromptResult{
-					Messages: []*mcp.PromptMessage{
-						{
-							Role:    mcp.Role("system"),
-							Content: &mcp.TextContent{Text: toolErr.Message},
-						},
-					},
-				}, nil
-			}
-			// Protocol error
+			// Return all errors as protocol-level errors
+			// Prompts and resources follow the same pattern: errors are protocol-level,
+			// unlike tools where the SDK wraps errors for LLM visibility
 			return nil, err
 		}
 

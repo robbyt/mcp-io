@@ -2,7 +2,6 @@ package mcpio
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -54,13 +53,9 @@ func createResourceHandler(fn ResourceFunc) mcp.ResourceHandler {
 		// Execute user function
 		content, err := fn(ctx, req.Params.URI)
 		if err != nil {
-			// Handle ToolError types for consistent error handling
-			var toolErr *ToolError
-			if errors.As(err, &toolErr) {
-				// For resource not found errors, use the MCP protocol error
-				return nil, mcp.ResourceNotFoundError(req.Params.URI)
-			}
-			// Protocol error
+			// Return all errors as protocol-level errors
+			// Prompts and resources follow the same pattern: errors are protocol-level,
+			// unlike tools where the SDK wraps errors for LLM visibility
 			return nil, err
 		}
 
