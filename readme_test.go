@@ -103,6 +103,7 @@ func createSchemaGenerationHandler() (*mcpio.Handler, error) {
 
 // Test README examples with comprehensive assertions
 func TestReadmeExamples(t *testing.T) {
+	t.Parallel()
 	t.Run("QuickStart", func(t *testing.T) {
 		// Test exact Quick Start example from README
 		handler, err := mcpio.NewToolHandler(
@@ -210,6 +211,7 @@ func TestReadmeExamples(t *testing.T) {
 
 // Test Dynamic Schema Creation (from README Schema Generation section)
 func TestDynamicSchemaCreation(t *testing.T) {
+	t.Parallel()
 	t.Run("CreateObjectSchema", func(t *testing.T) {
 		// Test CreateObjectSchema example from README
 		schema := mcpio.CreateObjectSchema(
@@ -247,6 +249,7 @@ func TestDynamicSchemaCreation(t *testing.T) {
 
 // Test Transport Options (from README Transport Options section)
 func TestTransportOptions(t *testing.T) {
+	t.Parallel()
 	handler, err := mcpio.NewToolHandler(
 		mcpio.WithName("transport-test"),
 		mcpio.WithVersion("1.0.0"),
@@ -293,6 +296,7 @@ func TestTransportOptions(t *testing.T) {
 
 // Test Tool Functionality (actual execution of tools)
 func TestToolExecution(t *testing.T) {
+	t.Parallel()
 	t.Run("ToUpperTool", func(t *testing.T) {
 		// Test the toUpper function directly
 		result, err := toUpper(context.Background(), TextInput{Text: "hello world"})
@@ -334,6 +338,7 @@ func TestToolExecution(t *testing.T) {
 
 // Test error types from README Error Handling section
 func TestErrorTypes(t *testing.T) {
+	t.Parallel()
 	t.Run("ToolError", func(t *testing.T) {
 		toolErr := mcpio.NewToolError("test message")
 		assert.Contains(t, toolErr.Error(), "test message")

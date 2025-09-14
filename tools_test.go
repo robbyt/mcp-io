@@ -11,47 +11,21 @@ import (
 )
 
 // Test types for tool examples
-type EchoInput struct {
-	Text string `json:"text" jsonschema:"Text to echo"`
+type GreetInput struct {
+	Name string `json:"name" jsonschema:"Name to greet"`
 }
 
-type EchoOutput struct {
-	Message string `json:"message" jsonschema:"Echoed message"`
-}
-
-type CalculateInput struct {
-	Operation string  `json:"operation" jsonschema:"Operation to perform"`
-	A         float64 `json:"a"         jsonschema:"First number"`
-	B         float64 `json:"b"         jsonschema:"Second number"`
-}
-
-type CalculateOutput struct {
-	Result float64 `json:"result" jsonschema:"Calculation result"`
+type GreetOutput struct {
+	Message string `json:"message" jsonschema:"Greeting message"`
 }
 
 // Test helper functions
-func echoFunc(ctx context.Context, input EchoInput) (EchoOutput, error) {
-	return EchoOutput{Message: input.Text}, nil
+func greetFunc(ctx context.Context, input GreetInput) (GreetOutput, error) {
+	return GreetOutput{Message: "Hello, " + input.Name}, nil
 }
 
-func calculateFunc(ctx context.Context, input CalculateInput) (CalculateOutput, error) {
-	var result float64
-	switch input.Operation {
-	case "add":
-		result = input.A + input.B
-	case "subtract":
-		result = input.A - input.B
-	case "multiply":
-		result = input.A * input.B
-	case "divide":
-		if input.B == 0 {
-			return CalculateOutput{}, NewToolError("division by zero")
-		}
-		result = input.A / input.B
-	default:
-		return CalculateOutput{}, ValidationError("unsupported operation: " + input.Operation)
-	}
-	return CalculateOutput{Result: result}, nil
+func farewellFunc(ctx context.Context, input GreetInput) (GreetOutput, error) {
+	return GreetOutput{Message: "Goodbye, " + input.Name}, nil
 }
 
 func rawFunc(ctx context.Context, input []byte) ([]byte, error) {
@@ -59,6 +33,7 @@ func rawFunc(ctx context.Context, input []byte) ([]byte, error) {
 }
 
 func TestHandlerConstruction(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		opts           []Option
@@ -114,6 +89,7 @@ func TestHandlerConstruction(t *testing.T) {
 }
 
 func TestWithTypedTool(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		toolName    string
@@ -122,8 +98,8 @@ func TestWithTypedTool(t *testing.T) {
 	}{
 		{
 			name:        "valid tool",
-			toolName:    "echo",
-			description: "Echo input text",
+			toolName:    "greet",
+			description: "Greet someone by name",
 			wantErr:     nil,
 		},
 		{
@@ -136,7 +112,7 @@ func TestWithTypedTool(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewToolHandler(WithTool(tt.toolName, tt.description, echoFunc))
+			_, err := NewToolHandler(WithTool(tt.toolName, tt.description, greetFunc))
 
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
@@ -148,6 +124,7 @@ func TestWithTypedTool(t *testing.T) {
 }
 
 func TestWithRawTool(t *testing.T) {
+	t.Parallel()
 	schema := CreateObjectSchema(
 		"Raw tool input",
 		map[string]string{"data": "Input data"},
@@ -203,6 +180,7 @@ func TestWithRawTool(t *testing.T) {
 }
 
 func TestToolRegistration(t *testing.T) {
+	t.Parallel()
 	// Use real MCP server instead of mock
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "test-server",
@@ -211,8 +189,8 @@ func TestToolRegistration(t *testing.T) {
 
 	handler, err := NewToolHandler(
 		WithServer(server),
-		WithTool("echo", "Echo text", echoFunc),
-		WithTool("calc", "Calculate", calculateFunc),
+		WithTool("greet", "Greet someone", greetFunc),
+		WithTool("farewell", "Say goodbye", farewellFunc),
 	)
 
 	require.NoError(t, err)
@@ -221,6 +199,7 @@ func TestToolRegistration(t *testing.T) {
 }
 
 func TestMultipleOptions(t *testing.T) {
+	t.Parallel()
 	// Use real MCP server instead of mock
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "test-server",
@@ -231,8 +210,8 @@ func TestMultipleOptions(t *testing.T) {
 		WithName("multi-tool-server"),
 		WithVersion("1.2.3"),
 		WithServer(server),
-		WithTool("echo", "Echo input", echoFunc),
-		WithTool("calculate", "Perform arithmetic", calculateFunc),
+		WithTool("greet", "Greet someone", greetFunc),
+		WithTool("farewell", "Say goodbye", farewellFunc),
 	)
 
 	require.NoError(t, err)
@@ -241,6 +220,7 @@ func TestMultipleOptions(t *testing.T) {
 }
 
 func TestErrorHandling(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		opts    []Option
@@ -258,7 +238,7 @@ func TestErrorHandling(t *testing.T) {
 		},
 		{
 			name:    "invalid tool name",
-			opts:    []Option{WithTool("", "desc", echoFunc)},
+			opts:    []Option{WithTool("", "desc", greetFunc)},
 			wantErr: ErrEmptyToolName,
 		},
 	}
@@ -273,9 +253,10 @@ func TestErrorHandling(t *testing.T) {
 }
 
 func TestConcurrentAccess(t *testing.T) {
+	t.Parallel()
 	handler, err := NewToolHandler(
 		WithName("concurrent-test"),
-		WithTool("echo", "Echo input", echoFunc),
+		WithTool("greet", "Greet someone", greetFunc),
 	)
 	require.NoError(t, err)
 
