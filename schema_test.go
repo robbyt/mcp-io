@@ -14,6 +14,7 @@ type TestStruct struct {
 }
 
 func TestGenerateSchema(t *testing.T) {
+	t.Parallel()
 	schema, err := GenerateSchema[TestStruct]()
 	require.NoError(t, err)
 	assert.NotNil(t, schema)
@@ -22,6 +23,7 @@ func TestGenerateSchema(t *testing.T) {
 }
 
 func TestCreateDynamicSchema(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		fields   []FieldDef
@@ -95,6 +97,7 @@ func TestCreateDynamicSchema(t *testing.T) {
 }
 
 func TestCreateStringSchema(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		description string
@@ -149,6 +152,7 @@ func TestCreateStringSchema(t *testing.T) {
 }
 
 func TestCreateObjectSchema(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		description string

@@ -7,247 +7,31 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// Test types for examples
-type EchoInput struct {
-	Text string `json:"text" jsonschema:"Text to echo"`
+// Test types for handler tests
+type SimpleInput struct {
+	Text string `json:"text" jsonschema:"Text to process"`
 }
 
-type EchoOutput struct {
-	Message string `json:"message" jsonschema:"Echoed message"`
+type SimpleOutput struct {
+	Message string `json:"message" jsonschema:"Processed message"`
 }
 
-type CalculateInput struct {
-	Operation string  `json:"operation" jsonschema:"Operation to perform"`
-	A         float64 `json:"a"         jsonschema:"First number"`
-	B         float64 `json:"b"         jsonschema:"Second number"`
-}
-
-type CalculateOutput struct {
-	Result float64 `json:"result" jsonschema:"Calculation result"`
-}
-
-// Test helper functions
-func echoFunc(ctx context.Context, input EchoInput) (EchoOutput, error) {
-	return EchoOutput{Message: input.Text}, nil
-}
-
-func calculateFunc(ctx context.Context, input CalculateInput) (CalculateOutput, error) {
-	var result float64
-	switch input.Operation {
-	case "add":
-		result = input.A + input.B
-	case "subtract":
-		result = input.A - input.B
-	case "multiply":
-		result = input.A * input.B
-	case "divide":
-		if input.B == 0 {
-			return CalculateOutput{}, NewToolError("division by zero")
-		}
-		result = input.A / input.B
-	default:
-		return CalculateOutput{}, ValidationError("unsupported operation: " + input.Operation)
-	}
-	return CalculateOutput{Result: result}, nil
-}
-
-func rawFunc(ctx context.Context, input []byte) ([]byte, error) {
-	return []byte(`{"result": "processed"}`), nil
-}
-
-func TestHandlerConstruction(t *testing.T) {
-	tests := []struct {
-		name           string
-		opts           []Option
-		wantErr        error
-		wantNilHandler bool
-	}{
-		{
-			name:    "basic handler",
-			opts:    nil,
-			wantErr: nil,
-		},
-		{
-			name:    "with name and version",
-			opts:    []Option{WithName("test-server"), WithVersion("1.2.3")},
-			wantErr: nil,
-		},
-		{
-			name:           "empty name error",
-			opts:           []Option{WithName("")},
-			wantErr:        ErrEmptyName,
-			wantNilHandler: true,
-		},
-		{
-			name:           "empty version error",
-			opts:           []Option{WithVersion("")},
-			wantErr:        ErrEmptyVersion,
-			wantNilHandler: true,
-		},
-		{
-			name:           "nil server error",
-			opts:           []Option{WithServer(nil)},
-			wantErr:        ErrNilServer,
-			wantNilHandler: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			handler, err := NewHandler(tt.opts...)
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				if tt.wantNilHandler {
-					assert.Nil(t, handler)
-				}
-			} else {
-				require.NoError(t, err)
-				assert.NotNil(t, handler)
-				assert.NotNil(t, handler.server)
-			}
-		})
-	}
-}
-
-func TestWithTypedTool(t *testing.T) {
-	tests := []struct {
-		name        string
-		toolName    string
-		description string
-		wantErr     error
-	}{
-		{
-			name:        "valid tool",
-			toolName:    "echo",
-			description: "Echo input text",
-			wantErr:     nil,
-		},
-		{
-			name:        "empty tool name error",
-			toolName:    "",
-			description: "description",
-			wantErr:     ErrEmptyToolName,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewHandler(WithTool(tt.toolName, tt.description, echoFunc))
-
-			if tt.wantErr != nil {
-				assert.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestWithRawTool(t *testing.T) {
-	schema := CreateObjectSchema(
-		"Raw tool input",
-		map[string]string{"data": "Input data"},
-		[]string{"data"},
-	)
-
-	tests := []struct {
-		name        string
-		toolName    string
-		description string
-		schema      interface{}
-		wantErr     error
-	}{
-		{
-			name:        "valid raw tool",
-			toolName:    "process",
-			description: "Process raw data",
-			schema:      schema,
-			wantErr:     nil,
-		},
-		{
-			name:        "empty tool name error",
-			toolName:    "",
-			description: "description",
-			schema:      schema,
-			wantErr:     ErrEmptyToolName,
-		},
-		{
-			name:        "nil schema error",
-			toolName:    "test",
-			description: "description",
-			schema:      nil,
-			wantErr:     ErrNilSchema,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var schemaPtr *jsonschema.Schema
-			if tt.schema != nil {
-				schemaPtr = tt.schema.(*jsonschema.Schema)
-			}
-
-			_, err := NewHandler(WithRawTool(tt.toolName, tt.description, schemaPtr, rawFunc))
-
-			if tt.wantErr != nil {
-				assert.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestToolRegistration(t *testing.T) {
-	// Use real MCP server instead of mock
-	server := mcp.NewServer(&mcp.Implementation{
-		Name:    "test-server",
-		Version: "1.0.0",
-	}, nil)
-
-	handler, err := NewHandler(
-		WithServer(server),
-		WithTool("echo", "Echo text", echoFunc),
-		WithTool("calc", "Calculate", calculateFunc),
-	)
-
-	require.NoError(t, err)
-	assert.NotNil(t, handler)
-	assert.Equal(t, server, handler.GetServer())
-}
-
-func TestMultipleOptions(t *testing.T) {
-	// Use real MCP server instead of mock
-	server := mcp.NewServer(&mcp.Implementation{
-		Name:    "test-server",
-		Version: "1.0.0",
-	}, nil)
-
-	handler, err := NewHandler(
-		WithName("multi-tool-server"),
-		WithVersion("1.2.3"),
-		WithServer(server),
-		WithTool("echo", "Echo input", echoFunc),
-		WithTool("calculate", "Perform arithmetic", calculateFunc),
-	)
-
-	require.NoError(t, err)
-	assert.NotNil(t, handler)
-	assert.Equal(t, server, handler.GetServer())
+// Test helper functions for handler-specific tests
+func simpleEchoFunc(ctx context.Context, input SimpleInput) (SimpleOutput, error) {
+	return SimpleOutput{Message: input.Text}, nil
 }
 
 func TestServeHTTP(t *testing.T) {
+	t.Parallel()
 	// Create handler with real server for HTTP testing
-	handler, err := NewHandler(
+	handler, err := NewToolHandler(
 		WithName("test-server"),
-		WithTool("echo", "Echo input", echoFunc),
+		WithTool("echo", "Echo input", simpleEchoFunc),
 	)
 	require.NoError(t, err)
 
@@ -257,6 +41,7 @@ func TestServeHTTP(t *testing.T) {
 
 	// Test basic HTTP response (we can't test full MCP protocol easily,
 	// but we can verify the handler responds)
+	// TODO: switch to httptest.Client and do a full MCP call
 	resp, err := http.Get(server.URL)
 	require.NoError(t, err)
 	defer func() {
@@ -269,14 +54,15 @@ func TestServeHTTP(t *testing.T) {
 }
 
 func TestServeStdio(t *testing.T) {
+	t.Parallel()
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "test-server",
 		Version: "1.0.0",
 	}, nil)
 
-	handler, err := NewHandler(
+	handler, err := NewToolHandler(
 		WithServer(server),
-		WithTool("echo", "Echo input", echoFunc),
+		WithTool("echo", "Echo input", simpleEchoFunc),
 	)
 	require.NoError(t, err)
 
@@ -286,80 +72,24 @@ func TestServeStdio(t *testing.T) {
 }
 
 func TestGetServer(t *testing.T) {
+	t.Parallel()
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "test-server",
 		Version: "1.0.0",
 	}, nil)
 
-	handler, err := NewHandler(WithServer(server))
+	handler, err := NewToolHandler(WithServer(server))
 	require.NoError(t, err)
 
 	retrievedServer := handler.GetServer()
 	assert.Equal(t, server, retrievedServer)
 }
 
-// Test error handling scenarios
-func TestErrorHandling(t *testing.T) {
-	tests := []struct {
-		name    string
-		opts    []Option
-		wantErr error
-	}{
-		{
-			name:    "invalid name option",
-			opts:    []Option{WithName("")},
-			wantErr: ErrEmptyName,
-		},
-		{
-			name:    "invalid version option",
-			opts:    []Option{WithVersion("")},
-			wantErr: ErrEmptyVersion,
-		},
-		{
-			name:    "invalid tool name",
-			opts:    []Option{WithTool("", "desc", echoFunc)},
-			wantErr: ErrEmptyToolName,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			handler, err := NewHandler(tt.opts...)
-			require.ErrorIs(t, err, tt.wantErr)
-			assert.Nil(t, handler)
-		})
-	}
-}
-
-// Test concurrent safety (handlers should be immutable)
-func TestConcurrentAccess(t *testing.T) {
-	handler, err := NewHandler(
-		WithName("concurrent-test"),
-		WithTool("echo", "Echo input", echoFunc),
-	)
-	require.NoError(t, err)
-
-	// Multiple goroutines accessing the same handler should be safe
-	done := make(chan bool, 10)
-
-	for i := 0; i < 10; i++ {
-		go func() {
-			server := handler.GetServer()
-			assert.NotNil(t, server)
-			done <- true
-		}()
-	}
-
-	// Wait for all goroutines
-	for i := 0; i < 10; i++ {
-		<-done
-	}
-}
-
 func TestServeSSE(t *testing.T) {
-	handler, err := NewHandler(
+	t.Parallel()
+	handler, err := NewToolHandler(
 		WithName("test-server"),
-		WithTool("echo", "Echo input", echoFunc),
+		WithTool("echo", "Echo input", simpleEchoFunc),
 	)
 	require.NoError(t, err)
 
@@ -368,6 +98,7 @@ func TestServeSSE(t *testing.T) {
 	defer server.Close()
 
 	// Test basic SSE response (should delegate to ServeHTTP)
+	// TODO: switch to httptest.Client and do a full MCP call
 	resp, err := http.Get(server.URL)
 	require.NoError(t, err)
 	defer func() {
@@ -380,11 +111,12 @@ func TestServeSSE(t *testing.T) {
 }
 
 func TestCreateTypedHandlerSuccess(t *testing.T) {
-	handler := createTypedHandler(echoFunc)
+	t.Parallel()
+	handler := createTypedHandler(simpleEchoFunc)
 
 	req := &mcp.CallToolRequest{}
 
-	input := EchoInput{Text: "hello world"}
+	input := SimpleInput{Text: "hello world"}
 	result, output, err := handler(context.Background(), req, input)
 
 	require.NoError(t, err)
@@ -393,21 +125,22 @@ func TestCreateTypedHandlerSuccess(t *testing.T) {
 }
 
 func TestCreateTypedHandlerToolError(t *testing.T) {
+	t.Parallel()
 	// Function that returns a tool error
-	errorFunc := func(ctx context.Context, input EchoInput) (EchoOutput, error) {
-		return EchoOutput{}, NewToolError("tool failed")
+	errorFunc := func(ctx context.Context, input SimpleInput) (SimpleOutput, error) {
+		return SimpleOutput{}, NewToolError("tool failed")
 	}
 
 	handler := createTypedHandler(errorFunc)
 
 	req := &mcp.CallToolRequest{}
 
-	input := EchoInput{Text: "test"}
+	input := SimpleInput{Text: "test"}
 	result, output, err := handler(context.Background(), req, input)
 
 	require.Error(t, err)
 	assert.Nil(t, result)
-	assert.Equal(t, EchoOutput{}, output)
+	assert.Equal(t, SimpleOutput{}, output)
 
 	var toolErr *ToolError
 	require.ErrorAs(t, err, &toolErr)
@@ -415,20 +148,21 @@ func TestCreateTypedHandlerToolError(t *testing.T) {
 }
 
 func TestCreateTypedHandlerProtocolError(t *testing.T) {
+	t.Parallel()
 	// Function that returns a non-tool error
-	errorFunc := func(ctx context.Context, input EchoInput) (EchoOutput, error) {
-		return EchoOutput{}, errors.New("protocol error")
+	errorFunc := func(ctx context.Context, input SimpleInput) (SimpleOutput, error) {
+		return SimpleOutput{}, errors.New("protocol error")
 	}
 
 	handler := createTypedHandler(errorFunc)
 
 	req := &mcp.CallToolRequest{}
 
-	input := EchoInput{Text: "test"}
+	input := SimpleInput{Text: "test"}
 	result, output, err := handler(context.Background(), req, input)
 
 	require.Error(t, err)
 	assert.Nil(t, result)
-	assert.Equal(t, EchoOutput{}, output)
+	assert.Equal(t, SimpleOutput{}, output)
 	assert.Equal(t, "protocol error", err.Error())
 }

@@ -74,7 +74,7 @@ func createRawToolHandler() (*mcpio.Handler, error) {
 		[]string{"data"},
 	)
 
-	return mcpio.NewHandler(
+	return mcpio.NewToolHandler(
 		mcpio.WithName("raw-processor"),
 		mcpio.WithRawTool("process_raw", "Process raw JSON data", inputSchema, processJSON),
 	)
@@ -95,7 +95,7 @@ func createSchemaGenerationHandler() (*mcpio.Handler, error) {
 		return MyOutput{Greeting: fmt.Sprintf("Hello %s, age %d!", input.Name, input.Age)}, nil
 	}
 
-	return mcpio.NewHandler(
+	return mcpio.NewToolHandler(
 		mcpio.WithName("schema-example"),
 		mcpio.WithTool("greet", "Greet user with name and age", greetFunc),
 	)
@@ -103,9 +103,10 @@ func createSchemaGenerationHandler() (*mcpio.Handler, error) {
 
 // Test README examples with comprehensive assertions
 func TestReadmeExamples(t *testing.T) {
+	t.Parallel()
 	t.Run("QuickStart", func(t *testing.T) {
 		// Test exact Quick Start example from README
-		handler, err := mcpio.NewHandler(
+		handler, err := mcpio.NewToolHandler(
 			mcpio.WithName("example-server"),
 			mcpio.WithVersion("1.0.0"),
 			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
@@ -124,7 +125,7 @@ func TestReadmeExamples(t *testing.T) {
 
 	t.Run("FunctionalOptionsAPI", func(t *testing.T) {
 		// Test multi-tool example from README Functional Options section
-		handler, err := mcpio.NewHandler(
+		handler, err := mcpio.NewToolHandler(
 			mcpio.WithName("my-server"),
 			mcpio.WithVersion("1.0.0"),
 			mcpio.WithTool("to_upper", "Convert text", toUpper),
@@ -137,7 +138,7 @@ func TestReadmeExamples(t *testing.T) {
 
 	t.Run("CalculatorExample", func(t *testing.T) {
 		// Test calculator example from README Type-Safe Tools section
-		handler, err := mcpio.NewHandler(
+		handler, err := mcpio.NewToolHandler(
 			mcpio.WithName("calculator"),
 			mcpio.WithTool("calculate", "Perform arithmetic operations", calculate),
 		)
@@ -176,12 +177,12 @@ func TestReadmeExamples(t *testing.T) {
 
 	t.Run("ErrorHandling", func(t *testing.T) {
 		// Test configuration error - empty name
-		_, err := mcpio.NewHandler(mcpio.WithName(""))
+		_, err := mcpio.NewToolHandler(mcpio.WithName(""))
 		require.Error(t, err)
 		require.ErrorIs(t, err, mcpio.ErrEmptyName)
 
 		// Test configuration error - empty version
-		_, err = mcpio.NewHandler(mcpio.WithVersion(""))
+		_, err = mcpio.NewToolHandler(mcpio.WithVersion(""))
 		require.Error(t, err)
 		require.ErrorIs(t, err, mcpio.ErrEmptyVersion)
 
@@ -210,6 +211,7 @@ func TestReadmeExamples(t *testing.T) {
 
 // Test Dynamic Schema Creation (from README Schema Generation section)
 func TestDynamicSchemaCreation(t *testing.T) {
+	t.Parallel()
 	t.Run("CreateObjectSchema", func(t *testing.T) {
 		// Test CreateObjectSchema example from README
 		schema := mcpio.CreateObjectSchema(
@@ -247,7 +249,8 @@ func TestDynamicSchemaCreation(t *testing.T) {
 
 // Test Transport Options (from README Transport Options section)
 func TestTransportOptions(t *testing.T) {
-	handler, err := mcpio.NewHandler(
+	t.Parallel()
+	handler, err := mcpio.NewToolHandler(
 		mcpio.WithName("transport-test"),
 		mcpio.WithVersion("1.0.0"),
 		mcpio.WithTool("to_upper", "Convert text", toUpper),
@@ -293,6 +296,7 @@ func TestTransportOptions(t *testing.T) {
 
 // Test Tool Functionality (actual execution of tools)
 func TestToolExecution(t *testing.T) {
+	t.Parallel()
 	t.Run("ToUpperTool", func(t *testing.T) {
 		// Test the toUpper function directly
 		result, err := toUpper(context.Background(), TextInput{Text: "hello world"})
@@ -334,6 +338,7 @@ func TestToolExecution(t *testing.T) {
 
 // Test error types from README Error Handling section
 func TestErrorTypes(t *testing.T) {
+	t.Parallel()
 	t.Run("ToolError", func(t *testing.T) {
 		toolErr := mcpio.NewToolError("test message")
 		assert.Contains(t, toolErr.Error(), "test message")
@@ -363,7 +368,7 @@ func TestErrorTypes(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				_, err := mcpio.NewHandler(tt.opts...)
+				_, err := mcpio.NewToolHandler(tt.opts...)
 				require.Error(t, err)
 				assert.ErrorIs(t, err, tt.expected)
 			})
