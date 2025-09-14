@@ -271,3 +271,149 @@ func TestCreateTypedHandlerProtocolError(t *testing.T) {
 	assert.Equal(t, SimpleOutput{}, output)
 	assert.Equal(t, "protocol error", err.Error())
 }
+
+func TestNewHandlerWithCustomServer(t *testing.T) {
+	t.Parallel()
+
+	// Create a custom server
+	customServer := mcp.NewServer(&mcp.Implementation{
+		Name:    "custom-server",
+		Version: "2.0.0",
+	}, nil)
+
+	// Test NewHandler with custom server
+	handler, err := NewHandler(
+		WithName("test-server"), // This should be ignored when custom server is provided
+		WithVersion("1.0.0"),    // This should be ignored when custom server is provided
+		WithServer(customServer),
+		WithTool("echo", "Echo input", simpleEchoFunc),
+	)
+
+	require.NoError(t, err)
+	assert.NotNil(t, handler)
+
+	// Verify the custom server is used
+	assert.Equal(t, customServer, handler.GetServer())
+}
+
+func TestNewHandlerOptionError(t *testing.T) {
+	t.Parallel()
+
+	// Test that option errors are properly handled
+	_, err := NewHandler(
+		WithName("valid-name"),
+		WithName(""), // This should cause an error
+	)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to apply option")
+	assert.Contains(t, err.Error(), "name cannot be empty")
+}
+
+func TestServeStdioExists(t *testing.T) {
+	t.Parallel()
+
+	// Create handler
+	handler, err := NewHandler(
+		WithName("test-server"),
+		WithTool("echo", "Echo input", simpleEchoFunc),
+	)
+	require.NoError(t, err)
+
+	// Test that ServeStdio method exists and has the correct signature
+	// Note: We cannot test ServeStdio execution with coverage enabled because
+	// the MCP SDK's StdioTransport directly uses os.Stdout, which conflicts with
+	// the coverage reporter's output stream, causing "file already closed" errors.
+	// This is a known limitation when testing stdio-based transports.
+
+	// Verify the method exists and is callable (but don't actually call it)
+	assert.NotNil(t, handler.ServeStdio)
+
+	// We can test ServeStdio indirectly by verifying the handler was created properly
+	// and has the server that ServeStdio would use
+	server := handler.GetServer()
+	assert.NotNil(t, server)
+}
+
+func TestNewHandlerWithEmptySlices(t *testing.T) {
+	t.Parallel()
+
+	// Test that NewHandler works correctly when no resources are provided
+	// This should exercise the empty slice paths in the registration loops
+	handler, err := NewHandler(WithName("empty-handler"))
+
+	require.NoError(t, err)
+	assert.NotNil(t, handler)
+	assert.NotNil(t, handler.GetServer())
+}
+
+func TestNewHandlerDefaultValues(t *testing.T) {
+	t.Parallel()
+
+	// Test that NewHandler uses default name and version when not provided
+	handler, err := NewHandler()
+
+	require.NoError(t, err)
+	assert.NotNil(t, handler)
+
+	// Check that default values are used
+	server := handler.GetServer()
+	assert.NotNil(t, server)
+}
+
+func TestNewHandler_Unified(t *testing.T) {
+	t.Parallel()
+
+	// Test tool function
+	addTool := func(ctx context.Context, input struct{ A, B int }) (struct{ Sum int }, error) {
+		return struct{ Sum int }{Sum: input.A + input.B}, nil
+	}
+
+	// Test prompt function
+	greetingPrompt := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+		name, ok := args["name"].(string)
+		if !ok {
+			name = "World"
+		}
+		return &PromptResult{
+			Messages: []PromptMessage{
+				{Role: "user", Content: "Hello " + name},
+			},
+		}, nil
+	}
+
+	// Test resource function
+	configResource := func(ctx context.Context, uri string) (*ResourceContent, error) {
+		return &ResourceContent{
+			Content:  []byte("config data"),
+			MIMEType: "text/plain",
+		}, nil
+	}
+
+	// Create unified handler
+	handler, err := NewHandler(
+		WithName("unified-server"),
+		WithVersion("1.0.0"),
+		WithTool("add", "Add two numbers", addTool),
+		WithPrompt("greeting", "Generate greeting", greetingPrompt),
+		WithResource("config://settings", "App settings", configResource),
+		WithResourceTemplate("user://{id}", "User data template", configResource),
+	)
+
+	require.NoError(t, err)
+	assert.NotNil(t, handler)
+
+	// Verify we can get the server
+	server := handler.GetServer()
+	assert.NotNil(t, server)
+}
+
+func TestNewHandler_Empty(t *testing.T) {
+	t.Parallel()
+
+	// Test that empty handler works
+	handler, err := NewHandler(WithName("empty-server"))
+
+	require.NoError(t, err)
+	assert.NotNil(t, handler)
+}

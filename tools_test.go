@@ -276,3 +276,20 @@ func TestConcurrentAccess(t *testing.T) {
 		<-done
 	}
 }
+
+func TestNewToolHandler_Validation(t *testing.T) {
+	t.Parallel()
+
+	// Test that NewToolHandler rejects non-tool resources
+	promptFunc := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+		return &PromptResult{Messages: []PromptMessage{{Role: "user", Content: "test"}}}, nil
+	}
+
+	_, err := NewToolHandler(
+		WithName("invalid"),
+		WithPrompt("test", "test prompt", promptFunc),
+	)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "only supports tools")
+}
