@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
@@ -55,20 +56,124 @@ func TestServeHTTP(t *testing.T) {
 
 func TestServeStdio(t *testing.T) {
 	t.Parallel()
-	server := mcp.NewServer(&mcp.Implementation{
-		Name:    "test-server",
-		Version: "1.0.0",
-	}, nil)
 
-	handler, err := NewToolHandler(
-		WithServer(server),
-		WithTool("echo", "Echo input", simpleEchoFunc),
-	)
-	require.NoError(t, err)
+	t.Run("method exists with context parameter", func(t *testing.T) {
+		handler, err := NewToolHandler(
+			WithName("test-server"),
+			WithTool("echo", "Echo input", simpleEchoFunc),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler.ServeStdio)
+		// Note: Actual stdio testing requires upstream PR #465 to be merged
+		// See: https://github.com/modelcontextprotocol/go-sdk/pull/465
+	})
+}
 
-	// ServeStdio should be available for use
-	// Note: This would normally start a blocking server, but we're just testing the setup
-	assert.NotNil(t, handler.ServeStdio)
+func TestServerWithTransport(t *testing.T) {
+	t.Parallel()
+
+	t.Run("server with InMemoryTransport and context cancellation", func(t *testing.T) {
+		serverTransport, clientTransport := mcp.NewInMemoryTransports()
+
+		handler, err := NewToolHandler(
+			WithName("test-server"),
+			WithTool("echo", "Echo input", simpleEchoFunc),
+		)
+		require.NoError(t, err)
+
+		// Run server with cancellable context
+		ctx, cancel := context.WithCancel(context.Background())
+		serverDone := make(chan error, 1)
+
+		go func() {
+			err := handler.server.Run(ctx, serverTransport)
+			serverDone <- err
+		}()
+
+		// Create client and test
+		client := mcp.NewClient(&mcp.Implementation{
+			Name: "test-client",
+		}, nil)
+
+		session, err := client.Connect(context.Background(), clientTransport, nil)
+		require.NoError(t, err)
+
+		// Test tool execution
+		result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+			Name:      "echo",
+			Arguments: map[string]any{"text": "hello"},
+		})
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+
+		// Test context cancellation
+		cancel()
+
+		assert.Eventually(t, func() bool {
+			select {
+			case <-serverDone:
+				return true
+			default:
+				return false
+			}
+		}, 2*time.Second, 10*time.Millisecond, "server should stop after context cancellation")
+
+		err = session.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("multiple concurrent servers with InMemoryTransport", func(t *testing.T) {
+		const numServers = 2
+		serverDone := make([]chan error, numServers)
+		cancels := make([]context.CancelFunc, numServers)
+
+		for i := range numServers {
+			serverTransport, clientTransport := mcp.NewInMemoryTransports()
+
+			handler, err := NewToolHandler(
+				WithName("test-server"),
+				WithTool("echo", "Echo input", simpleEchoFunc),
+			)
+			require.NoError(t, err)
+
+			serverDone[i] = make(chan error, 1)
+			ctx, cancel := context.WithCancel(context.Background())
+			cancels[i] = cancel
+
+			go func(idx int) {
+				err := handler.server.Run(ctx, serverTransport)
+				serverDone[idx] <- err
+			}(i)
+
+			// Quick client test to verify server is running
+			client := mcp.NewClient(&mcp.Implementation{
+				Name: "test-client",
+			}, nil)
+
+			session, err := client.Connect(context.Background(), clientTransport, nil)
+			require.NoError(t, err)
+
+			err = session.Ping(context.Background(), &mcp.PingParams{})
+			require.NoError(t, err, "server %d should respond to ping", i)
+
+			err = session.Close()
+			require.NoError(t, err)
+		}
+
+		// Cancel all servers
+		for i := range numServers {
+			cancels[i]()
+
+			assert.Eventually(t, func() bool {
+				select {
+				case <-serverDone[i]:
+					return true
+				default:
+					return false
+				}
+			}, 2*time.Second, 10*time.Millisecond, "server %d should stop after context cancellation", i)
+		}
+	})
 }
 
 func TestGetServer(t *testing.T) {

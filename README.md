@@ -166,7 +166,7 @@ if err != nil {
 }
 
 // Start stdio transport for CLI tools
-if err := handler.ServeStdio(os.Stdin, os.Stdout); err != nil {
+if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
     log.Fatal(err)
 }
 ```
