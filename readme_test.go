@@ -290,7 +290,7 @@ func TestTransportOptions(t *testing.T) {
 
 		// Note: We can't easily test stdio in unit tests without complex mocking,
 		// but we can verify the method signature and that it doesn't panic with nil inputs
-		// In real usage, this would be: handler.ServeStdio(os.Stdin, os.Stdout)
+		// In real usage, this would be: handler.ServeStdio(context.Background(), os.Stdin, os.Stdout)
 	})
 }
 

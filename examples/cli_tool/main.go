@@ -80,7 +80,7 @@ func main() {
 	}
 
 	// Serve via stdio (standard for CLI MCP tools)
-	if err := handler.ServeStdio(os.Stdin, os.Stdout); err != nil {
+	if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
 		log.Fatal("Failed to serve MCP via stdio:", err)
 	}
 }

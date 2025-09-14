@@ -40,10 +40,15 @@ func (h *Handler) ServeSSE(w http.ResponseWriter, r *http.Request) {
 }
 
 // ServeStdio implements stdio transport for command-line tools
-// TODO: Add context support and graceful shutdown
-func (h *Handler) ServeStdio(stdin io.Reader, stdout io.Writer) error {
+//
+// NOTE: The stdin and stdout parameters are currently unused. The MCP SDK's
+// StdioTransport always uses os.Stdin and os.Stdout. This is being addressed
+// in upstream PR: https://github.com/modelcontextprotocol/go-sdk/pull/465
+//
+// TODO: Once PR #465 is merged, update to use custom stdin/stdout
+func (h *Handler) ServeStdio(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
 	transport := &mcp.StdioTransport{}
-	return h.server.Run(context.Background(), transport)
+	return h.server.Run(ctx, transport)
 }
 
 // createTypedHandler converts a simple typed function into an MCP ToolHandlerFor.
