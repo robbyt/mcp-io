@@ -47,9 +47,6 @@ func (h *Handler) ServeSSE(w http.ResponseWriter, r *http.Request) {
 //
 // TODO: Once PR #465 is merged, update to use custom stdin/stdout
 func (h *Handler) ServeStdio(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	transport := &mcp.StdioTransport{}
 	return h.server.Run(ctx, transport)
 }
