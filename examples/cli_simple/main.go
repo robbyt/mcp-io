@@ -34,7 +34,7 @@ func main() {
 		log.Fatalf("Failed to create handler: %v", err)
 	}
 
-	if err := handler.ServeStdio(os.Stdin, os.Stdout); err != nil {
+	if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }
