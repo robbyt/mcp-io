@@ -2,9 +2,7 @@ package mcpio
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -19,58 +17,10 @@ type handlerConfig struct {
 	server  *mcp.Server // The MCP-SDK server instance
 }
 
-// toolRegisterFunc is an internal function type that registers a tool on an MCP server.
-// This is used internally by the option functions to defer tool registration.
-type toolRegisterFunc func(*mcp.Server)
-
 // Handler is the main MCP handler struct
 type Handler struct {
 	server      *mcp.Server
 	httpHandler http.Handler
-}
-
-// NewHandler creates a new MCP handler with the given options
-func NewHandler(opts ...Option) (*Handler, error) {
-	cfg := &handlerConfig{
-		name:    "mcp-server",
-		version: "1.0.0",
-		tools:   make([]toolRegisterFunc, 0),
-	}
-
-	// Apply all options
-	for _, opt := range opts {
-		if err := opt(cfg); err != nil {
-			return nil, fmt.Errorf("failed to apply option: %w", err)
-		}
-	}
-
-	// Use injected server or create default
-	var server *mcp.Server
-	if cfg.server != nil {
-		server = cfg.server
-	} else {
-		impl := &mcp.Implementation{
-			Name:    cfg.name,
-			Version: cfg.version,
-		}
-		server = mcp.NewServer(impl, nil)
-	}
-
-	// Register all tools
-	for _, toolRegisterFunc := range cfg.tools {
-		toolRegisterFunc(server)
-	}
-
-	// Create transport handler
-	httpHandler := mcp.NewStreamableHTTPHandler(
-		func(*http.Request) *mcp.Server { return server },
-		nil,
-	)
-
-	return &Handler{
-		server:      server,
-		httpHandler: httpHandler,
-	}, nil
 }
 
 // GetServer returns the underlying MCP server for advanced usage
@@ -90,6 +40,7 @@ func (h *Handler) ServeSSE(w http.ResponseWriter, r *http.Request) {
 }
 
 // ServeStdio implements stdio transport for command-line tools
+// TODO: Add context support and graceful shutdown
 func (h *Handler) ServeStdio(stdin io.Reader, stdout io.Writer) error {
 	transport := &mcp.StdioTransport{}
 	return h.server.Run(context.Background(), transport)
@@ -130,53 +81,5 @@ func createTypedHandler[TIn, TOut any](fn ToolFunc[TIn, TOut]) mcp.ToolHandlerFo
 
 		// Success: return structured output (SDK handles serialization)
 		return nil, output, nil
-	}
-}
-
-// createRawHandler wraps a raw function to match the MCP ToolHandler signature
-func createRawHandler(fn RawToolFunc) mcp.ToolHandler {
-	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// Marshal input arguments to JSON bytes
-		inputJSON, err := json.Marshal(req.Params.Arguments)
-		if err != nil {
-			return &mcp.CallToolResult{
-				Content: []mcp.Content{
-					&mcp.TextContent{Text: fmt.Sprintf("Failed to marshal input: %v", err)},
-				},
-				IsError: true,
-			}, nil
-		}
-
-		// Execute raw function
-		outputJSON, err := fn(ctx, inputJSON)
-		if err != nil {
-			// Check if it's a tool error
-			var toolErr *ToolError
-			if errors.As(err, &toolErr) {
-				return &mcp.CallToolResult{
-					Content: []mcp.Content{
-						&mcp.TextContent{Text: toolErr.Message},
-					},
-					IsError: true,
-				}, nil
-			}
-			// Protocol error
-			return nil, err
-		}
-
-		// Parse output for structured response
-		var output any
-		if err := json.Unmarshal(outputJSON, &output); err != nil {
-			// Raw tools must return valid JSON
-			return nil, errors.Join(ErrInvalidJSON, err)
-		}
-
-		// Return structured output
-		outputJSONStr := string(outputJSON)
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: outputJSONStr},
-			},
-		}, nil
 	}
 }

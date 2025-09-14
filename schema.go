@@ -4,11 +4,6 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-// GenerateSchema is a thin wrapper around jsonschema.For[T]() for convenience
-func GenerateSchema[T any]() (*jsonschema.Schema, error) {
-	return jsonschema.For[T](nil)
-}
-
 // FieldDef defines a field for dynamic schema construction
 type FieldDef struct {
 	Name        string
@@ -16,6 +11,11 @@ type FieldDef struct {
 	Description string
 	Required    bool
 	Enum        []string // Optional enum values
+}
+
+// GenerateSchema is a thin wrapper around jsonschema.For[T]() for convenience
+func GenerateSchema[T any]() (*jsonschema.Schema, error) {
+	return jsonschema.For[T](nil)
 }
 
 // CreateDynamicSchema constructs a JSON schema from field definitions

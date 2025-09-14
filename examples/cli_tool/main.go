@@ -67,7 +67,7 @@ func countText(ctx context.Context, input CountInput) (CountOutput, error) {
 
 func main() {
 	// Create MCP handler for CLI use
-	handler, err := mcpio.NewHandler(
+	handler, err := mcpio.NewToolHandler(
 		mcpio.WithName("text-processor"),
 		mcpio.WithVersion("1.0.0"),
 		mcpio.WithTool("to_upper", "Convert text to uppercase", toUpperCase),

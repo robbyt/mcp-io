@@ -8,6 +8,7 @@ import (
 )
 
 func TestToolError_Error(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		toolErr  *ToolError
@@ -44,6 +45,7 @@ func TestToolError_Error(t *testing.T) {
 }
 
 func TestNewToolError(t *testing.T) {
+	t.Parallel()
 	message := "test error message"
 	err := NewToolError(message)
 
@@ -54,6 +56,7 @@ func TestNewToolError(t *testing.T) {
 }
 
 func TestNewToolErrorWithCode(t *testing.T) {
+	t.Parallel()
 	message := "test error"
 	code := "TEST_ERROR"
 	err := NewToolErrorWithCode(message, code)
@@ -65,6 +68,7 @@ func TestNewToolErrorWithCode(t *testing.T) {
 }
 
 func TestValidationError(t *testing.T) {
+	t.Parallel()
 	message := "invalid input"
 	err := ValidationError(message)
 
@@ -75,6 +79,7 @@ func TestValidationError(t *testing.T) {
 }
 
 func TestProcessingError(t *testing.T) {
+	t.Parallel()
 	message := "failed to process"
 	err := ProcessingError(message)
 
@@ -85,6 +90,7 @@ func TestProcessingError(t *testing.T) {
 }
 
 func TestToolErrorImplementsError(t *testing.T) {
+	t.Parallel()
 	var err error = &ToolError{Message: "test"}
 	require.Error(t, err)
 	assert.Equal(t, "test", err.Error())
