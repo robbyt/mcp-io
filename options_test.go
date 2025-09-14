@@ -327,6 +327,221 @@ func TestMultipleOptionsApplication(t *testing.T) {
 	assert.Len(t, cfg.tools, 2) // Two tools should be registered
 }
 
+func TestWithPrompt(t *testing.T) {
+	t.Parallel()
+
+	testPromptFunc := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+		return &PromptResult{
+			Messages: []PromptMessage{{Role: "user", Content: "test"}},
+		}, nil
+	}
+
+	tests := []struct {
+		name          string
+		promptName    string
+		description   string
+		promptFunc    PromptFunc
+		wantErr       error
+		expectPrompts int
+	}{
+		{
+			name:          "valid prompt",
+			promptName:    "test-prompt",
+			description:   "A test prompt",
+			promptFunc:    testPromptFunc,
+			wantErr:       nil,
+			expectPrompts: 1,
+		},
+		{
+			name:          "empty prompt name should return error",
+			promptName:    "",
+			description:   "A test prompt",
+			promptFunc:    testPromptFunc,
+			wantErr:       ErrEmptyPromptName,
+			expectPrompts: 0,
+		},
+		{
+			name:          "empty description should be valid",
+			promptName:    "test-prompt",
+			description:   "",
+			promptFunc:    testPromptFunc,
+			wantErr:       nil,
+			expectPrompts: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &handlerConfig{
+				prompts: make([]promptRegisterFunc, 0),
+			}
+			option := WithPrompt(tt.promptName, tt.description, tt.promptFunc)
+			err := option(cfg)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Len(t, cfg.prompts, tt.expectPrompts)
+		})
+	}
+}
+
+func TestWithPromptWithArgs(t *testing.T) {
+	t.Parallel()
+
+	testPromptFunc := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+		return &PromptResult{
+			Messages: []PromptMessage{{Role: "user", Content: "test"}},
+		}, nil
+	}
+
+	promptArgs := []*mcp.PromptArgument{
+		{
+			Name:        "name",
+			Description: "The name to use",
+			Required:    true,
+		},
+	}
+
+	tests := []struct {
+		name          string
+		promptName    string
+		description   string
+		args          []*mcp.PromptArgument
+		promptFunc    PromptFunc
+		wantErr       error
+		expectPrompts int
+	}{
+		{
+			name:          "valid prompt with args",
+			promptName:    "test-prompt",
+			description:   "A test prompt",
+			args:          promptArgs,
+			promptFunc:    testPromptFunc,
+			wantErr:       nil,
+			expectPrompts: 1,
+		},
+		{
+			name:          "empty prompt name should return error",
+			promptName:    "",
+			description:   "A test prompt",
+			args:          promptArgs,
+			promptFunc:    testPromptFunc,
+			wantErr:       ErrEmptyPromptName,
+			expectPrompts: 0,
+		},
+		{
+			name:          "nil args should be valid",
+			promptName:    "test-prompt",
+			description:   "A test prompt",
+			args:          nil,
+			promptFunc:    testPromptFunc,
+			wantErr:       nil,
+			expectPrompts: 1,
+		},
+		{
+			name:          "empty args slice should be valid",
+			promptName:    "test-prompt",
+			description:   "A test prompt",
+			args:          []*mcp.PromptArgument{},
+			promptFunc:    testPromptFunc,
+			wantErr:       nil,
+			expectPrompts: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &handlerConfig{
+				prompts: make([]promptRegisterFunc, 0),
+			}
+			option := WithPromptWithArgs(tt.promptName, tt.description, tt.args, tt.promptFunc)
+			err := option(cfg)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Len(t, cfg.prompts, tt.expectPrompts)
+		})
+	}
+
+	// Test that the registration closure works correctly
+	t.Run("registration function executes", func(t *testing.T) {
+		handler, err := NewHandler(
+			WithName("test-server"),
+			WithPromptWithArgs("greeting", "Generate greeting with args", promptArgs, testPromptFunc),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler)
+		assert.NotNil(t, handler.GetServer())
+	})
+}
+
+func TestWithResource(t *testing.T) {
+	t.Parallel()
+
+	resourceFunc := func(ctx context.Context, uri string) (*ResourceContent, error) {
+		return &ResourceContent{Content: []byte("test content"), MIMEType: "text/plain"}, nil
+	}
+
+	// Test valid resource
+	cfg := &handlerConfig{resources: make([]resourceRegisterFunc, 0)}
+	err := WithResource("test://resource", "A test resource", resourceFunc)(cfg)
+	require.NoError(t, err)
+	assert.Len(t, cfg.resources, 1)
+
+	// Test empty URI error
+	err = WithResource("", "A test resource", resourceFunc)(&handlerConfig{})
+	require.ErrorIs(t, err, ErrEmptyResourceURI)
+
+	// Test empty description valid
+	cfg = &handlerConfig{resources: make([]resourceRegisterFunc, 0)}
+	err = WithResource("test://resource", "", resourceFunc)(cfg)
+	require.NoError(t, err)
+	assert.Len(t, cfg.resources, 1)
+
+	// Test complex URI valid
+	cfg = &handlerConfig{resources: make([]resourceRegisterFunc, 0)}
+	err = WithResource("file:///path/to/resource.txt", "A file resource", resourceFunc)(cfg)
+	require.NoError(t, err)
+	assert.Len(t, cfg.resources, 1)
+}
+
+func TestWithResourceTemplate(t *testing.T) {
+	t.Parallel()
+
+	templateFunc := func(ctx context.Context, uri string) (*ResourceContent, error) {
+		return &ResourceContent{Content: []byte("template content"), MIMEType: "application/json"}, nil
+	}
+
+	// Valid template test
+	cfg := &handlerConfig{resourceTemplates: make([]resourceTemplateRegisterFunc, 0)}
+	err := WithResourceTemplate("user://{id}", "A user template", templateFunc)(cfg)
+	require.NoError(t, err)
+	assert.Len(t, cfg.resourceTemplates, 1)
+
+	// Empty template error test
+	err = WithResourceTemplate("", "A test template", templateFunc)(&handlerConfig{})
+	require.ErrorIs(t, err, ErrEmptyResourceTemplate)
+
+	// Empty description valid test
+	cfg = &handlerConfig{resourceTemplates: make([]resourceTemplateRegisterFunc, 0)}
+	err = WithResourceTemplate("config://{section}", "", templateFunc)(cfg)
+	require.NoError(t, err)
+	assert.Len(t, cfg.resourceTemplates, 1)
+
+	// Multiple placeholders valid test with more detailed checks
+	cfg = &handlerConfig{resourceTemplates: make([]resourceTemplateRegisterFunc, 0)}
+	complexTemplate := "api://v1/users/{userId}/posts/{postId}"
+	err = WithResourceTemplate(complexTemplate, "Complex template", templateFunc)(cfg)
+	require.NoError(t, err)
+	assert.Len(t, cfg.resourceTemplates, 1)
+}
+
 func TestOptionErrorConditions(t *testing.T) {
 	t.Parallel()
 

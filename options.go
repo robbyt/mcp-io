@@ -81,6 +81,93 @@ func WithRawTool(name, description string, inputSchema *jsonschema.Schema, fn Ra
 	}
 }
 
+// WithPrompt adds a prompt to the handler
+func WithPrompt(name, description string, fn PromptFunc) Option {
+	return func(cfg *handlerConfig) error {
+		if name == "" {
+			return ErrEmptyPromptName
+		}
+
+		registerFunc := func(server *mcp.Server) {
+			prompt := &mcp.Prompt{
+				Name:        name,
+				Description: description,
+			}
+			handler := createPromptHandler(fn)
+			server.AddPrompt(prompt, handler)
+		}
+
+		cfg.prompts = append(cfg.prompts, registerFunc)
+		return nil
+	}
+}
+
+// WithPromptWithArgs adds a prompt with argument definitions
+func WithPromptWithArgs(name, description string, args []*mcp.PromptArgument, fn PromptFunc) Option {
+	return func(cfg *handlerConfig) error {
+		if name == "" {
+			return ErrEmptyPromptName
+		}
+
+		registerFunc := func(server *mcp.Server) {
+			prompt := &mcp.Prompt{
+				Name:        name,
+				Description: description,
+				Arguments:   args,
+			}
+			handler := createPromptHandler(fn)
+			server.AddPrompt(prompt, handler)
+		}
+
+		cfg.prompts = append(cfg.prompts, registerFunc)
+		return nil
+	}
+}
+
+// WithResource adds a resource to the handler
+func WithResource(uri, description string, fn ResourceFunc) Option {
+	return func(cfg *handlerConfig) error {
+		if uri == "" {
+			return ErrEmptyResourceURI
+		}
+
+		registerFunc := func(server *mcp.Server) {
+			resource := &mcp.Resource{
+				URI:         uri,
+				Name:        uri, // Use URI as name by default
+				Description: description,
+			}
+			handler := createResourceHandler(fn)
+			server.AddResource(resource, handler)
+		}
+
+		cfg.resources = append(cfg.resources, registerFunc)
+		return nil
+	}
+}
+
+// WithResourceTemplate adds a resource template to the handler
+func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Option {
+	return func(cfg *handlerConfig) error {
+		if uriTemplate == "" {
+			return ErrEmptyResourceTemplate
+		}
+
+		registerFunc := func(server *mcp.Server) {
+			template := &mcp.ResourceTemplate{
+				URITemplate: uriTemplate,
+				Name:        uriTemplate, // Use template as name by default
+				Description: description,
+			}
+			handler := createResourceHandler(fn) // Same handler type
+			server.AddResourceTemplate(template, handler)
+		}
+
+		cfg.resourceTemplates = append(cfg.resourceTemplates, registerFunc)
+		return nil
+	}
+}
+
 // WithServer allows injecting a custom server for testing
 func WithServer(server *mcp.Server) Option {
 	return func(cfg *handlerConfig) error {
