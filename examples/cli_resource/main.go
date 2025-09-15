@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
 	"os"
 	"strings"
@@ -23,7 +22,7 @@ func resourceReader(ctx context.Context, uri string) (*mcpio.ResourceContent, er
 			MIMEType: "text/plain",
 		}, nil
 	}
-	return nil, errors.New("resource not found") // a real implementation would have a typed error
+	return nil, mcpio.ResourceNotFoundError(uri)
 }
 
 func main() {

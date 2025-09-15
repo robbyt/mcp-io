@@ -4,7 +4,6 @@ package mcpio_test
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
@@ -51,7 +50,7 @@ func (s *ResourcesIntegrationTestSuite) TestResourceHandlerIntegration() {
 						MIMEType: "text/plain",
 					}, nil
 				}
-				return nil, errors.New("resource not found")
+				return nil, mcpio.ResourceNotFoundError(uri)
 			}),
 		)
 		s.Require().NoError(err)
