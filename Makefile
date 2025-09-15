@@ -10,15 +10,15 @@ help: Makefile
 	@sed -n 's/^##//p' $< | column -t -s ':' | sed -e 's/^/ /'
 	@echo
 
-## test: Run tests with race detection and coverage
+## test: Run all tests (unit + integration) with coverage
 .PHONY: test
 test:
-	go test -race -cover ./...
+	go test -race -cover -coverpkg=github.com/robbyt/mcp-io -tags=integration ./...
 
-## test-verbose: Run tests with verbose output
-.PHONY: test-verbose
-test-verbose:
-	go test -race -cover -v ./...
+## test-short: Run tests in short mode (fast, no coverage)
+.PHONY: test-short
+test-short:
+	go test -race -short ./...
 
 ## bench: Run performance benchmarks
 .PHONY: bench
@@ -59,7 +59,7 @@ build:
 
 ## build-examples: Build all example applications
 .PHONY: build-examples
-build-examples: build-http-server build-cli-tool
+build-examples: build-http-server build-cli-tool build-cli-prompt build-cli-resource
 
 ## build-http-server: Build the HTTP server example
 .PHONY: build-http-server
@@ -72,6 +72,18 @@ build-http-server:
 build-cli-tool:
 	@mkdir -p bin/
 	go build -o bin/cli-tool ./examples/cli_tool/
+
+## build-cli-prompt: Build the CLI prompt example
+.PHONY: build-cli-prompt
+build-cli-prompt:
+	@mkdir -p bin/
+	go build -o bin/cli-prompt ./examples/cli_prompt/
+
+## build-cli-resource: Build the CLI resource example
+.PHONY: build-cli-resource
+build-cli-resource:
+	@mkdir -p bin/
+	go build -o bin/cli-resource ./examples/cli_resource/
 
 ## clean: Clean up build artifacts and caches
 .PHONY: clean
