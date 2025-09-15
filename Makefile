@@ -59,7 +59,7 @@ build:
 
 ## build-examples: Build all example applications
 .PHONY: build-examples
-build-examples: build-http-server build-cli-tool build-cli-prompt build-cli-resource
+build-examples: build-http-server build-cli-tool build-cli-prompt build-cli-resource build-cli-combined
 
 ## build-http-server: Build the HTTP server example
 .PHONY: build-http-server
@@ -84,6 +84,12 @@ build-cli-prompt:
 build-cli-resource:
 	@mkdir -p bin/
 	go build -o bin/cli-resource ./examples/cli_resource/
+
+## build-cli-combined: Build the CLI combined example
+.PHONY: build-cli-combined
+build-cli-combined:
+	@mkdir -p bin/
+	go build -o bin/cli-combined ./examples/cli_combined/
 
 ## clean: Clean up build artifacts and caches
 .PHONY: clean
