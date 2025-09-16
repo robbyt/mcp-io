@@ -45,3 +45,22 @@ For more details on MCP tools, see the [official MCP documentation](https://mode
 make build-cli-tool
 ./bin/cli-tool
 ```
+
+## Testing with MCP CLI
+
+```bash
+# List available tools
+mcp tools ./bin/cli-tool
+
+# Test uppercase conversion
+mcp call to_upper --params '{"text":"hello world"}' ./bin/cli-tool
+
+# Test text counting
+mcp call count --params '{"text":"hello world", "type":"words"}' ./bin/cli-tool
+
+# Test text reversal
+mcp call reverse --params '{"text":"hello"}' ./bin/cli-tool
+
+# Test lowercase conversion
+mcp call to_lower --params '{"text":"HELLO WORLD"}' ./bin/cli-tool
+```

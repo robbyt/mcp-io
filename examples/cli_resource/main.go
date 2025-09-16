@@ -28,7 +28,7 @@ func resourceReader(ctx context.Context, uri string) (*mcpio.ResourceContent, er
 func main() {
 	handler, err := mcpio.NewResourceHandler(
 		mcpio.WithName("resource-server"),
-		mcpio.WithResource("res://kv/", "A simple key-value store", resourceReader),
+		mcpio.WithResourceTemplate("res://kv/{key}", "A simple key-value store", resourceReader),
 	)
 	if err != nil {
 		log.Fatal("Failed to create MCP handler:", err)

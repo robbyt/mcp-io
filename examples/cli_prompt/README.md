@@ -41,3 +41,16 @@ For more details on MCP prompts, see the [official MCP documentation](https://mo
 make build-cli-prompt
 ./bin/cli-prompt
 ```
+
+## Testing with MCP CLI
+
+```bash
+# List available prompts
+mcp prompts ./bin/cli-prompt
+
+# Get prompt template (Note: May fail with "unsupported role: system"
+# due to mcp CLI limitations with system role messages)
+mcp get-prompt greeter --params '{"name":"Alice"}' ./bin/cli-prompt
+```
+
+**Note**: The mcp CLI tool may not fully support prompts that use "system" role messages. For full testing, use an MCP client that supports all message roles.

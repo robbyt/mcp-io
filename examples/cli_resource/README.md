@@ -49,3 +49,19 @@ For more details on MCP resources, see the [official MCP documentation](https://
 make build-cli-resource
 ./bin/cli-resource
 ```
+
+## Testing with MCP CLI
+
+```bash
+# List available resources (resource templates may not show in list)
+mcp resources ./bin/cli_resource
+
+# Read specific resources
+mcp read-resource "res://kv/greeting" ./bin/cli_resource
+mcp read-resource "res://kv/farewell" ./bin/cli_resource
+
+# Test non-existent key (returns error)
+mcp read-resource "res://kv/nonexistent" ./bin/cli_resource
+```
+
+**Note**: The example uses `WithResourceTemplate` to support dynamic resource access via `res://kv/{key}` URIs. Available keys are "greeting" and "farewell".

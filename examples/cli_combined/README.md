@@ -73,16 +73,18 @@ make build-cli-combined
 
 ```bash
 # List all capabilities
-mcp tools stdio://./bin/cli-combined
-mcp resources stdio://./bin/cli-combined
-mcp prompts stdio://./bin/cli-combined
+mcp tools ./bin/cli-combined
+mcp resources ./bin/cli-combined
+mcp prompts ./bin/cli-combined
 
 # Use tools
-mcp call analyze_text --params '{"text":"The quick brown fox jumps over the lazy dog."}' stdio://./bin/cli-combined
+mcp call analyze_text --params '{"text":"The quick brown fox jumps over the lazy dog."}' ./bin/cli-combined
 
-# Access resources
-mcp resource doc://templates/email stdio://./bin/cli-combined
+# Access resources (may have limitations with current mcp CLI)
+mcp read-resource "doc://templates/email" ./bin/cli-combined
 
-# Generate prompts
-mcp prompt document_writer --params '{"document_type":"email","topic":"project update","tone":"professional"}' stdio://./bin/cli-combined
+# Generate prompts (may fail due to "system" role limitations)
+mcp get-prompt document_writer --params '{"document_type":"email","topic":"project update","tone":"professional"}' ./bin/cli-combined
 ```
+
+**Note**: Some commands may have limitations with the current mcp CLI tool version, particularly resource reading and prompts using "system" role messages.

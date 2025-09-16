@@ -52,16 +52,25 @@ The server will start on `http://localhost:8080` with MCP endpoint at `/mcp` and
 ## Testing the HTTP Server
 
 ```bash
-# Check server health
+# Check server health (works)
 curl http://localhost:8080/health
 
-# List available tools
+# MCP CLI does not work with HTTP servers
+# This will fail with 405 Method Not Allowed:
+# mcp tools http://localhost:8080/mcp
+
+# Direct JSON-RPC calls require session initialization
+# These are examples but may not work without proper MCP session setup:
+
+# List available tools (requires session)
 curl -X POST http://localhost:8080/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc": "2.0", "method": "tools/list", "id": 1}'
 
-# Call a tool
+# Call a tool (requires session)
 curl -X POST http://localhost:8080/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc": "2.0", "method": "tools/call", "params": {"name": "add", "arguments": {"a": 5, "b": 3}}, "id": 2}'
 ```
+
+**Note**: HTTP MCP servers require proper session initialization and are designed for MCP clients, not direct curl testing. Use the health endpoint to verify the server is running.
