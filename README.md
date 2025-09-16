@@ -17,6 +17,7 @@ The official MCP is simple, and very flexible. However, there are some behaviors
 - **Type-Safe Tools**: Define MCP resources with Go generics to specify the in/out schema shapes
 - **Multiple Transports**: HTTP, SSE, and stdio support through a single handler
 - **Sentinel Error Types**: Errors return specific types that can be checked with `errors.Is`
+- **Elicitation Support**: Interactive tools that can request additional information from users at runtime
 
 ## Installation
 
@@ -317,6 +318,58 @@ fields := []mcpio.FieldDef{
 }
 dynamicSchema := mcpio.CreateDynamicSchema(fields)
 ```
+
+## Elicitation Support
+
+mcp-io supports MCP's elicitation feature for requesting additional information from users at runtime. This enables interactive workflows where tools can gather configuration, preferences, or inputs dynamically.
+
+### Quick Example
+
+```go
+type UserConfig struct {
+    Name        string `json:"name" jsonschema:"Your full name"`
+    Environment string `json:"environment" jsonschema:"enum=dev,enum=prod"`
+    Port        int    `json:"port" jsonschema:"minimum=1024,maximum=65535"`
+}
+
+func setupTool(ctx context.Context, capability mcpio.ElicitationCapability, input struct{}) (map[string]any, error) {
+    result, err := mcpio.ElicitTyped[UserConfig](ctx, capability, "Enter configuration:")
+    if err != nil {
+        return nil, err
+    }
+
+    if result.IsAccepted() {
+        var config UserConfig
+        data, _ := json.Marshal(result.GetContent())
+        json.Unmarshal(data, &config)
+        return map[string]any{"status": "configured", "config": config}, nil
+    }
+
+    return map[string]any{"status": "cancelled"}, nil
+}
+
+// Register session-aware tool
+handler, err := mcpio.NewHandler(
+    mcpio.WithName("interactive-server"),
+    mcpio.WithSessionTool("setup", "Interactive setup", setupTool),
+)
+```
+
+### Available Methods
+
+- **`ElicitTyped[T]`** - Type-safe elicitation with automatic schema generation from Go structs
+- **`ElicitSimple`** - Single string field elicitation for quick inputs or confirmations
+- **`capability.Elicit`** - Direct elicitation with custom JSON schemas
+
+### Security Warning
+
+**⚠️ Important**: Never use elicitation for passwords, API keys, or secrets. Use only for configuration data, preferences, and non-sensitive user input.
+
+### Learn More
+
+- See [godoc](https://pkg.go.dev/github.com/robbyt/mcp-io) for detailed API documentation with examples
+- Complete working example: [examples/cli_elicitation](examples/cli_elicitation/)
+- Session-aware prompts and resources: `WithSessionPrompt`, `WithSessionResource`
 
 ## Comparison with Direct MCP SDK
 
