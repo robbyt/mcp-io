@@ -89,7 +89,7 @@ func documentResource(ctx context.Context, uri string) (*mcpio.ResourceContent, 
 		mimeType = "text/plain"
 	case "doc://samples/analysis":
 		content = []byte(`{"sample_analysis": {"word_count": 150, "char_count": 890, "sentence_count": 8, "reading_time": "< 1 minute"}}`)
-		mimeType = "application/json"
+		mimeType = "text/plain"
 	default:
 		return nil, mcpio.ResourceNotFoundError(uri)
 	}
@@ -151,8 +151,10 @@ func main() {
 		mcpio.WithTool("analyze_text", "Analyze text and provide statistics", analyzeText),
 
 		// Resources for document templates and samples
-		mcpio.WithResource("doc://templates/", "Document templates for various formats", documentResource),
-		mcpio.WithResource("doc://samples/", "Sample documents and analysis data", documentResource),
+		mcpio.WithResourceTemplate("doc://templates/email", "Email template", documentResource),
+		mcpio.WithResourceTemplate("doc://templates/report", "Report template", documentResource),
+		mcpio.WithResourceTemplate("doc://templates/memo", "Memo template", documentResource),
+		mcpio.WithResourceTemplate("doc://samples/analysis", "Sample analysis data", documentResource),
 
 		// Prompts for generating documents
 		mcpio.WithPrompt("document_writer", "Generate writing prompts for different document types", documentPrompt),

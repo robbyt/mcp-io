@@ -13,7 +13,7 @@ help: Makefile
 ## test: Run all tests (unit + integration) with coverage
 .PHONY: test
 test:
-	go test -race -cover -coverpkg=github.com/robbyt/mcp-io -tags=integration ./...
+	go test -race -cover -tags=integration ./...
 
 ## test-short: Run tests in short mode (fast, no coverage)
 .PHONY: test-short
@@ -59,7 +59,7 @@ build:
 
 ## build-examples: Build all example applications
 .PHONY: build-examples
-build-examples: build-http-server build-cli-tool build-cli-prompt build-cli-resource build-cli-combined
+build-examples: build-http-server build-cli-tool build-cli-prompt build-cli-resource build-cli-combined build-cli-elicitation
 
 ## build-http-server: Build the HTTP server example
 .PHONY: build-http-server
@@ -90,6 +90,12 @@ build-cli-resource:
 build-cli-combined:
 	@mkdir -p bin/
 	go build -o bin/cli-combined ./examples/cli_combined/
+
+## build-cli-elicitation: Build the CLI elicitation example
+.PHONY: build-cli-elicitation
+build-cli-elicitation:
+	@mkdir -p bin/
+	go build -o bin/cli-elicitation ./examples/cli_elicitation/
 
 ## clean: Clean up build artifacts and caches
 .PHONY: clean
