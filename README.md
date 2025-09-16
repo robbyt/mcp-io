@@ -8,7 +8,7 @@ A library that wraps the [Model Context Protocol (MCP) SDK](https://github.com/m
 
 ## Overview
 
-The official MCP is simple, and very flexible. However, there are some behaviors that I didn't like when using it- It panics when some required values are missing, it uses bare structs instead of constructors, and the overall API is more flexible than what I needed. So I wrote those library as an opinionated wrapper to add some guardrails and abstractions.
+The official MCP is simple, and very flexible. However, there are some behaviors that I didn't like: it panics when required values are missing, it uses bare structs instead of constructors, and the overall API is much more flexible than what I needed. So I wrote this package as an opinionated wrapper to add some guardrails and abstractions.
 
 ## Features
 
@@ -17,7 +17,7 @@ The official MCP is simple, and very flexible. However, there are some behaviors
 - **Type-Safe Tools**: Define MCP resources with Go generics to specify the in/out schema shapes
 - **Multiple Transports**: HTTP, SSE, and stdio support through a single handler
 - **Sentinel Error Types**: Errors return specific types that can be checked with `errors.Is`
-- **Elicitation Support**: Interactive tools that can request additional information from users at runtime
+- **Extensive Examples**: My main goal was to learn the MCP spec, so many examples are included
 
 ## Installation
 
