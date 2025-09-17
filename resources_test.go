@@ -22,5 +22,5 @@ func TestNewResourceHandler_Validation(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "only supports resources")
+	assert.ErrorIs(t, err, ErrIncompatibleHandler)
 }
