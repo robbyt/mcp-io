@@ -24,7 +24,7 @@ func TestNewPromptHandler_Validation(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "only supports prompts")
+	assert.ErrorIs(t, err, ErrIncompatibleHandler)
 }
 
 // Test types for typed prompt tests

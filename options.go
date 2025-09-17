@@ -39,6 +39,11 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut]) O
 			return ErrEmptyToolName
 		}
 
+		// Simple nil check - if tools wasn't initialized, this handler doesn't support tools
+		if cfg.tools == nil {
+			return ErrIncompatibleHandler
+		}
+
 		// Create registration function that uses the generic AddTool
 		registerFunc := func(server *mcp.Server) {
 			tool := &mcp.Tool{
@@ -66,6 +71,11 @@ func WithRawTool(name, description string, inputSchema *jsonschema.Schema, fn Ra
 			return ErrNilSchema
 		}
 
+		// Simple nil check - if tools wasn't initialized, this handler doesn't support tools
+		if cfg.tools == nil {
+			return ErrIncompatibleHandler
+		}
+
 		// Create registration function that uses the low-level AddTool
 		registerFunc := func(server *mcp.Server) {
 			tool := &mcp.Tool{
@@ -90,6 +100,11 @@ func WithPrompt(name, description string, fn PromptFunc) Option {
 			return ErrEmptyPromptName
 		}
 
+		// Simple nil check - if prompts wasn't initialized, this handler doesn't support prompts
+		if cfg.prompts == nil {
+			return ErrIncompatibleHandler
+		}
+
 		registerFunc := func(server *mcp.Server) {
 			prompt := &mcp.Prompt{
 				Name:        name,
@@ -109,6 +124,11 @@ func WithPromptWithArgs(name, description string, args []*mcp.PromptArgument, fn
 	return func(cfg *handlerConfig) error {
 		if name == "" {
 			return ErrEmptyPromptName
+		}
+
+		// Simple nil check - if prompts wasn't initialized, this handler doesn't support prompts
+		if cfg.prompts == nil {
+			return ErrIncompatibleHandler
 		}
 
 		registerFunc := func(server *mcp.Server) {
@@ -160,6 +180,11 @@ func WithTypedPrompt[TArgs any](name, description string, fn TypedPromptFunc[TAr
 			return ErrEmptyPromptName
 		}
 
+		// Simple nil check - if prompts wasn't initialized, this handler doesn't support prompts
+		if cfg.prompts == nil {
+			return ErrIncompatibleHandler
+		}
+
 		// Generate schema from the TArgs type
 		schema, err := GenerateSchema[TArgs]()
 		if err != nil {
@@ -191,6 +216,11 @@ func WithResource(uri, description string, fn ResourceFunc) Option {
 			return ErrEmptyResourceURI
 		}
 
+		// Simple nil check - if resources wasn't initialized, this handler doesn't support resources
+		if cfg.resources == nil {
+			return ErrIncompatibleHandler
+		}
+
 		registerFunc := func(server *mcp.Server) {
 			resource := &mcp.Resource{
 				URI:         uri,
@@ -211,6 +241,11 @@ func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Opti
 	return func(cfg *handlerConfig) error {
 		if uriTemplate == "" {
 			return ErrEmptyResourceTemplate
+		}
+
+		// Simple nil check - if resourceTemplates wasn't initialized, this handler doesn't support resource templates
+		if cfg.resourceTemplates == nil {
+			return ErrIncompatibleHandler
 		}
 
 		registerFunc := func(server *mcp.Server) {

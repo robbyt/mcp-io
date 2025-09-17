@@ -40,26 +40,17 @@ type PromptMessage struct {
 // NewPromptHandler creates a new MCP handler that only supports prompts.
 // For mixed resource types, use NewHandler instead.
 func NewPromptHandler(opts ...Option) (*Handler, error) {
-	// Pre-validate that only prompts are configured
 	cfg := &handlerConfig{
-		name:              "mcp-server",
-		version:           "1.0.0",
-		tools:             make([]toolRegisterFunc, 0),
-		prompts:           make([]promptRegisterFunc, 0),
-		resources:         make([]resourceRegisterFunc, 0),
-		resourceTemplates: make([]resourceTemplateRegisterFunc, 0),
+		name:    "mcp-server",
+		version: "1.0.0",
+		prompts: make([]promptRegisterFunc, 0),
 	}
 
-	// Apply options to check configuration
+	// Apply options - they will validate handler type compatibility
 	for _, opt := range opts {
 		if err := opt(cfg); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %w", err)
 		}
-	}
-
-	// Validate that only prompts are configured
-	if len(cfg.tools) > 0 || len(cfg.resources) > 0 || len(cfg.resourceTemplates) > 0 {
-		return nil, fmt.Errorf("NewPromptHandler only supports prompts; use NewHandler for mixed resource types")
 	}
 
 	// Delegate to the unified constructor

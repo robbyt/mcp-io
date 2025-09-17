@@ -108,7 +108,7 @@ func ResourceNotFoundError(uri string) error {
 
 // Sentinel errors for configuration validation
 
-// Empty string validation errors
+// String validation errors
 var (
 	ErrEmptyName             = errors.New("name cannot be empty")
 	ErrEmptyVersion          = errors.New("version cannot be empty")
@@ -130,4 +130,9 @@ var (
 	ErrDuplicateTool    = errors.New("tool already registered")
 	ErrInvalidOperation = errors.New("invalid operation")
 	ErrInvalidJSON      = errors.New("tool returned invalid JSON")
+)
+
+// Handler option type compatibility errors
+var (
+	ErrIncompatibleHandler = errors.New("option not compatible with this handler type")
 )
