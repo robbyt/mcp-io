@@ -2,6 +2,8 @@ package mcpio
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -77,22 +79,22 @@ func GetElicitationCapability(session *mcp.ServerSession) ElicitationCapability 
 //	    EnableUI bool   `json:"enableUI" jsonschema:"description=Enable graphical interface"`
 //	}
 //
-//	result, err := mcpio.ElicitTyped[UserConfig](ctx, capability, "Please provide your configuration:")
+//	result, err := mcpio.ElicitTypedResult[UserConfig](ctx, capability, "Please provide your configuration:")
 //	if err != nil {
 //	    return nil, fmt.Errorf("elicitation failed: %w", err)
 //	}
 //
 //	// Handle all possible user responses
-//	switch result.Action {
-//	case "accept":
+//	if result.IsAccepted() {
 //	    // Parse the user's input
 //	    var config UserConfig
-//	    data, _ := json.Marshal(result.Content)
-//	    json.Unmarshal(data, &config)
+//	    if err := result.DecodeContent(&config); err != nil {
+//	        return nil, fmt.Errorf("failed to decode config: %w", err)
+//	    }
 //	    // Use config...
-//	case "decline":
+//	} else if result.IsDeclined() {
 //	    return map[string]any{"status": "declined"}, nil
-//	case "cancel":
+//	} else {
 //	    return map[string]any{"status": "cancelled"}, nil
 //	}
 //
@@ -189,6 +191,52 @@ func (r *ElicitationResult) GetContent() map[string]any {
 	if r.IsAccepted() {
 		return r.Content
 	}
+	return nil
+}
+
+// DecodeContent decodes the elicitation content into the target struct.
+// This eliminates the need for manual JSON marshaling/unmarshaling when
+// working with typed elicitation results.
+//
+// Example usage:
+//
+//	type UserConfig struct {
+//	    Name  string `json:"name"`
+//	    Email string `json:"email"`
+//	}
+//
+//	result, err := ElicitTypedResult[UserConfig](ctx, capability, "Enter config:")
+//	if err != nil {
+//	    return err
+//	}
+//
+//	if result.IsAccepted() {
+//	    var config UserConfig
+//	    if err := result.DecodeContent(&config); err != nil {
+//	        return fmt.Errorf("failed to decode config: %w", err)
+//	    }
+//	    // Use config...
+//	}
+//
+// The method returns an error if:
+//   - The elicitation was not accepted (content is nil)
+//   - JSON marshaling/unmarshaling fails
+//   - The target is not a valid pointer
+func (r *ElicitationResult) DecodeContent(target any) error {
+	content := r.GetContent()
+	if content == nil {
+		return errors.New("no content to decode: elicitation was not accepted")
+	}
+
+	data, err := json.Marshal(content)
+	if err != nil {
+		return fmt.Errorf("failed to marshal elicitation content: %w", err)
+	}
+
+	if err := json.Unmarshal(data, target); err != nil {
+		return fmt.Errorf("failed to unmarshal elicitation content: %w", err)
+	}
+
 	return nil
 }
 
