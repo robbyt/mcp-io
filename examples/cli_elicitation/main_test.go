@@ -63,12 +63,12 @@ func (s *DatabaseTestSuite) TestReadRecord() {
 
 	// Add a test record
 	testRecord := &Record{
-		ID:       "test1",
-		Name:     "Test User",
-		Email:    "test@example.com",
-		Category: "personal",
-		Created:  time.Now(),
-		Updated:  time.Now(),
+		ID:      "test1",
+		Name:    "Test User",
+		Email:   "test@example.com",
+		Status:  "active",
+		Created: time.Now(),
+		Updated: time.Now(),
 	}
 	database["test1"] = testRecord
 
@@ -104,9 +104,9 @@ func (s *DatabaseTestSuite) TestListRecords() {
 
 	// Add test records
 	records := []*Record{
-		{ID: "personal1", Name: "John", Category: "personal", Created: time.Now().Add(-2 * time.Hour)},
-		{ID: "business1", Name: "Company A", Category: "business", Created: time.Now().Add(-1 * time.Hour)},
-		{ID: "personal2", Name: "Jane", Category: "personal", Created: time.Now()},
+		{ID: "active1", Name: "John", Status: "active", Created: time.Now().Add(-2 * time.Hour)},
+		{ID: "inactive1", Name: "Company A", Status: "inactive", Created: time.Now().Add(-1 * time.Hour)},
+		{ID: "pending1", Name: "Jane", Status: "pending", Created: time.Now()},
 	}
 	for _, record := range records {
 		record.Updated = record.Created
@@ -115,7 +115,7 @@ func (s *DatabaseTestSuite) TestListRecords() {
 
 	s.Run("AllRecords", func() {
 		input := struct {
-			Category string `json:"category,omitempty" jsonschema:"description:Optional category filter,enum:,enum:personal,enum:business,enum:academic"`
+			Status string `json:"status,omitempty" jsonschema:"description:Optional status filter,enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 		}{}
 
 		result, err := listRecords(ctx, input)
@@ -128,27 +128,26 @@ func (s *DatabaseTestSuite) TestListRecords() {
 		returnedRecords := result["records"].([]*Record)
 		s.Len(returnedRecords, 3)
 		// Should be sorted by creation time
-		s.Equal("personal1", returnedRecords[0].ID)
-		s.Equal("business1", returnedRecords[1].ID)
-		s.Equal("personal2", returnedRecords[2].ID)
+		s.Equal("active1", returnedRecords[0].ID)
+		s.Equal("inactive1", returnedRecords[1].ID)
+		s.Equal("pending1", returnedRecords[2].ID)
 	})
 
-	s.Run("FilteredByCategory", func() {
+	s.Run("FilteredByStatus", func() {
 		input := struct {
-			Category string `json:"category,omitempty" jsonschema:"description:Optional category filter,enum:,enum:personal,enum:business,enum:academic"`
-		}{Category: "personal"}
+			Status string `json:"status,omitempty" jsonschema:"description:Optional status filter,enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
+		}{Status: "active"}
 
 		result, err := listRecords(ctx, input)
 		s.Require().NoError(err)
 
 		s.Equal("success", result["status"])
-		s.Equal(2, result["count"])
-		s.Equal("personal", result["filter"])
+		s.Equal(1, result["count"])
+		s.Equal("active", result["filter"])
 
 		returnedRecords := result["records"].([]*Record)
-		s.Len(returnedRecords, 2)
-		s.Equal("personal1", returnedRecords[0].ID)
-		s.Equal("personal2", returnedRecords[1].ID)
+		s.Len(returnedRecords, 1)
+		s.Equal("active1", returnedRecords[0].ID)
 	})
 }
 
@@ -163,10 +162,10 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 				{
 					Action: "accept",
 					Content: map[string]any{
-						"id":       "user1",
-						"name":     "John Doe",
-						"email":    "john@example.com",
-						"category": "personal",
+						"id":     "user1",
+						"name":   "John Doe",
+						"email":  "john@example.com",
+						"status": "active",
 					},
 				},
 			},
@@ -180,7 +179,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 		s.Equal("user1", record.ID)
 		s.Equal("John Doe", record.Name)
 		s.Equal("john@example.com", record.Email)
-		s.Equal("personal", record.Category)
+		s.Equal("active", record.Status)
 
 		// Verify record was added to database
 		dbRecord, exists := database["user1"]
@@ -208,10 +207,10 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 				{
 					Action: "accept",
 					Content: map[string]any{
-						"id":       "user 1", // Invalid ID with space
-						"name":     "John Doe",
-						"email":    "john@example.com",
-						"category": "personal",
+						"id":     "user 1",
+						"name":   "John Doe",
+						"email":  "john@example.com",
+						"status": "active",
 					},
 				},
 			},
@@ -233,10 +232,10 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 				{
 					Action: "accept",
 					Content: map[string]any{
-						"id":       "existing",
-						"name":     "New User",
-						"email":    "new@example.com",
-						"category": "business",
+						"id":     "existing",
+						"name":   "New User",
+						"email":  "new@example.com",
+						"status": "inactive",
 					},
 				},
 			},
@@ -256,12 +255,12 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 	s.Run("ConfirmUpdate", func() {
 		// Setup test record for this specific test
 		testRecord := &Record{
-			ID:       "update1",
-			Name:     "Original Name",
-			Email:    "original@example.com",
-			Category: "personal",
-			Created:  time.Now().Add(-1 * time.Hour),
-			Updated:  time.Now().Add(-1 * time.Hour),
+			ID:      "update1",
+			Name:    "Original Name",
+			Email:   "original@example.com",
+			Status:  "active",
+			Created: time.Now().Add(-1 * time.Hour),
+			Updated: time.Now().Add(-1 * time.Hour),
 		}
 		database["update1"] = testRecord
 		mockCapability := &MockElicitationCapability{
@@ -276,14 +275,15 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 		}
 
 		input := struct {
-			ID       string `json:"id"                 jsonschema:"description:Record ID to update"`
-			Name     string `json:"name,omitempty"     jsonschema:"description:New name (optional)"`
-			Email    string `json:"email,omitempty"    jsonschema:"format:email,description:New email (optional)"`
-			Category string `json:"category,omitempty" jsonschema:"description:New category (optional),enum:,enum:personal,enum:business,enum:academic"`
+			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
+			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional)"`
+			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional)"`
+			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 		}{
-			ID:    "update1",
-			Name:  "Updated Name",
-			Email: "updated@example.com",
+			ID:     "update1",
+			Name:   "Updated Name",
+			Email:  "updated@example.com",
+			Status: "pending",
 		}
 
 		result, err := updateRecord(ctx, mockCapability, input)
@@ -293,23 +293,24 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 		record := result["record"].(*Record)
 		s.Equal("Updated Name", record.Name)
 		s.Equal("updated@example.com", record.Email)
-		s.Equal("personal", record.Category) // Unchanged
+		s.Equal("pending", record.Status)
 
 		changes := result["changes"].([]string)
-		s.Len(changes, 2)
+		s.Len(changes, 3)
 		s.Contains(changes[0], "Original Name")
 		s.Contains(changes[1], "updated@example.com")
+		s.Contains(changes[2], "pending")
 	})
 
 	s.Run("DeclineUpdate", func() {
 		// Setup test record for this specific test
 		testRecord := &Record{
-			ID:       "update1",
-			Name:     "Original Name",
-			Email:    "original@example.com",
-			Category: "personal",
-			Created:  time.Now().Add(-1 * time.Hour),
-			Updated:  time.Now().Add(-1 * time.Hour),
+			ID:      "update1",
+			Name:    "Original Name",
+			Email:   "original@example.com",
+			Status:  "active",
+			Created: time.Now().Add(-1 * time.Hour),
+			Updated: time.Now().Add(-1 * time.Hour),
 		}
 		database["update1"] = testRecord
 
@@ -320,10 +321,10 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 		}
 
 		input := struct {
-			ID       string `json:"id"                 jsonschema:"description:Record ID to update"`
-			Name     string `json:"name,omitempty"     jsonschema:"description:New name (optional)"`
-			Email    string `json:"email,omitempty"    jsonschema:"format:email,description:New email (optional)"`
-			Category string `json:"category,omitempty" jsonschema:"description:New category (optional),enum:,enum:personal,enum:business,enum:academic"`
+			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
+			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional)"`
+			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional)"`
+			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 		}{
 			ID:   "update1",
 			Name: "Should Not Change",
@@ -337,18 +338,18 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 
 		// Verify record wasn't changed
 		record := result["record"].(*Record)
-		s.Equal("Original Name", record.Name) // Should be unchanged
+		s.Equal("Original Name", record.Name)
 	})
 
 	s.Run("InvalidConfirmation", func() {
 		// Setup test record for this specific test
 		testRecord := &Record{
-			ID:       "update1",
-			Name:     "Original Name",
-			Email:    "original@example.com",
-			Category: "personal",
-			Created:  time.Now().Add(-1 * time.Hour),
-			Updated:  time.Now().Add(-1 * time.Hour),
+			ID:      "update1",
+			Name:    "Original Name",
+			Email:   "original@example.com",
+			Status:  "active",
+			Created: time.Now().Add(-1 * time.Hour),
+			Updated: time.Now().Add(-1 * time.Hour),
 		}
 		database["update1"] = testRecord
 
@@ -357,17 +358,17 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 				{
 					Action: "accept",
 					Content: map[string]any{
-						"confirm": "YES", // Wrong confirmation
+						"confirm": "YES",
 					},
 				},
 			},
 		}
 
 		input := struct {
-			ID       string `json:"id"                 jsonschema:"description:Record ID to update"`
-			Name     string `json:"name,omitempty"     jsonschema:"description:New name (optional)"`
-			Email    string `json:"email,omitempty"    jsonschema:"format:email,description:New email (optional)"`
-			Category string `json:"category,omitempty" jsonschema:"description:New category (optional),enum:,enum:personal,enum:business,enum:academic"`
+			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
+			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional)"`
+			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional)"`
+			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 		}{
 			ID:   "update1",
 			Name: "Should Not Change",
@@ -384,24 +385,23 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 	s.Run("NoChanges", func() {
 		// Setup test record for this specific test
 		testRecord := &Record{
-			ID:       "update1",
-			Name:     "Original Name",
-			Email:    "original@example.com",
-			Category: "personal",
-			Created:  time.Now().Add(-1 * time.Hour),
-			Updated:  time.Now().Add(-1 * time.Hour),
+			ID:      "update1",
+			Name:    "Original Name",
+			Email:   "original@example.com",
+			Status:  "active",
+			Created: time.Now().Add(-1 * time.Hour),
+			Updated: time.Now().Add(-1 * time.Hour),
 		}
 		database["update1"] = testRecord
 
 		mockCapability := &MockElicitationCapability{}
 		input := struct {
-			ID       string `json:"id"                 jsonschema:"description:Record ID to update"`
-			Name     string `json:"name,omitempty"     jsonschema:"description:New name (optional)"`
-			Email    string `json:"email,omitempty"    jsonschema:"format:email,description:New email (optional)"`
-			Category string `json:"category,omitempty" jsonschema:"description:New category (optional),enum:,enum:personal,enum:business,enum:academic"`
+			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
+			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional)"`
+			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional)"`
+			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 		}{
 			ID: "update1",
-			// No changes provided
 		}
 
 		result, err := updateRecord(ctx, mockCapability, input)
@@ -413,10 +413,10 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 	s.Run("RecordNotFound", func() {
 		mockCapability := &MockElicitationCapability{}
 		input := struct {
-			ID       string `json:"id"                 jsonschema:"description:Record ID to update"`
-			Name     string `json:"name,omitempty"     jsonschema:"description:New name (optional)"`
-			Email    string `json:"email,omitempty"    jsonschema:"format:email,description:New email (optional)"`
-			Category string `json:"category,omitempty" jsonschema:"description:New category (optional),enum:,enum:personal,enum:business,enum:academic"`
+			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
+			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional)"`
+			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional)"`
+			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 		}{
 			ID:   "nonexistent",
 			Name: "New Name",
@@ -435,12 +435,12 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 
 	// Setup test record
 	testRecord := &Record{
-		ID:       "delete1",
-		Name:     "To Be Deleted",
-		Email:    "delete@example.com",
-		Category: "business",
-		Created:  time.Now(),
-		Updated:  time.Now(),
+		ID:      "delete1",
+		Name:    "To Be Deleted",
+		Email:   "delete@example.com",
+		Status:  "inactive",
+		Created: time.Now(),
+		Updated: time.Now(),
 	}
 	database["delete1"] = testRecord
 
@@ -450,7 +450,7 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 				{
 					Action: "accept",
 					Content: map[string]any{
-						"confirm": "delete1", // Correct ID
+						"confirm": "delete1",
 					},
 				},
 			},
@@ -504,7 +504,7 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 				{
 					Action: "accept",
 					Content: map[string]any{
-						"confirm": "wrong_id", // Wrong ID
+						"confirm": "wrong_id",
 					},
 				},
 			},
@@ -550,9 +550,9 @@ func (s *DatabaseTestSuite) TestDatabaseReport() {
 
 	// Add some test data
 	records := []*Record{
-		{ID: "p1", Name: "Personal 1", Category: "personal", Created: time.Now().Add(-2 * time.Hour)},
-		{ID: "b1", Name: "Business 1", Category: "business", Created: time.Now().Add(-1 * time.Hour)},
-		{ID: "p2", Name: "Personal 2", Category: "personal", Created: time.Now()},
+		{ID: "a1", Name: "Active 1", Status: "active", Created: time.Now().Add(-2 * time.Hour)},
+		{ID: "i1", Name: "Inactive 1", Status: "inactive", Created: time.Now().Add(-1 * time.Hour)},
+		{ID: "p1", Name: "Pending 1", Status: "pending", Created: time.Now()},
 	}
 	for _, record := range records {
 		record.Updated = record.Created
@@ -566,7 +566,7 @@ func (s *DatabaseTestSuite) TestDatabaseReport() {
 					Action: "accept",
 					Content: map[string]any{
 						"format":       "detailed",
-						"category":     "personal",
+						"status":       "active",
 						"sortBy":       "name",
 						"includeStats": true,
 					},
@@ -585,13 +585,13 @@ func (s *DatabaseTestSuite) TestDatabaseReport() {
 		s.Equal("system", systemMsg.Role)
 		s.Contains(systemMsg.Content, "detailed")
 		s.Contains(systemMsg.Content, "Total records: 3")
-		s.Contains(systemMsg.Content, "personal")
+		s.Contains(systemMsg.Content, "active")
 		s.Contains(systemMsg.Content, "Sort results by: name")
 
 		userMsg := result.Messages[1]
 		s.Equal("user", userMsg.Role)
 		s.Contains(userMsg.Content, "detailed database report")
-		s.Contains(userMsg.Content, "personal records")
+		s.Contains(userMsg.Content, "active records")
 	})
 
 	s.Run("DeclineReportPreferences", func() {
@@ -604,12 +604,12 @@ func (s *DatabaseTestSuite) TestDatabaseReport() {
 		result, err := databaseReport(ctx, mockCapability, map[string]any{})
 		s.Require().NoError(err)
 
-		s.Contains(result.Description, "summary") // Default format
+		s.Contains(result.Description, "summary")
 		s.Require().Len(result.Messages, 2)
 
 		systemMsg := result.Messages[0]
-		s.Contains(systemMsg.Content, "summary")                  // Default format
-		s.Contains(systemMsg.Content, "Sort results by: created") // Default sort
+		s.Contains(systemMsg.Content, "summary")
+		s.Contains(systemMsg.Content, "Sort results by: created")
 	})
 }
 
@@ -620,7 +620,7 @@ func (s *DatabaseTestSuite) TestServerCreation() {
 			mcpio.WithName("database-server"),
 			mcpio.WithVersion("1.0.0"),
 			mcpio.WithTool("read_record", "Get a record by ID", readRecord),
-			mcpio.WithTool("list_records", "List all records with optional category filter", listRecords),
+			mcpio.WithTool("list_records", "List all records with optional status filter", listRecords),
 			mcpio.WithSessionTool("create_record", "Create a new record with elicited data", createRecord),
 			mcpio.WithSessionTool("update_record", "Update a record with change confirmation", updateRecord),
 			mcpio.WithSessionTool("delete_record", "Delete a record with confirmation", deleteRecord),

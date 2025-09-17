@@ -133,7 +133,7 @@ type Record struct {
     ID       string    `json:"id" jsonschema:"description:Unique identifier"`
     Name     string    `json:"name" jsonschema:"description:Display name"`
     Email    string    `json:"email" jsonschema:"format:email,description:Email address"`
-    Category string    `json:"category" jsonschema:"description:Record category,enum:personal,enum:business,enum:academic"`
+    Status   string    `json:"status" jsonschema:"description:Record status,enum:active,enum:inactive,enum:pending,enum:archived"`
     Created  time.Time `json:"created" jsonschema:"description:Creation timestamp"`
     Updated  time.Time `json:"updated" jsonschema:"description:Last update timestamp"`
 }
@@ -143,7 +143,7 @@ type Record struct {
 
 ### Standard Tools (No Elicitation)
 - **read_record**: Get a record by ID
-- **list_records**: List all records with optional category filter
+- **list_records**: List all records with optional status filter
 
 ### Elicitation-Enhanced Tools
 - **create_record**: Gathers structured record data using typed elicitation
@@ -151,7 +151,7 @@ type Record struct {
 - **delete_record**: Requires typing the record ID to confirm deletion
 
 ### Interactive Prompts
-- **database_report**: Elicits report preferences (format, category, sorting) before generating analysis prompts
+- **database_report**: Elicits report preferences (format, status, sorting) before generating analysis prompts
 
 ## Confirmation Examples
 
