@@ -39,7 +39,6 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut]) O
 			return ErrEmptyToolName
 		}
 
-		// Simple nil check - if tools wasn't initialized, this handler doesn't support tools
 		if cfg.tools == nil {
 			return ErrIncompatibleHandler
 		}
@@ -71,7 +70,6 @@ func WithRawTool(name, description string, inputSchema *jsonschema.Schema, fn Ra
 			return ErrNilSchema
 		}
 
-		// Simple nil check - if tools wasn't initialized, this handler doesn't support tools
 		if cfg.tools == nil {
 			return ErrIncompatibleHandler
 		}
@@ -100,7 +98,6 @@ func WithPrompt(name, description string, fn PromptFunc) Option {
 			return ErrEmptyPromptName
 		}
 
-		// Simple nil check - if prompts wasn't initialized, this handler doesn't support prompts
 		if cfg.prompts == nil {
 			return ErrIncompatibleHandler
 		}
@@ -126,7 +123,6 @@ func WithPromptWithArgs(name, description string, args []*mcp.PromptArgument, fn
 			return ErrEmptyPromptName
 		}
 
-		// Simple nil check - if prompts wasn't initialized, this handler doesn't support prompts
 		if cfg.prompts == nil {
 			return ErrIncompatibleHandler
 		}
@@ -180,7 +176,6 @@ func WithTypedPrompt[TArgs any](name, description string, fn TypedPromptFunc[TAr
 			return ErrEmptyPromptName
 		}
 
-		// Simple nil check - if prompts wasn't initialized, this handler doesn't support prompts
 		if cfg.prompts == nil {
 			return ErrIncompatibleHandler
 		}
@@ -216,7 +211,6 @@ func WithResource(uri, description string, fn ResourceFunc) Option {
 			return ErrEmptyResourceURI
 		}
 
-		// Simple nil check - if resources wasn't initialized, this handler doesn't support resources
 		if cfg.resources == nil {
 			return ErrIncompatibleHandler
 		}
@@ -243,7 +237,6 @@ func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Opti
 			return ErrEmptyResourceTemplate
 		}
 
-		// Simple nil check - if resourceTemplates wasn't initialized, this handler doesn't support resource templates
 		if cfg.resourceTemplates == nil {
 			return ErrIncompatibleHandler
 		}
