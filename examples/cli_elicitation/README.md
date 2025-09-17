@@ -1,58 +1,69 @@
-# Basic Elicitation Example
+# Database with Elicitation Example
 
-A simple MCP server that introduces elicitation capabilities - the ability for servers to request additional information from users through the MCP client during runtime. This example shows how session-aware tools can gather user input using typed schemas and handle user acceptance/rejection responses. For more complex multi-step workflows, see the http_multistep example.
+A practical in-memory database MCP server that demonstrates elicitation - the ability for servers to pause tool execution and request additional information from users through the MCP client. This example provides a complete CRUD database with both standard operations and elicitation-enhanced operations, showing when and how to use elicitation for user confirmations and data gathering. For more complex multi-step workflows, see the http_multistep example.
 
 ## MCP Elicitation Flow
 
 ```
-┌─────────────────┐    1. tools/list           ┌──────────────────┐
-│   MCP Client    │ ─────────────────────────> │ cli_elicitation  │
-│                 │ ◄───────────────────────── │                  │
-│                 │    Available Tools         │                  │
-└─────────────────┘    [                       └──────────────────┘
-         │               "setup_application"
-         │             ]
-         │
-         │  2. tools/call("setup_application", {})
-         v
-┌─────────────────┐                            ┌──────────────────┐
-│   MCP Client    │ ─────────────────────────> │ cli_elicitation  │
-│                 │ ◄───────────────────────── │                  │
-│                 │   Elicitation Request      │                  │
-└─────────────────┘                            └──────────────────┘
-         │            {
-         │              message: "Please provide your application configuration:",
-         │              requestedSchema: { UserConfig schema }
-         │            }
-         │
-         │  3. Server requests user input
-         v
-┌─────────────────┐                            ┌──────────────────┐
-│     User        │ ◄─ Configuration Form ──── │   MCP Client     │
-│   Interface     │ ── Filled Form ──────────> │                  │
-└─────────────────┘                            └──────────────────┘
-         │                                               │
-         │  4. Client sends elicitation response         │
-         v                                               v
-┌─────────────────┐                            ┌──────────────────┐
-│   MCP Client    │ ─────────────────────────> │ cli_elicitation  │
-│                 │ ◄───────────────────────── │                  │
-│                 │   Final Tool Result        │                  │
-└─────────────────┘                            └──────────────────┘
-         │            {
-         │              status: "configured",
-         │              config: { user data }
-         │            }
-         │
-         │  5. Client uses result in LLM context
-         v
+1. Client calls a server tool.
+2. Server realizes it needs more input → issues an elicitation request.
+3. Client prompts the user and validates their response.
+4. Client returns the elicited input to the server.
+5. Server resumes and completes the tool call.
+
+┌─────────────────┐     1. tools/call("create_record", {})
+│   MCP Client    │ ────────────────────────────────┐
+└─────────────────┘                                 │
+                                                    v
+                                           ┌──────────────────┐
+                                           │ MCP Server       │
+                                           │ (cli_elicitation)│
+                                           └──────────────────┘
+                                                    │
+                        2. elicitation/create       │
+                        {                           │
+                          message: "Please provide the details for the new record:",
+                          requestedSchema: { Record schema }
+                        }                           │
+┌─────────────────┐                                 │
+│   MCP Client    │ ◄───────────────────────────────┘
+└─────────────────┘
+        │
+        │   3. Prompt user for input
+        v
 ┌─────────────────┐
-│ Application     │ ──> "Successfully configured application with
-│ Response        │     name: John, environment: production, port: 8080"
+│      User       │
+└─────────────────┘
+        │
+        │   4. Filled form / response
+        v
+┌─────────────────┐     5. elicitation response
+│   MCP Client    │ ───────────────────────────────┐
+└─────────────────┘     {                          │
+                          action: "accept",        │
+                          content: { record data } │
+                        }                          v
+                                           ┌──────────────────┐
+                                           │ MCP Server       │
+                                           │ (cli_elicitation)│
+                                           └──────────────────┘
+                                                   │
+                        6. tools/call result       │
+                        {                          │
+                          status: "created",       │
+                          record: { record data }  │
+                        }                          │
+┌─────────────────┐                                │
+│   MCP Client    │ ◄──────────────────────────────┘
 └─────────────────┘
 ```
 
-**Key Point**: MCP elicitation enables servers to dynamically request information from users during tool execution. Unlike tools (which are called by clients) or resources (which provide static data), elicitation allows servers to initiate interactive dialogs with users. The client maintains full control over user interaction and can decline, cancel, or modify elicitation requests.
+**Key Point**: MCP elicitation enables servers to pause tool execution and request additional information from users through the MCP client. The server initiates the elicitation request during tool execution, the client mediates by prompting the user, and the server resumes processing once the response is received. The client maintains full control over user interaction and can accept, decline, or cancel elicitation requests.
+
+**Responsibilities**:
+- **Server**: Defines when and what additional input is needed during tool execution
+- **Client**: Mediates the request, owns the UI/UX, validates against schema, lets the user accept/decline/cancel
+- **User**: Provides structured input when prompted by the client
 
 **Security Note**: This example includes warnings about sensitive data - elicitation should never be used for passwords, API keys, or other secrets in production environments. It's designed for configuration data, preferences, and other non-sensitive user input.
 
@@ -60,13 +71,18 @@ For more details on MCP elicitation, see the [official MCP specification](https:
 
 ## Features Demonstrated
 
-**Typed Schemas**: Uses `ElicitTyped[T]()` for automatic JSON schema generation from Go structs, similar to typed tools.
+**Complete Database**: Fully functional in-memory database with CRUD operations that works with Claude Desktop.
 
-**Response Handling**: Shows proper handling of "accept", "decline", and "cancel" actions from users.
+**Mixed Tool Types**: Demonstrates both standard tools (read_record, list_records) and elicitation-enhanced tools (create_record, update_record, delete_record).
 
-**Interactive Prompts**: The `interactive_document` prompt shows how elicitation can be used within prompt generation to gather requirements dynamically.
+**Typed Schemas**: Uses `ElicitTyped[T]()` for automatic JSON schema generation from Go structs for structured data input.
 
-**Session-Aware Architecture**: Uses `WithSessionTool` and `WithSessionPrompt` to provide elicitation capabilities to handlers.
+**Confirmation Patterns**: Shows different confirmation patterns:
+- **create_record**: Elicits structured data using typed schemas
+- **update_record**: Shows changes and requires "UPDATE" confirmation
+- **delete_record**: Requires typing the record ID for critical operations
+
+**Interactive Prompts**: The `database_report` prompt elicits report preferences before generating analysis prompts.
 
 ## Running
 
@@ -87,14 +103,20 @@ mcp tools ./bin/cli-elicitation
 # List available prompts (works)
 mcp prompts ./bin/cli-elicitation
 
+# Test standard tools (works)
+mcp call read_record --params '{"id":"test1"}' ./bin/cli-elicitation
+mcp call list_records --params '{}' ./bin/cli-elicitation
+
 # Get a prompt template (works)
-mcp get-prompt interactive_document --params '{"document_type":"proposal"}' ./bin/cli-elicitation
+mcp get-prompt database_report --params '{}' ./bin/cli-elicitation
 ```
 
 ### What you CANNOT test with mcp CLI:
 ```bash
-# This will fail - elicitation requires session support
-mcp call setup_application --params '{}' ./bin/cli-elicitation
+# These will fail - elicitation requires session support
+mcp call create_record --params '{}' ./bin/cli-elicitation
+mcp call update_record --params '{"id":"test1","name":"New Name"}' ./bin/cli-elicitation
+mcp call delete_record --params '{"id":"test1"}' ./bin/cli-elicitation
 ```
 
 ### To test elicitation features:
@@ -102,16 +124,69 @@ mcp call setup_application --params '{}' ./bin/cli-elicitation
 - Write integration tests with mock elicitation handlers
 - Use the HTTP version with a custom client that handles elicitation requests
 
-## Example Schema
+## Database Schema
 
-The example uses a simple schema for basic application configuration:
+The example uses a structured record schema for the in-memory database:
 
 ```go
-type UserConfig struct {
-    Name        string `json:"name" jsonschema:"description=Your name"`
-    Email       string `json:"email" jsonschema:"format=email,description=Your email address"`
-    Environment string `json:"environment" jsonschema:"description=Target environment,enum=development,enum=staging,enum=production"`
+type Record struct {
+    ID       string    `json:"id" jsonschema:"description:Unique identifier"`
+    Name     string    `json:"name" jsonschema:"description:Display name"`
+    Email    string    `json:"email" jsonschema:"format:email,description:Email address"`
+    Category string    `json:"category" jsonschema:"description:Record category,enum:personal,enum:business,enum:academic"`
+    Created  time.Time `json:"created" jsonschema:"description:Creation timestamp"`
+    Updated  time.Time `json:"updated" jsonschema:"description:Last update timestamp"`
 }
 ```
 
-This schema is automatically converted to JSON schema that MCP clients use to create appropriate user interfaces with dropdowns for enums, format validation, and helpful field descriptions.
+## Operations
+
+### Standard Tools (No Elicitation)
+- **read_record**: Get a record by ID
+- **list_records**: List all records with optional category filter
+
+### Elicitation-Enhanced Tools
+- **create_record**: Gathers structured record data using typed elicitation
+- **update_record**: Shows changes and requires "UPDATE" confirmation
+- **delete_record**: Requires typing the record ID to confirm deletion
+
+### Interactive Prompts
+- **database_report**: Elicits report preferences (format, category, sorting) before generating analysis prompts
+
+## Confirmation Examples
+
+### Structured Data Elicitation
+```go
+// Elicit structured record data
+result, err := mcpio.ElicitTypedResult[RecordData](ctx, capability,
+    "Please provide the details for the new record:")
+if err != nil {
+    return nil, err
+}
+
+if result.IsAccepted() {
+    var recordData RecordData
+    if err := result.DecodeContent(&recordData); err != nil {
+        return nil, err
+    }
+    // Use the structured data...
+}
+```
+
+### Critical Operation Confirmation
+```go
+// Require typing record ID to confirm deletion
+result, err := mcpio.ElicitSimple(ctx, capability,
+    fmt.Sprintf("Delete record '%s'? This cannot be undone.", recordID),
+    "confirm", fmt.Sprintf("Type '%s' to confirm deletion", recordID))
+
+if result.IsAccepted() {
+    if confirmation := result.GetContent()["confirm"].(string); confirmation == recordID {
+        // Proceed with deletion
+    } else {
+        return map[string]any{"status": "cancelled", "reason": "confirmation mismatch"}, nil
+    }
+}
+```
+
+These patterns ensure safe database operations while demonstrating various elicitation techniques.

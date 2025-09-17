@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -28,12 +29,12 @@ func (m *MockElicitationCapability) Elicit(ctx context.Context, message string, 
 	return result, nil
 }
 
-// CliElicitationTestSuite tests the cli_elicitation example
-type CliElicitationTestSuite struct {
+// DatabaseTestSuite tests the database elicitation example
+type DatabaseTestSuite struct {
 	testutil.ExampleTestSuite
 }
 
-func (s *CliElicitationTestSuite) SetupSuite() {
+func (s *DatabaseTestSuite) SetupSuite() {
 	// Get project root - we're in examples/cli_elicitation
 	_, b, _, _ := runtime.Caller(0)
 	exampleDir := filepath.Dir(b)
@@ -44,151 +45,586 @@ func (s *CliElicitationTestSuite) SetupSuite() {
 	s.ExampleTestSuite.SetupSuite()
 }
 
-func TestCliElicitationSuite(t *testing.T) {
-	suite.Run(t, new(CliElicitationTestSuite))
+func (s *DatabaseTestSuite) SetupTest() {
+	// Clear database before each test
+	dbMutex.Lock()
+	database = make(map[string]*Record)
+	dbMutex.Unlock()
 }
 
-func (s *CliElicitationTestSuite) TestSetupApplication() {
+func TestDatabaseSuite(t *testing.T) {
+	suite.Run(t, new(DatabaseTestSuite))
+}
+
+// Test standard database operations (no elicitation)
+
+func (s *DatabaseTestSuite) TestReadRecord() {
 	ctx := s.T().Context()
 
-	// Test accepting configuration
-	s.Run("AcceptConfiguration", func() {
+	// Add a test record
+	testRecord := &Record{
+		ID:       "test1",
+		Name:     "Test User",
+		Email:    "test@example.com",
+		Category: "personal",
+		Created:  time.Now(),
+		Updated:  time.Now(),
+	}
+	database["test1"] = testRecord
+
+	s.Run("RecordExists", func() {
+		input := struct {
+			ID string `json:"id" jsonschema:"description:Record ID to retrieve"`
+		}{ID: "test1"}
+
+		result, err := readRecord(ctx, input)
+		s.Require().NoError(err)
+
+		s.Equal("found", result["status"])
+		record := result["record"].(*Record)
+		s.Equal("test1", record.ID)
+		s.Equal("Test User", record.Name)
+	})
+
+	s.Run("RecordNotFound", func() {
+		input := struct {
+			ID string `json:"id" jsonschema:"description:Record ID to retrieve"`
+		}{ID: "nonexistent"}
+
+		result, err := readRecord(ctx, input)
+		s.Require().NoError(err)
+
+		s.Equal("not_found", result["status"])
+		s.Equal("nonexistent", result["id"])
+	})
+}
+
+func (s *DatabaseTestSuite) TestListRecords() {
+	ctx := s.T().Context()
+
+	// Add test records
+	records := []*Record{
+		{ID: "personal1", Name: "John", Category: "personal", Created: time.Now().Add(-2 * time.Hour)},
+		{ID: "business1", Name: "Company A", Category: "business", Created: time.Now().Add(-1 * time.Hour)},
+		{ID: "personal2", Name: "Jane", Category: "personal", Created: time.Now()},
+	}
+	for _, record := range records {
+		record.Updated = record.Created
+		database[record.ID] = record
+	}
+
+	s.Run("AllRecords", func() {
+		input := struct {
+			Category string `json:"category,omitempty" jsonschema:"description:Optional category filter,enum:,enum:personal,enum:business,enum:academic"`
+		}{}
+
+		result, err := listRecords(ctx, input)
+		s.Require().NoError(err)
+
+		s.Equal("success", result["status"])
+		s.Equal(3, result["count"])
+		s.Empty(result["filter"])
+
+		returnedRecords := result["records"].([]*Record)
+		s.Len(returnedRecords, 3)
+		// Should be sorted by creation time
+		s.Equal("personal1", returnedRecords[0].ID)
+		s.Equal("business1", returnedRecords[1].ID)
+		s.Equal("personal2", returnedRecords[2].ID)
+	})
+
+	s.Run("FilteredByCategory", func() {
+		input := struct {
+			Category string `json:"category,omitempty" jsonschema:"description:Optional category filter,enum:,enum:personal,enum:business,enum:academic"`
+		}{Category: "personal"}
+
+		result, err := listRecords(ctx, input)
+		s.Require().NoError(err)
+
+		s.Equal("success", result["status"])
+		s.Equal(2, result["count"])
+		s.Equal("personal", result["filter"])
+
+		returnedRecords := result["records"].([]*Record)
+		s.Len(returnedRecords, 2)
+		s.Equal("personal1", returnedRecords[0].ID)
+		s.Equal("personal2", returnedRecords[1].ID)
+	})
+}
+
+// Test elicitation-based operations
+
+func (s *DatabaseTestSuite) TestCreateRecord() {
+	ctx := s.T().Context()
+
+	s.Run("AcceptRecordData", func() {
 		mockCapability := &MockElicitationCapability{
 			Responses: []*mcp.ElicitResult{
 				{
 					Action: "accept",
 					Content: map[string]any{
-						"name":        "John Doe",
-						"email":       "john@example.com",
-						"environment": "development",
+						"id":       "user1",
+						"name":     "John Doe",
+						"email":    "john@example.com",
+						"category": "personal",
 					},
 				},
 			},
 		}
 
-		result, err := setupApplication(ctx, mockCapability, struct{}{})
+		result, err := createRecord(ctx, mockCapability, struct{}{})
 		s.Require().NoError(err)
 
-		s.Equal("configured", result["status"])
-		s.Contains(result["message"], "development")
+		s.Equal("created", result["status"])
+		record := result["record"].(*Record)
+		s.Equal("user1", record.ID)
+		s.Equal("John Doe", record.Name)
+		s.Equal("john@example.com", record.Email)
+		s.Equal("personal", record.Category)
 
-		config := result["config"].(map[string]any)
-		s.Equal("John Doe", config["name"])
-		s.Equal("john@example.com", config["email"])
-		s.Equal("development", config["environment"])
+		// Verify record was added to database
+		dbRecord, exists := database["user1"]
+		s.True(exists)
+		s.Equal("John Doe", dbRecord.Name)
 	})
 
-	s.Run("DeclineConfiguration", func() {
+	s.Run("DeclineRecordData", func() {
 		mockCapability := &MockElicitationCapability{
 			Responses: []*mcp.ElicitResult{
 				{Action: "decline"},
 			},
 		}
 
-		result, err := setupApplication(ctx, mockCapability, struct{}{})
+		result, err := createRecord(ctx, mockCapability, struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("cancelled", result["status"])
 		s.Contains(result["reason"], "decline")
 	})
 
-	s.Run("CancelConfiguration", func() {
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{Action: "cancel"},
-			},
-		}
-
-		result, err := setupApplication(ctx, mockCapability, struct{}{})
-		s.Require().NoError(err)
-
-		s.Equal("cancelled", result["status"])
-		s.Contains(result["reason"], "cancel")
-	})
-}
-
-func (s *CliElicitationTestSuite) TestInteractivePrompt() {
-	ctx := s.T().Context()
-
-	s.Run("AcceptRequirements", func() {
+	s.Run("InvalidIDWithSpaces", func() {
 		mockCapability := &MockElicitationCapability{
 			Responses: []*mcp.ElicitResult{
 				{
 					Action: "accept",
 					Content: map[string]any{
-						"requirements": "Must include error handling and logging",
+						"id":       "user 1", // Invalid ID with space
+						"name":     "John Doe",
+						"email":    "john@example.com",
+						"category": "personal",
 					},
 				},
 			},
 		}
 
-		result, err := interactivePrompt(ctx, mockCapability, map[string]any{"document_type": "API guide"})
+		result, err := createRecord(ctx, mockCapability, struct{}{})
 		s.Require().NoError(err)
 
-		s.Contains(result.Description, "API guide")
-		s.Require().Len(result.Messages, 2)
-
-		// Check system message includes requirements
-		systemMsg := result.Messages[0]
-		s.Equal("system", systemMsg.Role)
-		s.Contains(systemMsg.Content, "error handling and logging")
-
-		// Check user message
-		userMsg := result.Messages[1]
-		s.Equal("user", userMsg.Role)
-		s.Contains(userMsg.Content, "API guide")
+		s.Equal("error", result["status"])
+		s.Contains(result["reason"], "spaces")
 	})
 
-	s.Run("DeclineRequirements", func() {
+	s.Run("DuplicateID", func() {
+		// Add existing record
+		database["existing"] = &Record{ID: "existing", Name: "Existing User"}
+
+		mockCapability := &MockElicitationCapability{
+			Responses: []*mcp.ElicitResult{
+				{
+					Action: "accept",
+					Content: map[string]any{
+						"id":       "existing",
+						"name":     "New User",
+						"email":    "new@example.com",
+						"category": "business",
+					},
+				},
+			},
+		}
+
+		result, err := createRecord(ctx, mockCapability, struct{}{})
+		s.Require().NoError(err)
+
+		s.Equal("error", result["status"])
+		s.Contains(result["reason"], "already exists")
+	})
+}
+
+func (s *DatabaseTestSuite) TestUpdateRecord() {
+	ctx := s.T().Context()
+
+	s.Run("ConfirmUpdate", func() {
+		// Setup test record for this specific test
+		testRecord := &Record{
+			ID:       "update1",
+			Name:     "Original Name",
+			Email:    "original@example.com",
+			Category: "personal",
+			Created:  time.Now().Add(-1 * time.Hour),
+			Updated:  time.Now().Add(-1 * time.Hour),
+		}
+		database["update1"] = testRecord
+		mockCapability := &MockElicitationCapability{
+			Responses: []*mcp.ElicitResult{
+				{
+					Action: "accept",
+					Content: map[string]any{
+						"confirm": "UPDATE",
+					},
+				},
+			},
+		}
+
+		input := struct {
+			ID       string `json:"id"                 jsonschema:"description:Record ID to update"`
+			Name     string `json:"name,omitempty"     jsonschema:"description:New name (optional)"`
+			Email    string `json:"email,omitempty"    jsonschema:"format:email,description:New email (optional)"`
+			Category string `json:"category,omitempty" jsonschema:"description:New category (optional),enum:,enum:personal,enum:business,enum:academic"`
+		}{
+			ID:    "update1",
+			Name:  "Updated Name",
+			Email: "updated@example.com",
+		}
+
+		result, err := updateRecord(ctx, mockCapability, input)
+		s.Require().NoError(err)
+
+		s.Equal("updated", result["status"])
+		record := result["record"].(*Record)
+		s.Equal("Updated Name", record.Name)
+		s.Equal("updated@example.com", record.Email)
+		s.Equal("personal", record.Category) // Unchanged
+
+		changes := result["changes"].([]string)
+		s.Len(changes, 2)
+		s.Contains(changes[0], "Original Name")
+		s.Contains(changes[1], "updated@example.com")
+	})
+
+	s.Run("DeclineUpdate", func() {
+		// Setup test record for this specific test
+		testRecord := &Record{
+			ID:       "update1",
+			Name:     "Original Name",
+			Email:    "original@example.com",
+			Category: "personal",
+			Created:  time.Now().Add(-1 * time.Hour),
+			Updated:  time.Now().Add(-1 * time.Hour),
+		}
+		database["update1"] = testRecord
+
 		mockCapability := &MockElicitationCapability{
 			Responses: []*mcp.ElicitResult{
 				{Action: "decline"},
 			},
 		}
 
-		result, err := interactivePrompt(ctx, mockCapability, map[string]any{"document_type": "report"})
+		input := struct {
+			ID       string `json:"id"                 jsonschema:"description:Record ID to update"`
+			Name     string `json:"name,omitempty"     jsonschema:"description:New name (optional)"`
+			Email    string `json:"email,omitempty"    jsonschema:"format:email,description:New email (optional)"`
+			Category string `json:"category,omitempty" jsonschema:"description:New category (optional),enum:,enum:personal,enum:business,enum:academic"`
+		}{
+			ID:   "update1",
+			Name: "Should Not Change",
+		}
+
+		result, err := updateRecord(ctx, mockCapability, input)
 		s.Require().NoError(err)
 
-		s.Contains(result.Description, "report")
-		s.Require().Len(result.Messages, 2)
+		s.Equal("cancelled", result["status"])
+		s.Contains(result["reason"], "decline")
 
-		// Check system message uses default requirements
-		systemMsg := result.Messages[0]
-		s.Equal("system", systemMsg.Role)
-		s.Contains(systemMsg.Content, "No specific requirements provided")
+		// Verify record wasn't changed
+		record := result["record"].(*Record)
+		s.Equal("Original Name", record.Name) // Should be unchanged
 	})
 
-	s.Run("DefaultDocumentType", func() {
+	s.Run("InvalidConfirmation", func() {
+		// Setup test record for this specific test
+		testRecord := &Record{
+			ID:       "update1",
+			Name:     "Original Name",
+			Email:    "original@example.com",
+			Category: "personal",
+			Created:  time.Now().Add(-1 * time.Hour),
+			Updated:  time.Now().Add(-1 * time.Hour),
+		}
+		database["update1"] = testRecord
+
 		mockCapability := &MockElicitationCapability{
 			Responses: []*mcp.ElicitResult{
 				{
 					Action: "accept",
 					Content: map[string]any{
-						"requirements": "Keep it simple and concise",
+						"confirm": "YES", // Wrong confirmation
 					},
 				},
 			},
 		}
 
-		// Test with no document_type specified
-		result, err := interactivePrompt(ctx, mockCapability, map[string]any{})
+		input := struct {
+			ID       string `json:"id"                 jsonschema:"description:Record ID to update"`
+			Name     string `json:"name,omitempty"     jsonschema:"description:New name (optional)"`
+			Email    string `json:"email,omitempty"    jsonschema:"format:email,description:New email (optional)"`
+			Category string `json:"category,omitempty" jsonschema:"description:New category (optional),enum:,enum:personal,enum:business,enum:academic"`
+		}{
+			ID:   "update1",
+			Name: "Should Not Change",
+		}
+
+		result, err := updateRecord(ctx, mockCapability, input)
 		s.Require().NoError(err)
 
-		s.Contains(result.Description, "general")
-		systemMsg := result.Messages[0]
-		s.Contains(systemMsg.Content, "general")
-		s.Contains(systemMsg.Content, "Keep it simple and concise")
+		s.Equal("cancelled", result["status"])
+		s.Contains(result["reason"], "Invalid confirmation")
+		s.Contains(result["reason"], "Expected 'UPDATE', got 'YES'")
+	})
+
+	s.Run("NoChanges", func() {
+		// Setup test record for this specific test
+		testRecord := &Record{
+			ID:       "update1",
+			Name:     "Original Name",
+			Email:    "original@example.com",
+			Category: "personal",
+			Created:  time.Now().Add(-1 * time.Hour),
+			Updated:  time.Now().Add(-1 * time.Hour),
+		}
+		database["update1"] = testRecord
+
+		mockCapability := &MockElicitationCapability{}
+		input := struct {
+			ID       string `json:"id"                 jsonschema:"description:Record ID to update"`
+			Name     string `json:"name,omitempty"     jsonschema:"description:New name (optional)"`
+			Email    string `json:"email,omitempty"    jsonschema:"format:email,description:New email (optional)"`
+			Category string `json:"category,omitempty" jsonschema:"description:New category (optional),enum:,enum:personal,enum:business,enum:academic"`
+		}{
+			ID: "update1",
+			// No changes provided
+		}
+
+		result, err := updateRecord(ctx, mockCapability, input)
+		s.Require().NoError(err)
+
+		s.Equal("no_changes", result["status"])
+	})
+
+	s.Run("RecordNotFound", func() {
+		mockCapability := &MockElicitationCapability{}
+		input := struct {
+			ID       string `json:"id"                 jsonschema:"description:Record ID to update"`
+			Name     string `json:"name,omitempty"     jsonschema:"description:New name (optional)"`
+			Email    string `json:"email,omitempty"    jsonschema:"format:email,description:New email (optional)"`
+			Category string `json:"category,omitempty" jsonschema:"description:New category (optional),enum:,enum:personal,enum:business,enum:academic"`
+		}{
+			ID:   "nonexistent",
+			Name: "New Name",
+		}
+
+		result, err := updateRecord(ctx, mockCapability, input)
+		s.Require().NoError(err)
+
+		s.Equal("not_found", result["status"])
+		s.Equal("nonexistent", result["id"])
 	})
 }
 
-func (s *CliElicitationTestSuite) TestServerCreation() {
-	// Test that we can create the server (session-aware tools require special handling)
+func (s *DatabaseTestSuite) TestDeleteRecord() {
+	ctx := s.T().Context()
+
+	// Setup test record
+	testRecord := &Record{
+		ID:       "delete1",
+		Name:     "To Be Deleted",
+		Email:    "delete@example.com",
+		Category: "business",
+		Created:  time.Now(),
+		Updated:  time.Now(),
+	}
+	database["delete1"] = testRecord
+
+	s.Run("ConfirmDeletion", func() {
+		mockCapability := &MockElicitationCapability{
+			Responses: []*mcp.ElicitResult{
+				{
+					Action: "accept",
+					Content: map[string]any{
+						"confirm": "delete1", // Correct ID
+					},
+				},
+			},
+		}
+
+		input := struct {
+			ID string `json:"id" jsonschema:"description:Record ID to delete"`
+		}{ID: "delete1"}
+
+		result, err := deleteRecord(ctx, mockCapability, input)
+		s.Require().NoError(err)
+
+		s.Equal("deleted", result["status"])
+		deletedRecord := result["deleted_record"].(*Record)
+		s.Equal("delete1", deletedRecord.ID)
+		s.Equal("To Be Deleted", deletedRecord.Name)
+
+		// Verify record was removed from database
+		_, exists := database["delete1"]
+		s.False(exists)
+	})
+
+	s.Run("DeclineDeletion", func() {
+		// Re-add the record for this test
+		database["delete1"] = testRecord
+
+		mockCapability := &MockElicitationCapability{
+			Responses: []*mcp.ElicitResult{
+				{Action: "decline"},
+			},
+		}
+
+		input := struct {
+			ID string `json:"id" jsonschema:"description:Record ID to delete"`
+		}{ID: "delete1"}
+
+		result, err := deleteRecord(ctx, mockCapability, input)
+		s.Require().NoError(err)
+
+		s.Equal("cancelled", result["status"])
+		s.Contains(result["reason"], "decline")
+
+		// Verify record still exists
+		_, exists := database["delete1"]
+		s.True(exists)
+	})
+
+	s.Run("InvalidConfirmation", func() {
+		mockCapability := &MockElicitationCapability{
+			Responses: []*mcp.ElicitResult{
+				{
+					Action: "accept",
+					Content: map[string]any{
+						"confirm": "wrong_id", // Wrong ID
+					},
+				},
+			},
+		}
+
+		input := struct {
+			ID string `json:"id" jsonschema:"description:Record ID to delete"`
+		}{ID: "delete1"}
+
+		result, err := deleteRecord(ctx, mockCapability, input)
+		s.Require().NoError(err)
+
+		s.Equal("cancelled", result["status"])
+		s.Contains(result["reason"], "Invalid confirmation")
+		s.Contains(result["reason"], "Expected 'delete1', got 'wrong_id'")
+
+		// Verify record still exists
+		_, exists := database["delete1"]
+		s.True(exists)
+	})
+
+	s.Run("RecordNotFound", func() {
+		mockCapability := &MockElicitationCapability{
+			Responses: []*mcp.ElicitResult{
+				{Action: "accept", Content: map[string]any{"confirm": "nonexistent"}},
+			},
+		}
+
+		input := struct {
+			ID string `json:"id" jsonschema:"description:Record ID to delete"`
+		}{ID: "nonexistent"}
+
+		result, err := deleteRecord(ctx, mockCapability, input)
+		s.Require().NoError(err)
+
+		s.Equal("not_found", result["status"])
+		s.Equal("nonexistent", result["id"])
+	})
+}
+
+func (s *DatabaseTestSuite) TestDatabaseReport() {
+	ctx := s.T().Context()
+
+	// Add some test data
+	records := []*Record{
+		{ID: "p1", Name: "Personal 1", Category: "personal", Created: time.Now().Add(-2 * time.Hour)},
+		{ID: "b1", Name: "Business 1", Category: "business", Created: time.Now().Add(-1 * time.Hour)},
+		{ID: "p2", Name: "Personal 2", Category: "personal", Created: time.Now()},
+	}
+	for _, record := range records {
+		record.Updated = record.Created
+		database[record.ID] = record
+	}
+
+	s.Run("AcceptReportPreferences", func() {
+		mockCapability := &MockElicitationCapability{
+			Responses: []*mcp.ElicitResult{
+				{
+					Action: "accept",
+					Content: map[string]any{
+						"format":       "detailed",
+						"category":     "personal",
+						"sortBy":       "name",
+						"includeStats": true,
+					},
+				},
+			},
+		}
+
+		result, err := databaseReport(ctx, mockCapability, map[string]any{})
+		s.Require().NoError(err)
+
+		s.Contains(result.Description, "detailed")
+		s.Contains(result.Description, "report")
+		s.Require().Len(result.Messages, 2)
+
+		systemMsg := result.Messages[0]
+		s.Equal("system", systemMsg.Role)
+		s.Contains(systemMsg.Content, "detailed")
+		s.Contains(systemMsg.Content, "Total records: 3")
+		s.Contains(systemMsg.Content, "personal")
+		s.Contains(systemMsg.Content, "Sort results by: name")
+
+		userMsg := result.Messages[1]
+		s.Equal("user", userMsg.Role)
+		s.Contains(userMsg.Content, "detailed database report")
+		s.Contains(userMsg.Content, "personal records")
+	})
+
+	s.Run("DeclineReportPreferences", func() {
+		mockCapability := &MockElicitationCapability{
+			Responses: []*mcp.ElicitResult{
+				{Action: "decline"},
+			},
+		}
+
+		result, err := databaseReport(ctx, mockCapability, map[string]any{})
+		s.Require().NoError(err)
+
+		s.Contains(result.Description, "summary") // Default format
+		s.Require().Len(result.Messages, 2)
+
+		systemMsg := result.Messages[0]
+		s.Contains(systemMsg.Content, "summary")                  // Default format
+		s.Contains(systemMsg.Content, "Sort results by: created") // Default sort
+	})
+}
+
+func (s *DatabaseTestSuite) TestServerCreation() {
+	// Test that we can create the server with all our tools
 	serverBuilder := func() (*mcp.Server, error) {
 		handler, err := mcpio.NewHandler(
-			mcpio.WithName("elicitation-demo"),
+			mcpio.WithName("database-server"),
 			mcpio.WithVersion("1.0.0"),
-			mcpio.WithSessionTool("setup_application", "Interactive application setup with configuration elicitation", setupApplication),
-			mcpio.WithSessionPrompt("interactive_document", "Generate documents with elicited requirements", interactivePrompt),
+			mcpio.WithTool("read_record", "Get a record by ID", readRecord),
+			mcpio.WithTool("list_records", "List all records with optional category filter", listRecords),
+			mcpio.WithSessionTool("create_record", "Create a new record with elicited data", createRecord),
+			mcpio.WithSessionTool("update_record", "Update a record with change confirmation", updateRecord),
+			mcpio.WithSessionTool("delete_record", "Delete a record with confirmation", deleteRecord),
+			mcpio.WithSessionPrompt("database_report", "Generate database reports with custom preferences", databaseReport),
 		)
 		if err != nil {
 			return nil, err
@@ -202,74 +638,7 @@ func (s *CliElicitationTestSuite) TestServerCreation() {
 	s.NotNil(server)
 }
 
-func (s *CliElicitationTestSuite) TestUserConfigValidation() {
-	// Test that UserConfig struct has proper JSON schema tags
-	// We can't easily test the schema generation without the elicitation package internals,
-	// but we can test that the struct is properly defined
-	var config UserConfig
-	config.Name = "Test User"
-	config.Email = "test@example.com"
-	config.Environment = "production"
-
-	s.Equal("Test User", config.Name)
-	s.Equal("test@example.com", config.Email)
-	s.Equal("production", config.Environment)
-
-	// Test enum validation would happen at schema level
-	validEnvironments := []string{"development", "staging", "production"}
-	s.Contains(validEnvironments, config.Environment)
-}
-
-func (s *CliElicitationTestSuite) TestErrorHandling() {
-	ctx := s.T().Context()
-
-	s.Run("EmptyElicitationResult", func() {
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{
-					Action:  "accept",
-					Content: map[string]any{}, // Empty content
-				},
-			},
-		}
-
-		// This should still work, just with empty/default values
-		result, err := setupApplication(ctx, mockCapability, struct{}{})
-		s.Require().NoError(err)
-		s.Equal("configured", result["status"])
-	})
-
-	s.Run("MultipleElicitationCalls", func() {
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{
-					Action: "accept",
-					Content: map[string]any{
-						"requirements": "First requirement",
-					},
-				},
-				{
-					Action: "accept",
-					Content: map[string]any{
-						"requirements": "Second requirement",
-					},
-				},
-			},
-		}
-
-		// First call
-		result1, err := interactivePrompt(ctx, mockCapability, map[string]any{"document_type": "guide"})
-		s.Require().NoError(err)
-		s.Contains(result1.Messages[0].Content, "First requirement")
-
-		// Second call
-		result2, err := interactivePrompt(ctx, mockCapability, map[string]any{"document_type": "manual"})
-		s.Require().NoError(err)
-		s.Contains(result2.Messages[0].Content, "Second requirement")
-	})
-}
-
-func (s *CliElicitationTestSuite) TestBinaryBuild() {
+func (s *DatabaseTestSuite) TestBinaryBuild() {
 	binaryPath := s.BuildBinary()
 
 	// Verify binary was created
