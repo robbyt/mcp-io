@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/schema"
 )
 
 // Option is a functional option for configuring handlers
@@ -181,13 +182,13 @@ func WithTypedPrompt[TArgs any](name, description string, fn TypedPromptFunc[TAr
 		}
 
 		// Generate schema from the TArgs type
-		schema, err := GenerateSchema[TArgs]()
+		s, err := schema.New[TArgs]()
 		if err != nil {
 			return fmt.Errorf("failed to generate schema for prompt %s: %w", name, err)
 		}
 
 		// Convert schema to prompt arguments
-		args := schemaToPromptArguments(schema)
+		args := schemaToPromptArguments(s)
 
 		registerFunc := func(server *mcp.Server) {
 			prompt := &mcp.Prompt{

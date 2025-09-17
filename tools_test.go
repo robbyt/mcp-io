@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -125,7 +126,7 @@ func TestWithTypedTool(t *testing.T) {
 
 func TestWithRawTool(t *testing.T) {
 	t.Parallel()
-	schema := CreateObjectSchema(
+	s := schema.NewObject(
 		"Raw tool input",
 		map[string]string{"data": "Input data"},
 		[]string{"data"},
@@ -135,28 +136,28 @@ func TestWithRawTool(t *testing.T) {
 		name        string
 		toolName    string
 		description string
-		schema      interface{}
+		s           interface{}
 		wantErr     error
 	}{
 		{
 			name:        "valid raw tool",
 			toolName:    "process",
 			description: "Process raw data",
-			schema:      schema,
+			s:           s,
 			wantErr:     nil,
 		},
 		{
 			name:        "empty tool name error",
 			toolName:    "",
 			description: "description",
-			schema:      schema,
+			s:           s,
 			wantErr:     ErrEmptyToolName,
 		},
 		{
 			name:        "nil schema error",
 			toolName:    "test",
 			description: "description",
-			schema:      nil,
+			s:           nil,
 			wantErr:     ErrNilSchema,
 		},
 	}
@@ -164,8 +165,8 @@ func TestWithRawTool(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var schemaPtr *jsonschema.Schema
-			if tt.schema != nil {
-				schemaPtr = tt.schema.(*jsonschema.Schema)
+			if tt.s != nil {
+				schemaPtr = tt.s.(*jsonschema.Schema)
 			}
 
 			_, err := NewToolHandler(WithRawTool(tt.toolName, tt.description, schemaPtr, rawFunc))

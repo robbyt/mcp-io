@@ -236,6 +236,8 @@ Use raw JSON tools when you need to:
 - Interface with external APIs that return varying JSON formats
 
 ```go
+import "github.com/robbyt/mcp-io/schema"
+
 // Example: A tool that validates and reformats any JSON input
 validateJSON := func(ctx context.Context, input []byte) ([]byte, error) {
     // Unmarshal to confirm it's valid JSON
@@ -267,7 +269,7 @@ properties := map[string]string{
 }
 requiredFields := []string{"json_data"}
 
-inputSchema := mcpio.CreateObjectSchema(
+inputSchema := schema.NewObject(
     schemaDescription, // Human-readable description of this schema
     properties,        // Map of field names to field descriptions  
     requiredFields,    // List of required field names
@@ -298,11 +300,13 @@ handler, err := mcpio.NewToolHandler(
 )
 ```
 
-For schemas that can change shape, use the `CreateObjectSchema` helper function:
+For schemas that can change shape, use the `schema.NewObject` helper function:
 
 ```go
+import "github.com/robbyt/mcp-io/schema"
+
 // Create schemas programmatically
-schema := mcpio.CreateObjectSchema(
+s := schema.NewObject(
     "Dynamic input",
     map[string]string{
         "field1": "First field",
@@ -312,11 +316,11 @@ schema := mcpio.CreateObjectSchema(
 )
 
 // Or use field definitions for more control
-fields := []mcpio.FieldDef{
+fields := []schema.FieldDef{
     {Name: "status", Type: "string", Required: true, Enum: []string{"active", "inactive"}},
     {Name: "count", Type: "number", Required: false},
 }
-dynamicSchema := mcpio.CreateDynamicSchema(fields)
+dynamicSchema := schema.NewDynamic(fields)
 ```
 
 ## Elicitation Support

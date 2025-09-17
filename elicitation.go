@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/schema"
 )
 
 // ElicitationCapability provides access to elicitation functionality.
@@ -108,11 +109,11 @@ func GetElicitationCapability(session *mcp.ServerSession) ElicitationCapability 
 //   - format: String format (email, uri, etc.)
 func ElicitTyped[T any](ctx context.Context, capability ElicitationCapability, message string) (*mcp.ElicitResult, error) {
 	// Generate schema from type T
-	schema, err := GenerateSchema[T]()
+	s, err := schema.New[T]()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate schema for elicitation: %w", err)
 	}
-	return capability.Elicit(ctx, message, schema)
+	return capability.Elicit(ctx, message, s)
 }
 
 // ElicitationResult provides typed access to elicitation results.

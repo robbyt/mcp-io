@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -185,7 +186,7 @@ func TestWithTool(t *testing.T) {
 func TestWithRawToolOptions(t *testing.T) {
 	t.Parallel()
 
-	validSchema := CreateObjectSchema(
+	validSchema := schema.NewObject(
 		"Test input schema",
 		map[string]string{"value": "Test value"},
 		[]string{"value"},
@@ -303,7 +304,7 @@ func TestMultipleOptionsApplication(t *testing.T) {
 		Version: "1.0.0",
 	}, nil)
 
-	schema := CreateObjectSchema(
+	schema := schema.NewObject(
 		"Test schema",
 		map[string]string{"input": "Test input"},
 		[]string{"input"},

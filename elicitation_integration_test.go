@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -351,7 +352,7 @@ func TestElicitationSchemaValidation(t *testing.T) {
 	}
 
 	// Generate schema to verify it works with nested structures
-	schema, err := GenerateSchema[ComplexConfig]()
+	schema, err := schema.New[ComplexConfig]()
 	require.NoError(t, err)
 	assert.NotNil(t, schema)
 	assert.Equal(t, "object", schema.Type)
