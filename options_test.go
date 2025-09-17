@@ -163,7 +163,9 @@ func TestWithTool(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &handlerConfig{}
+			cfg := &handlerConfig{
+				tools: make([]toolRegisterFunc, 0),
+			}
 			option := WithTool(tt.toolName, tt.description, tt.toolFunc)
 			err := option(cfg)
 
@@ -233,7 +235,9 @@ func TestWithRawToolOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &handlerConfig{}
+			cfg := &handlerConfig{
+				tools: make([]toolRegisterFunc, 0),
+			}
 			option := WithRawTool(tt.toolName, tt.description, tt.schema, tt.toolFunc)
 			err := option(cfg)
 
@@ -305,7 +309,9 @@ func TestMultipleOptionsApplication(t *testing.T) {
 		[]string{"input"},
 	)
 
-	cfg := &handlerConfig{}
+	cfg := &handlerConfig{
+		tools: make([]toolRegisterFunc, 0),
+	}
 	options := []Option{
 		WithName("multi-test"),
 		WithVersion("2.0.0"),
