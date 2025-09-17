@@ -1,4 +1,4 @@
-package mcpio
+package schema
 
 import (
 	"testing"
@@ -13,16 +13,16 @@ type TestStruct struct {
 	Age  int    `json:"age"  jsonschema:"User age"`
 }
 
-func TestGenerateSchema(t *testing.T) {
+func TestNew(t *testing.T) {
 	t.Parallel()
-	schema, err := GenerateSchema[TestStruct]()
+	schema, err := New[TestStruct]()
 	require.NoError(t, err)
 	assert.NotNil(t, schema)
 	assert.Equal(t, "object", schema.Type)
 	assert.NotNil(t, schema.Properties)
 }
 
-func TestCreateDynamicSchema(t *testing.T) {
+func TestNewDynamic(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
@@ -89,14 +89,14 @@ func TestCreateDynamicSchema(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			schema := CreateDynamicSchema(tt.fields)
+			schema := NewDynamic(tt.fields)
 			assert.NotNil(t, schema)
 			tt.expected(t, schema)
 		})
 	}
 }
 
-func TestCreateStringSchema(t *testing.T) {
+func TestNewString(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name        string
@@ -144,14 +144,14 @@ func TestCreateStringSchema(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			schema := CreateStringSchema(tt.description, tt.enum)
+			schema := NewString(tt.description, tt.enum)
 			assert.NotNil(t, schema)
 			tt.expected(t, schema)
 		})
 	}
 }
 
-func TestCreateObjectSchema(t *testing.T) {
+func TestNewObject(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name        string
@@ -212,7 +212,7 @@ func TestCreateObjectSchema(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			schema := CreateObjectSchema(tt.description, tt.properties, tt.required)
+			schema := NewObject(tt.description, tt.properties, tt.required)
 			assert.NotNil(t, schema)
 			tt.expected(t, schema)
 		})

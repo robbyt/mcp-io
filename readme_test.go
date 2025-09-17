@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -66,7 +67,7 @@ func createRawToolHandler() (*mcpio.Handler, error) {
 	}
 
 	// Define input schema for the raw tool
-	inputSchema := mcpio.CreateObjectSchema(
+	inputSchema := schema.NewObject(
 		"Raw processing input",
 		map[string]string{
 			"data": "Raw data to process",
@@ -212,9 +213,9 @@ func TestReadmeExamples(t *testing.T) {
 // Test Dynamic Schema Creation (from README Schema Generation section)
 func TestDynamicSchemaCreation(t *testing.T) {
 	t.Parallel()
-	t.Run("CreateObjectSchema", func(t *testing.T) {
-		// Test CreateObjectSchema example from README
-		schema := mcpio.CreateObjectSchema(
+	t.Run("NewObject", func(t *testing.T) {
+		// Test NewObject example from README
+		schema := schema.NewObject(
 			"Dynamic input",
 			map[string]string{
 				"field1": "First field",
@@ -231,13 +232,13 @@ func TestDynamicSchemaCreation(t *testing.T) {
 		assert.NotContains(t, schema.Required, "field2")
 	})
 
-	t.Run("CreateDynamicSchema", func(t *testing.T) {
-		// Test CreateDynamicSchema example from README
-		fields := []mcpio.FieldDef{
+	t.Run("NewDynamic", func(t *testing.T) {
+		// Test NewDynamic example from README
+		fields := []schema.FieldDef{
 			{Name: "status", Type: "string", Required: true, Enum: []string{"active", "inactive"}},
 			{Name: "count", Type: "number", Required: false},
 		}
-		schema := mcpio.CreateDynamicSchema(fields)
+		schema := schema.NewDynamic(fields)
 
 		require.NotNil(t, schema)
 		assert.Equal(t, "object", schema.Type)

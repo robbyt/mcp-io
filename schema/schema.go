@@ -1,4 +1,4 @@
-package mcpio
+package schema
 
 import (
 	"github.com/google/jsonschema-go/jsonschema"
@@ -13,14 +13,14 @@ type FieldDef struct {
 	Enum        []string // Optional enum values
 }
 
-// GenerateSchema is a thin wrapper around jsonschema.For[T]() for convenience
-func GenerateSchema[T any]() (*jsonschema.Schema, error) {
+// New is a thin wrapper around jsonschema.For[T]() for convenience
+func New[T any]() (*jsonschema.Schema, error) {
 	return jsonschema.For[T](nil)
 }
 
-// CreateDynamicSchema constructs a JSON schema from field definitions
+// NewDynamic constructs a JSON schema from field definitions
 // This is useful for runtime-determined schemas (e.g., from Lua script inspection)
-func CreateDynamicSchema(fields []FieldDef) *jsonschema.Schema {
+func NewDynamic(fields []FieldDef) *jsonschema.Schema {
 	properties := make(map[string]*jsonschema.Schema)
 	var required []string
 
@@ -52,8 +52,8 @@ func CreateDynamicSchema(fields []FieldDef) *jsonschema.Schema {
 	}
 }
 
-// CreateStringSchema creates a simple string schema with optional constraints
-func CreateStringSchema(description string, enum []string) *jsonschema.Schema {
+// NewString creates a simple string schema with optional constraints
+func NewString(description string, enum []string) *jsonschema.Schema {
 	schema := &jsonschema.Schema{
 		Type:        "string",
 		Description: description,
@@ -70,8 +70,8 @@ func CreateStringSchema(description string, enum []string) *jsonschema.Schema {
 	return schema
 }
 
-// CreateObjectSchema creates a simple object schema with string properties
-func CreateObjectSchema(description string, properties map[string]string, required []string) *jsonschema.Schema {
+// NewObject creates a simple object schema with string properties
+func NewObject(description string, properties map[string]string, required []string) *jsonschema.Schema {
 	props := make(map[string]*jsonschema.Schema)
 
 	for name, desc := range properties {
