@@ -5,7 +5,6 @@ package mcpio
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -59,22 +58,18 @@ func TestSessionAwareToolIntegration(t *testing.T) {
 
 	// Define a session-aware tool that elicits user preferences
 	setupUserPreferences := func(ctx context.Context, capability ElicitationCapability, input struct{}) (map[string]any, error) {
-		result, err := ElicitTyped[UserPreferences](ctx, capability, "Please configure your preferences:")
+		result, err := ElicitTypedResult[UserPreferences](ctx, capability, "Please configure your preferences:")
 		if err != nil {
 			return nil, err
 		}
 
-		if result.Action != "accept" {
+		if !result.IsAccepted() {
 			return map[string]any{"status": "cancelled"}, nil
 		}
 
 		// Parse the preferences
 		var prefs UserPreferences
-		prefData, err := json.Marshal(result.Content)
-		if err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(prefData, &prefs); err != nil {
+		if err := result.DecodeContent(&prefs); err != nil {
 			return nil, err
 		}
 

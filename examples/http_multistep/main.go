@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -53,7 +52,7 @@ func configureSystem(ctx context.Context, capability mcpio.ElicitationCapability
 
 	// Parse basic configuration
 	var basicConfig BasicConfig
-	if err := parseElicitationContent(basicResult.GetContent(), &basicConfig); err != nil {
+	if err := basicResult.DecodeContent(&basicConfig); err != nil {
 		return nil, fmt.Errorf("failed to parse basic config: %w", err)
 	}
 
@@ -73,7 +72,7 @@ func configureSystem(ctx context.Context, capability mcpio.ElicitationCapability
 
 		if advancedResult.IsAccepted() {
 			advancedConfig = &AdvancedConfig{}
-			if err := parseElicitationContent(advancedResult.GetContent(), advancedConfig); err != nil {
+			if err := advancedResult.DecodeContent(advancedConfig); err != nil {
 				return nil, fmt.Errorf("failed to parse advanced config: %w", err)
 			}
 			response["advancedConfig"] = advancedConfig
@@ -98,7 +97,7 @@ func configureSystem(ctx context.Context, capability mcpio.ElicitationCapability
 
 		if deployResult.IsAccepted() {
 			deploymentConfig = &DeploymentConfig{}
-			if err := parseElicitationContent(deployResult.GetContent(), deploymentConfig); err != nil {
+			if err := deployResult.DecodeContent(deploymentConfig); err != nil {
 				return nil, fmt.Errorf("failed to parse deployment config: %w", err)
 			}
 
@@ -161,15 +160,6 @@ func configureSystem(ctx context.Context, capability mcpio.ElicitationCapability
 		basicConfig.SystemName, basicConfig.Environment)
 
 	return response, nil
-}
-
-// parseElicitationContent is a helper to parse elicitation results into structs
-func parseElicitationContent(content map[string]any, target any) error {
-	data, err := json.Marshal(content)
-	if err != nil {
-		return fmt.Errorf("failed to marshal content: %w", err)
-	}
-	return json.Unmarshal(data, target)
 }
 
 // generateConfigSummary creates a human-readable summary of the configuration

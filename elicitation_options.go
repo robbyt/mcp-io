@@ -48,7 +48,7 @@ type SessionAwareResourceFunc func(context.Context, ElicitationCapability, strin
 //
 //	func deployApp(ctx context.Context, capability ElicitationCapability, input struct{}) (map[string]any, error) {
 //	    // Elicit deployment configuration from user
-//	    result, err := ElicitTyped[DeployConfig](ctx, capability, "Enter deployment configuration:")
+//	    result, err := ElicitTypedResult[DeployConfig](ctx, capability, "Enter deployment configuration:")
 //	    if err != nil {
 //	        return nil, err
 //	    }
@@ -59,8 +59,9 @@ type SessionAwareResourceFunc func(context.Context, ElicitationCapability, strin
 //
 //	    // Parse and use the configuration
 //	    var config DeployConfig
-//	    data, _ := json.Marshal(result.GetContent())
-//	    json.Unmarshal(data, &config)
+//	    if err := result.DecodeContent(&config); err != nil {
+//	        return nil, err
+//	    }
 //
 //	    // Perform deployment with elicited config
 //	    return performDeployment(config)

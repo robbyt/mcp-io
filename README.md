@@ -333,15 +333,16 @@ type UserConfig struct {
 }
 
 func setupTool(ctx context.Context, capability mcpio.ElicitationCapability, input struct{}) (map[string]any, error) {
-    result, err := mcpio.ElicitTyped[UserConfig](ctx, capability, "Enter configuration:")
+    result, err := mcpio.ElicitTypedResult[UserConfig](ctx, capability, "Enter configuration:")
     if err != nil {
         return nil, err
     }
 
     if result.IsAccepted() {
         var config UserConfig
-        data, _ := json.Marshal(result.GetContent())
-        json.Unmarshal(data, &config)
+        if err := result.DecodeContent(&config); err != nil {
+            return nil, err
+        }
         return map[string]any{"status": "configured", "config": config}, nil
     }
 

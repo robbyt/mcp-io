@@ -379,3 +379,189 @@ func TestElicitTyped_Success_ComplexType(t *testing.T) {
 
 	mockCapability.AssertExpectations(t)
 }
+
+// Test types for DecodeContent testing
+type SimpleDecodeConfig struct {
+	Name  string `json:"name"`
+	Value int    `json:"value"`
+}
+
+type NestedDecodeConfig struct {
+	Basic    SimpleDecodeConfig `json:"basic"`
+	Settings map[string]any     `json:"settings"`
+	Tags     []string           `json:"tags"`
+	Enabled  bool               `json:"enabled"`
+}
+
+func TestElicitationResult_DecodeContent_Success(t *testing.T) {
+	t.Parallel()
+
+	// Create a mock result with content
+	result := &ElicitationResult{
+		ElicitResult: &mcp.ElicitResult{
+			Action: "accept",
+			Content: map[string]any{
+				"name":  "test-config",
+				"value": 42,
+			},
+		},
+	}
+
+	var config SimpleDecodeConfig
+	err := result.DecodeContent(&config)
+
+	require.NoError(t, err)
+	assert.Equal(t, "test-config", config.Name)
+	assert.Equal(t, 42, config.Value)
+}
+
+func TestElicitationResult_DecodeContent_NestedStruct(t *testing.T) {
+	t.Parallel()
+
+	// Create a mock result with nested content
+	result := &ElicitationResult{
+		ElicitResult: &mcp.ElicitResult{
+			Action: "accept",
+			Content: map[string]any{
+				"basic": map[string]any{
+					"name":  "nested-test",
+					"value": 123,
+				},
+				"settings": map[string]any{
+					"debug":   true,
+					"timeout": 30,
+				},
+				"tags":    []string{"test", "config"},
+				"enabled": true,
+			},
+		},
+	}
+
+	var config NestedDecodeConfig
+	err := result.DecodeContent(&config)
+
+	require.NoError(t, err)
+	assert.Equal(t, "nested-test", config.Basic.Name)
+	assert.Equal(t, 123, config.Basic.Value)
+	assert.Equal(t, true, config.Settings["debug"])
+	assert.InDelta(t, float64(30), config.Settings["timeout"], 0.001)
+	assert.Equal(t, []string{"test", "config"}, config.Tags)
+	assert.True(t, config.Enabled)
+}
+
+func TestElicitationResult_DecodeContent_NotAccepted(t *testing.T) {
+	t.Parallel()
+
+	// Create a mock result that was declined
+	result := &ElicitationResult{
+		ElicitResult: &mcp.ElicitResult{
+			Action:  "decline",
+			Content: nil,
+		},
+	}
+
+	var config SimpleDecodeConfig
+	err := result.DecodeContent(&config)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no content to decode: elicitation was not accepted")
+}
+
+func TestElicitationResult_DecodeContent_CancelledResult(t *testing.T) {
+	t.Parallel()
+
+	// Create a mock result that was cancelled
+	result := &ElicitationResult{
+		ElicitResult: &mcp.ElicitResult{
+			Action:  "cancel",
+			Content: nil,
+		},
+	}
+
+	var config SimpleDecodeConfig
+	err := result.DecodeContent(&config)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no content to decode: elicitation was not accepted")
+}
+
+func TestElicitationResult_DecodeContent_InvalidJSONUnmarshal(t *testing.T) {
+	t.Parallel()
+
+	// Create a mock result with content that can't be unmarshaled to the target type
+	result := &ElicitationResult{
+		ElicitResult: &mcp.ElicitResult{
+			Action: "accept",
+			Content: map[string]any{
+				"name":  "test",
+				"value": "not-a-number", // This should fail to unmarshal to int
+			},
+		},
+	}
+
+	var config SimpleDecodeConfig
+	err := result.DecodeContent(&config)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to unmarshal elicitation content")
+}
+
+func TestElicitationResult_DecodeContent_NilTarget(t *testing.T) {
+	t.Parallel()
+
+	result := &ElicitationResult{
+		ElicitResult: &mcp.ElicitResult{
+			Action: "accept",
+			Content: map[string]any{
+				"name":  "test",
+				"value": 42,
+			},
+		},
+	}
+
+	err := result.DecodeContent(nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to unmarshal elicitation content")
+}
+
+func TestElicitationResult_DecodeContent_NonPointerTarget(t *testing.T) {
+	t.Parallel()
+
+	result := &ElicitationResult{
+		ElicitResult: &mcp.ElicitResult{
+			Action: "accept",
+			Content: map[string]any{
+				"name":  "test",
+				"value": 42,
+			},
+		},
+	}
+
+	// Try to decode into a non-pointer (should fail)
+	var config SimpleDecodeConfig
+	err := result.DecodeContent(config) // Not &config
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to unmarshal elicitation content")
+}
+
+func TestElicitationResult_DecodeContent_EmptyContent(t *testing.T) {
+	t.Parallel()
+
+	// Test with accepted result but empty content
+	result := &ElicitationResult{
+		ElicitResult: &mcp.ElicitResult{
+			Action:  "accept",
+			Content: map[string]any{},
+		},
+	}
+
+	var config SimpleDecodeConfig
+	err := result.DecodeContent(&config)
+
+	// Should succeed but config should have zero values
+	require.NoError(t, err)
+	assert.Empty(t, config.Name)
+	assert.Equal(t, 0, config.Value)
+}
