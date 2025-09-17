@@ -33,15 +33,15 @@ type DocumentPromptArgs struct {
 	DocumentType string `json:"documentType"     jsonschema:"description:Type of document to generate"`
 	Topic        string `json:"topic"            jsonschema:"description:Main topic or subject"`
 	Tone         string `json:"tone"             jsonschema:"description:Writing tone (formal, casual, etc)"`
-	Length       int    `json:"length,omitempty" jsonschema:"description:Target length in words,minimum:50,maximum:2000"`
+	Length       string `json:"length,omitempty" jsonschema:"description:Target length in words (e.g. 500, 1000)"`
 }
 
 // documentPrompt demonstrates a typed prompt function with automatic schema generation
 func documentPrompt(ctx context.Context, args DocumentPromptArgs) (*mcpio.PromptResult, error) {
 	// Use typed arguments directly - no casting needed!
 	content := fmt.Sprintf("Write a %s about %s using a %s tone", args.DocumentType, args.Topic, args.Tone)
-	if args.Length > 0 {
-		content += fmt.Sprintf(" in approximately %d words", args.Length)
+	if args.Length != "" {
+		content += fmt.Sprintf(" in approximately %s words", args.Length)
 	}
 
 	return &mcpio.PromptResult{

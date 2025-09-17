@@ -1,6 +1,67 @@
 # CLI Prompt Example
 
-An MCP prompt server that generates conversation templates for language model interactions. This example shows how to create dynamic prompts that accept arguments and construct multi-message conversations with system and user roles. The prompt handler takes a `name` parameter and builds a structured conversation template that instructs the language model to generate greetings. This pattern is useful for building libraries of reusable prompt templates, conversation starters, or structured interaction patterns that can be parameterized and invoked by MCP clients.
+An MCP prompt server that demonstrates both map-based and typed prompts for generating conversation templates. This example showcases two different prompt patterns:
+
+1. **Map-based prompts** (`greeter`) - Traditional prompts that accept string arguments and handle type casting manually
+2. **Typed prompts** (`document_writer`) - Type-safe prompts with automatic schema generation from Go structs
+
+## Constructors Used
+
+### `NewHandler()` - Mixed Resource Types
+Used in the main application for mixing prompts with other resource types (tools, etc):
+```go
+handler, err := mcpio.NewHandler(
+    mcpio.WithName("prompt-server"),
+    mcpio.WithPrompt("greeter", "Generates a friendly greeting", greeterPrompt),
+    mcpio.WithTypedPrompt("document_writer", "Generates writing prompts with typed arguments", documentPrompt),
+)
+```
+
+### `NewPromptHandler()` - Prompt-Only (Alternative)
+Could be used for prompt-only servers with validation:
+```go
+handler, err := mcpio.NewPromptHandler(
+    mcpio.WithName("prompt-server"),
+    mcpio.WithPrompt("greeter", "Generates a friendly greeting", greeterPrompt),
+    // WithTypedPrompt also works here
+)
+```
+
+**When to use each:**
+- Use `NewHandler()` when you want to mix prompts with tools or resources in the future
+- Use `NewPromptHandler()` when you only need prompts and want compile-time validation that no other resource types are added
+
+## Map-based vs Typed Prompts
+
+### Map-based Prompts (`WithPrompt`)
+- **Pros**: Simple, flexible, works with any argument structure
+- **Cons**: Requires manual type casting, no compile-time validation, no automatic schema generation
+- **Best for**: Simple prompts with basic string arguments
+
+### Typed Prompts (`WithTypedPrompt`)
+- **Pros**: Compile-time type safety, automatic schema generation, no type casting needed
+- **Cons**: Must use string fields due to MCP protocol limitation (arguments are `map[string]string`)
+- **Best for**: Complex prompts with multiple parameters and validation requirements
+
+**Note**: Due to MCP protocol limitations, all arguments are passed as strings, so even typed prompts should use `string` fields and handle conversion internally if needed.
+
+## Available Prompts
+
+This example provides two prompts:
+
+### 1. `greeter` (Map-based)
+- **Description**: Generates a friendly greeting
+- **Parameters**: `name` (string, optional) - Name to greet
+- **Example**: `{name: "Alice"}`
+
+### 2. `document_writer` (Typed)
+- **Description**: Generates writing prompts with typed arguments and schema validation
+- **Parameters**:
+  - `documentType` (string, required) - Type of document to generate
+  - `topic` (string, required) - Main topic or subject
+  - `tone` (string, required) - Writing tone (formal, casual, etc)
+  - `length` (string, optional) - Target length in words (e.g. "500", "1000")
+- **Example**: `{documentType: "blog post", topic: "AI", tone: "conversational", length: "500"}`
 
 ## MCP Prompt Flow
 
@@ -8,10 +69,11 @@ An MCP prompt server that generates conversation templates for language model in
 ┌─────────────────┐   1. prompts/list      ┌──────────────────┐
 │   MCP Client    │ ─────────────────────> │   cli_prompt     │
 │                 │ ◄───────────────────── │                  │
-│                 │      ["greeter"]       │                  │
+│                 │  ["greeter",           │                  │
+│                 │   "document_writer"]   │                  │
 └─────────────────┘                        └──────────────────┘
          │
-         │  2. prompts/get("greeter", {name: "World"})
+         │  2. prompts/get("document_writer", {...})
          v
 ┌─────────────────┐                        ┌──────────────────┐
 │   MCP Client    │ ─────────────────────> │   cli_prompt     │
@@ -19,14 +81,14 @@ An MCP prompt server that generates conversation templates for language model in
 │                 │   Message Template     │                  │
 └─────────────────┘                        └──────────────────┘
          │            [
-         │              {role: "system", content: "You are..."},
-         │              {role: "user", content: "Create greeting for World"}
+         │              {role: "system", content: "You are an expert writer..."},
+         │              {role: "user", content: "Write a blog post about AI..."}
          │            ]
          │
          │  3. Client uses template with LLM API
          v
 ┌─────────────────┐
-│ Application     │ ───> "Hello World! How are you today?"
+│ Application     │ ───> Generated content based on prompt
 │ Response        │
 └─────────────────┘
 ```
@@ -48,9 +110,11 @@ make build-cli-prompt
 # List available prompts
 mcp prompts ./bin/cli-prompt
 
-# Get prompt template (Note: May fail with "unsupported role: system"
-# due to mcp CLI limitations with system role messages)
+# Test map-based prompt
 mcp get-prompt greeter --params '{"name":"Alice"}' ./bin/cli-prompt
+
+# Test typed prompt
+mcp get-prompt document_writer --params '{"documentType":"blog post","topic":"AI","tone":"conversational","length":"500"}' ./bin/cli-prompt
 ```
 
 **Note**: The mcp CLI tool may not fully support prompts that use "system" role messages. For full testing, use an MCP client that supports all message roles.
