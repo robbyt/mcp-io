@@ -1,6 +1,8 @@
 package mcpio
 
 import (
+	"fmt"
+
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -116,6 +118,64 @@ func WithPromptWithArgs(name, description string, args []*mcp.PromptArgument, fn
 				Arguments:   args,
 			}
 			handler := createPromptHandler(fn)
+			server.AddPrompt(prompt, handler)
+		}
+
+		cfg.prompts = append(cfg.prompts, registerFunc)
+		return nil
+	}
+}
+
+// schemaToPromptArguments converts a JSON schema to MCP prompt arguments
+func schemaToPromptArguments(schema *jsonschema.Schema) []*mcp.PromptArgument {
+	if schema == nil || schema.Properties == nil {
+		return nil
+	}
+
+	var args []*mcp.PromptArgument
+	requiredMap := make(map[string]bool)
+
+	// Create a map of required fields
+	for _, field := range schema.Required {
+		requiredMap[field] = true
+	}
+
+	// Convert schema properties to prompt arguments
+	for name, propSchema := range schema.Properties {
+		arg := &mcp.PromptArgument{
+			Name:        name,
+			Description: propSchema.Description,
+			Required:    requiredMap[name],
+		}
+		args = append(args, arg)
+	}
+
+	return args
+}
+
+// WithTypedPrompt adds a type-safe prompt with automatic schema generation
+func WithTypedPrompt[TArgs any](name, description string, fn TypedPromptFunc[TArgs]) Option {
+	return func(cfg *handlerConfig) error {
+		if name == "" {
+			return ErrEmptyPromptName
+		}
+
+		// Generate schema from the TArgs type
+		schema, err := GenerateSchema[TArgs]()
+		if err != nil {
+			return fmt.Errorf("failed to generate schema for prompt %s: %w", name, err)
+		}
+
+		// Convert schema to prompt arguments
+		args := schemaToPromptArguments(schema)
+
+		registerFunc := func(server *mcp.Server) {
+			prompt := &mcp.Prompt{
+				Name:        name,
+				Description: description,
+				Arguments:   args,
+			}
+			handler := createTypedPromptHandler(fn)
 			server.AddPrompt(prompt, handler)
 		}
 
