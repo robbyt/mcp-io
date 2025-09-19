@@ -18,8 +18,26 @@ type Record struct {
 	Name    string    `json:"name"    jsonschema:"description:Display name"`
 	Email   string    `json:"email"   jsonschema:"format:email,description:Email address"`
 	Status  string    `json:"status"  jsonschema:"description:Record status,enum:active,enum:inactive,enum:pending,enum:archived"`
+	Age     int       `json:"age"     jsonschema:"description:Age in years,minimum:18,maximum:120"`
 	Created time.Time `json:"created" jsonschema:"description:Creation timestamp"`
 	Updated time.Time `json:"updated" jsonschema:"description:Last update timestamp"`
+}
+
+// CreateRecordInput represents the data needed to create a new record
+type CreateRecordInput struct {
+	ID     string `json:"id"     jsonschema:"description:Unique identifier (no spaces),minLength:1,maxLength:50"`
+	Name   string `json:"name"   jsonschema:"description:Display name,minLength:1,maxLength:100"`
+	Email  string `json:"email"  jsonschema:"format:email,description:Email address,maxLength:255"`
+	Status string `json:"status" jsonschema:"description:Record status,enum:active,enum:inactive,enum:pending,enum:archived"`
+	Age    int    `json:"age"    jsonschema:"description:Age in years,minimum:18,maximum:120"`
+}
+
+// ReportConfig represents database report preferences
+type ReportConfig struct {
+	Format       string `json:"format"           jsonschema:"description:Report format,enum:summary,enum:detailed,enum:analysis"`
+	Status       string `json:"status,omitempty" jsonschema:"description:Filter by status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
+	SortBy       string `json:"sortBy"           jsonschema:"description:Sort order,enum:name,enum:created,enum:updated,enum:status"`
+	IncludeStats bool   `json:"includeStats"     jsonschema:"description:Include database statistics"`
 }
 
 // Global in-memory database with thread safety
@@ -27,6 +45,27 @@ var (
 	database = make(map[string]*Record)
 	dbMutex  sync.RWMutex
 )
+
+// Helper functions for confirmation validation
+
+// validateConfirmation checks if the confirmation text matches the expected value
+func validateConfirmation(result *mcpio.ElicitationResult, expectedValue string) (bool, string) {
+	if !result.IsAccepted() {
+		return false, fmt.Sprintf("User %s the operation", result.Action)
+	}
+
+	content := result.GetContent()
+	if content == nil {
+		return false, "No confirmation provided"
+	}
+
+	confirmation, ok := content["confirm"].(string)
+	if !ok || confirmation != expectedValue {
+		return false, fmt.Sprintf("Invalid confirmation. Expected '%s', got '%s'", expectedValue, confirmation)
+	}
+
+	return true, ""
+}
 
 // Standard database operations (no elicitation needed)
 
@@ -89,15 +128,9 @@ func listRecords(ctx context.Context, input struct {
 // createRecord demonstrates elicitation for gathering structured data
 func createRecord(ctx context.Context, capability mcpio.ElicitationCapability, input struct{}) (map[string]any, error) {
 	fmt.Println("[Server] Creating new record - need to gather record data")
-	fmt.Println("[Server] Pausing to elicit record details from user")
 
 	// Server pauses to elicit structured record data
-	result, err := mcpio.ElicitTypedResult[struct {
-		ID     string `json:"id"     jsonschema:"description:Unique identifier (no spaces)"`
-		Name   string `json:"name"   jsonschema:"description:Display name"`
-		Email  string `json:"email"  jsonschema:"format:email,description:Email address"`
-		Status string `json:"status" jsonschema:"description:Record status,enum:active,enum:inactive,enum:pending,enum:archived"`
-	}](ctx, capability, "Please provide the details for the new record:")
+	result, err := mcpio.ElicitTypedResult[CreateRecordInput](ctx, capability, "To create a new database record, please provide the following information. This data will be stored in the local database and can be updated or deleted later:")
 	if err != nil {
 		return nil, fmt.Errorf("failed to elicit record data: %w", err)
 	}
@@ -112,12 +145,7 @@ func createRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 	}
 
 	// Decode the elicited data
-	var recordData struct {
-		ID     string `json:"id"`
-		Name   string `json:"name"`
-		Email  string `json:"email"`
-		Status string `json:"status"`
-	}
+	var recordData CreateRecordInput
 	if err := result.DecodeContent(&recordData); err != nil {
 		return nil, fmt.Errorf("failed to decode record data: %w", err)
 	}
@@ -148,6 +176,7 @@ func createRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 		Name:    recordData.Name,
 		Email:   recordData.Email,
 		Status:  recordData.Status,
+		Age:     recordData.Age,
 		Created: now,
 		Updated: now,
 	}
@@ -164,9 +193,10 @@ func createRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 // updateRecord demonstrates elicitation for confirming destructive changes
 func updateRecord(ctx context.Context, capability mcpio.ElicitationCapability, input struct {
 	ID     string `json:"id"               jsonschema:"description:Record ID to update"`
-	Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional)"`
-	Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional)"`
+	Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
+	Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
 	Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
+	Age    *int   `json:"age,omitempty"    jsonschema:"description:New age (optional),minimum:18,maximum:120"`
 },
 ) (map[string]any, error) {
 	dbMutex.Lock()
@@ -194,6 +224,9 @@ func updateRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 	if input.Status != "" && input.Status != record.Status {
 		changes = append(changes, fmt.Sprintf("Status: %s → %s", record.Status, input.Status))
 	}
+	if input.Age != nil && *input.Age != record.Age {
+		changes = append(changes, fmt.Sprintf("Age: %d → %d", record.Age, *input.Age))
+	}
 
 	if len(changes) == 0 {
 		return map[string]any{
@@ -201,8 +234,6 @@ func updateRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 			"record": record,
 		}, nil
 	}
-
-	fmt.Println("[Server] Changes detected - pausing to confirm with user")
 
 	// Server pauses to confirm the changes
 	changesSummary := strings.Join(changes, "\n")
@@ -215,29 +246,11 @@ func updateRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 
 	fmt.Printf("[Server] Received update confirmation: action=%s\n", result.Action)
 
-	if !result.IsAccepted() {
+	// Validate confirmation
+	if valid, reason := validateConfirmation(result, "UPDATE"); !valid {
 		return map[string]any{
 			"status": "cancelled",
-			"reason": fmt.Sprintf("User %s the update", result.Action),
-			"record": record,
-		}, nil
-	}
-
-	// Check confirmation text
-	content := result.GetContent()
-	if content == nil {
-		return map[string]any{
-			"status": "cancelled",
-			"reason": "No confirmation provided",
-			"record": record,
-		}, nil
-	}
-
-	confirmation, ok := content["confirm"].(string)
-	if !ok || confirmation != "UPDATE" {
-		return map[string]any{
-			"status": "cancelled",
-			"reason": fmt.Sprintf("Invalid confirmation. Expected 'UPDATE', got '%s'", confirmation),
+			"reason": reason,
 			"record": record,
 		}, nil
 	}
@@ -251,6 +264,9 @@ func updateRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 	}
 	if input.Status != "" {
 		record.Status = input.Status
+	}
+	if input.Age != nil {
+		record.Age = *input.Age
 	}
 	record.Updated = time.Now()
 
@@ -282,11 +298,9 @@ func deleteRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 		}, nil
 	}
 
-	fmt.Println("[Server] Record found - pausing to confirm deletion")
-
 	// Server pauses to confirm critical operation
-	confirmationMessage := fmt.Sprintf("Delete record '%s'?\n\nRecord details:\n- Name: %s\n- Email: %s\n- Status: %s\n\nThis action cannot be undone.",
-		record.ID, record.Name, record.Email, record.Status)
+	confirmationMessage := fmt.Sprintf("Delete record '%s'?\n\nRecord details:\n- Name: %s\n- Email: %s\n- Status: %s\n- Age: %d\n\nThis action cannot be undone.",
+		record.ID, record.Name, record.Email, record.Status, record.Age)
 
 	result, err := mcpio.ElicitSimple(ctx, capability, confirmationMessage, "confirm", fmt.Sprintf("Type '%s' to confirm deletion", record.ID))
 	if err != nil {
@@ -295,29 +309,11 @@ func deleteRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 
 	fmt.Printf("[Server] Received deletion confirmation: action=%s\n", result.Action)
 
-	if !result.IsAccepted() {
+	// Validate confirmation
+	if valid, reason := validateConfirmation(result, record.ID); !valid {
 		return map[string]any{
 			"status": "cancelled",
-			"reason": fmt.Sprintf("User %s the deletion", result.Action),
-			"record": record,
-		}, nil
-	}
-
-	// Check confirmation text matches record ID
-	content := result.GetContent()
-	if content == nil {
-		return map[string]any{
-			"status": "cancelled",
-			"reason": "No confirmation provided",
-			"record": record,
-		}, nil
-	}
-
-	confirmation, ok := content["confirm"].(string)
-	if !ok || confirmation != record.ID {
-		return map[string]any{
-			"status": "cancelled",
-			"reason": fmt.Sprintf("Invalid confirmation. Expected '%s', got '%s'", record.ID, confirmation),
+			"reason": reason,
 			"record": record,
 		}, nil
 	}
@@ -335,15 +331,9 @@ func deleteRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 // databaseReport demonstrates elicitation within prompts
 func databaseReport(ctx context.Context, capability mcpio.ElicitationCapability, args map[string]any) (*mcpio.PromptResult, error) {
 	fmt.Println("[Server] Generating database report prompt...")
-	fmt.Println("[Server] Need report preferences - pausing to elicit from user")
 
 	// Server pauses to elicit report preferences
-	result, err := mcpio.ElicitTypedResult[struct {
-		Format       string `json:"format"           jsonschema:"description:Report format,enum:summary,enum:detailed,enum:analysis"`
-		Status       string `json:"status,omitempty" jsonschema:"description:Filter by status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
-		SortBy       string `json:"sortBy"           jsonschema:"description:Sort order,enum:name,enum:created,enum:updated,enum:status"`
-		IncludeStats bool   `json:"includeStats"     jsonschema:"description:Include database statistics"`
-	}](ctx, capability, "Configure the database report:")
+	result, err := mcpio.ElicitTypedResult[ReportConfig](ctx, capability, "To generate a customized database report, please specify your preferences. These settings will determine the format, filtering, and content of the generated report:")
 	if err != nil {
 		return nil, fmt.Errorf("failed to elicit report preferences: %w", err)
 	}
@@ -351,12 +341,7 @@ func databaseReport(ctx context.Context, capability mcpio.ElicitationCapability,
 	fmt.Printf("[Server] Received report preferences: action=%s\n", result.Action)
 
 	// Default preferences if user declines
-	reportConfig := struct {
-		Format       string `json:"format"`
-		Status       string `json:"status,omitempty"`
-		SortBy       string `json:"sortBy"`
-		IncludeStats bool   `json:"includeStats"`
-	}{
+	reportConfig := ReportConfig{
 		Format:       "summary",
 		Status:       "",
 		SortBy:       "created",
@@ -366,8 +351,6 @@ func databaseReport(ctx context.Context, capability mcpio.ElicitationCapability,
 	if result.IsAccepted() {
 		if err := result.DecodeContent(&reportConfig); err != nil {
 			fmt.Printf("[Server] Failed to decode preferences, using defaults: %v\n", err)
-		} else {
-			fmt.Printf("[Server] Using custom report preferences\n")
 		}
 	} else {
 		fmt.Printf("[Server] User %s preferences, using defaults\n", result.Action)

@@ -1,6 +1,21 @@
 # Database with Elicitation Example
 
-A practical in-memory database MCP server that demonstrates elicitation - the ability for servers to pause tool execution and request additional information from users through the MCP client. This example provides a complete CRUD database with both standard operations and elicitation-enhanced operations, showing when and how to use elicitation for user confirmations and data gathering. For more complex multi-step workflows, see the http_multistep example.
+An in-memory database MCP server that demonstrates elicitation - the ability for servers to pause tool execution and request additional information from users through the MCP client. This example provides a complete CRUD database with both standard operations and elicitation-enhanced operations, showing when and how to use elicitation for user confirmations and data gathering. For more complex multi-step workflows, see the http_multistep example.
+
+## Features Demonstrated
+
+**Complete Database**: Fully functional in-memory database with CRUD operations that works with Claude Desktop.
+
+**Mixed Tool Types**: Demonstrates both standard tools (read_record, list_records) and elicitation-enhanced tools (create_record, update_record, delete_record).
+
+**Typed Schemas**: Uses `ElicitTypedResult[T]()` for automatic JSON schema generation from Go structs for structured data input.
+
+**Confirmation Patterns**: Shows different confirmation patterns:
+- **create_record**: Elicits structured data using typed schemas
+- **update_record**: Shows changes and requires "UPDATE" confirmation
+- **delete_record**: Requires typing the record ID for critical operations
+
+**Interactive Prompts**: The `database_report` prompt elicits report preferences before generating analysis prompts.
 
 ## MCP Elicitation Flow
 
@@ -69,20 +84,41 @@ A practical in-memory database MCP server that demonstrates elicitation - the ab
 
 For more details on MCP elicitation, see the [official MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation).
 
-## Features Demonstrated
+## Client Responsibilities
 
-**Complete Database**: Fully functional in-memory database with CRUD operations that works with Claude Desktop.
+When implementing MCP clients that support elicitation, clients should:
 
-**Mixed Tool Types**: Demonstrates both standard tools (read_record, list_records) and elicitation-enhanced tools (create_record, update_record, delete_record).
+- Display server identification when showing elicitation requests
+- Present the elicitation message and required fields clearly
+- Allow users to review and modify their input before submission
+- Provide explicit options to decline or cancel the request
 
-**Typed Schemas**: Uses `ElicitTyped[T]()` for automatic JSON schema generation from Go structs for structured data input.
+## When to Use Elicitation vs Regular Parameters
 
-**Confirmation Patterns**: Shows different confirmation patterns:
-- **create_record**: Elicits structured data using typed schemas
-- **update_record**: Shows changes and requires "UPDATE" confirmation
-- **delete_record**: Requires typing the record ID for critical operations
+**Use Elicitation When**:
+- Creating or modifying data that requires user confirmation
+- Gathering information that wasn't available when the tool was called
+- Implementing multi-step workflows where each step depends on user input
+- Requesting confirmations for destructive or irreversible operations
+- Collecting complex structured data with validation requirements
 
-**Interactive Prompts**: The `database_report` prompt elicits report preferences before generating analysis prompts.
+**Use Regular Tool Parameters When**:
+- Information is already available from the context or previous interactions
+- Performing read-only operations that don't require user confirmation
+- The required data is simple and doesn't need validation
+- Automating tasks where user interruption would be disruptive
+
+**Schema Constraints**:
+- Elicitation schemas must be flat objects (no nested structures)
+- Supported types: string, number, boolean, enums
+- String formats supported: email, uri, date, date-time
+- JSONSchema validation supported: minLength, maxLength, minimum, maximum, etc.
+
+**Best Practices**:
+- Define reusable input types (like `CreateRecordInput`, `ReportConfig`) to avoid duplicating struct definitions
+- Use helper functions for common validation patterns to reduce code duplication
+- Prefer `ElicitTypedResult[T]()` over `ElicitTyped[T]()` for cleaner error handling
+
 
 ## Running
 
@@ -124,69 +160,71 @@ mcp call delete_record --params '{"id":"test1"}' ./bin/cli-elicitation
 - Write integration tests with mock elicitation handlers
 - Use the HTTP version with a custom client that handles elicitation requests
 
-## Database Schema
-
-The example uses a structured record schema for the in-memory database:
-
-```go
-type Record struct {
-    ID       string    `json:"id" jsonschema:"description:Unique identifier"`
-    Name     string    `json:"name" jsonschema:"description:Display name"`
-    Email    string    `json:"email" jsonschema:"format:email,description:Email address"`
-    Status   string    `json:"status" jsonschema:"description:Record status,enum:active,enum:inactive,enum:pending,enum:archived"`
-    Created  time.Time `json:"created" jsonschema:"description:Creation timestamp"`
-    Updated  time.Time `json:"updated" jsonschema:"description:Last update timestamp"`
-}
-```
-
-## Operations
-
-### Standard Tools (No Elicitation)
-- **read_record**: Get a record by ID
-- **list_records**: List all records with optional status filter
-
-### Elicitation-Enhanced Tools
-- **create_record**: Gathers structured record data using typed elicitation
-- **update_record**: Shows changes and requires "UPDATE" confirmation
-- **delete_record**: Requires typing the record ID to confirm deletion
-
-### Interactive Prompts
-- **database_report**: Elicits report preferences (format, status, sorting) before generating analysis prompts
-
 ## Confirmation Examples
+
+These patterns ensure safe database operations while demonstrating various elicitation techniques.
 
 ### Structured Data Elicitation
 ```go
-// Elicit structured record data
-result, err := mcpio.ElicitTypedResult[RecordData](ctx, capability,
-    "Please provide the details for the new record:")
+// Define a reusable input type with validation constraints
+type CreateRecordInput struct {
+    ID     string `json:"id"     jsonschema:"description:Unique identifier (no spaces),minLength:1,maxLength:50"`
+    Name   string `json:"name"   jsonschema:"description:Display name,minLength:1,maxLength:100"`
+    Email  string `json:"email"  jsonschema:"format:email,description:Email address,maxLength:255"`
+    Status string `json:"status" jsonschema:"description:Record status,enum:active,enum:inactive,enum:pending,enum:archived"`
+    Age    int    `json:"age"    jsonschema:"description:Age in years,minimum:18,maximum:120"`
+}
+
+// Elicit structured record data using the defined type
+result, err := mcpio.ElicitTypedResult[CreateRecordInput](ctx, capability,
+    "To create a new database record, please provide the following information:")
 if err != nil {
     return nil, err
 }
 
 if result.IsAccepted() {
-    var recordData RecordData
+    var recordData CreateRecordInput
     if err := result.DecodeContent(&recordData); err != nil {
         return nil, err
     }
-    // Use the structured data...
+    // Use the structured data to create the record...
 }
 ```
 
 ### Critical Operation Confirmation
 ```go
+// Helper function to reduce confirmation validation duplication
+func validateConfirmation(result *mcpio.ElicitationResult, expectedValue string) (bool, string) {
+    if !result.IsAccepted() {
+        return false, fmt.Sprintf("User %s the operation", result.Action)
+    }
+
+    content := result.GetContent()
+    if content == nil {
+        return false, "No confirmation provided"
+    }
+
+    confirmation, ok := content["confirm"].(string)
+    if !ok || confirmation != expectedValue {
+        return false, fmt.Sprintf("Invalid confirmation. Expected '%s', got '%s'", expectedValue, confirmation)
+    }
+
+    return true, ""
+}
+
 // Require typing record ID to confirm deletion
 result, err := mcpio.ElicitSimple(ctx, capability,
     fmt.Sprintf("Delete record '%s'? This cannot be undone.", recordID),
     "confirm", fmt.Sprintf("Type '%s' to confirm deletion", recordID))
-
-if result.IsAccepted() {
-    if confirmation := result.GetContent()["confirm"].(string); confirmation == recordID {
-        // Proceed with deletion
-    } else {
-        return map[string]any{"status": "cancelled", "reason": "confirmation mismatch"}, nil
-    }
+if err != nil {
+    return nil, err
 }
+
+// Use the helper to validate confirmation
+if valid, reason := validateConfirmation(result, recordID); !valid {
+    return map[string]any{"status": "cancelled", "reason": reason}, nil
+}
+
+// Proceed with deletion since confirmation is valid
 ```
 
-These patterns ensure safe database operations while demonstrating various elicitation techniques.

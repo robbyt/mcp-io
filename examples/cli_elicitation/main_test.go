@@ -67,6 +67,7 @@ func (s *DatabaseTestSuite) TestReadRecord() {
 		Name:    "Test User",
 		Email:   "test@example.com",
 		Status:  "active",
+		Age:     25,
 		Created: time.Now(),
 		Updated: time.Now(),
 	}
@@ -104,9 +105,9 @@ func (s *DatabaseTestSuite) TestListRecords() {
 
 	// Add test records
 	records := []*Record{
-		{ID: "active1", Name: "John", Status: "active", Created: time.Now().Add(-2 * time.Hour)},
-		{ID: "inactive1", Name: "Company A", Status: "inactive", Created: time.Now().Add(-1 * time.Hour)},
-		{ID: "pending1", Name: "Jane", Status: "pending", Created: time.Now()},
+		{ID: "active1", Name: "John", Status: "active", Age: 30, Created: time.Now().Add(-2 * time.Hour)},
+		{ID: "inactive1", Name: "Company A", Status: "inactive", Age: 45, Created: time.Now().Add(-1 * time.Hour)},
+		{ID: "pending1", Name: "Jane", Status: "pending", Age: 28, Created: time.Now()},
 	}
 	for _, record := range records {
 		record.Updated = record.Created
@@ -166,6 +167,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 						"name":   "John Doe",
 						"email":  "john@example.com",
 						"status": "active",
+						"age":    30,
 					},
 				},
 			},
@@ -180,6 +182,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 		s.Equal("John Doe", record.Name)
 		s.Equal("john@example.com", record.Email)
 		s.Equal("active", record.Status)
+		s.Equal(30, record.Age)
 
 		// Verify record was added to database
 		dbRecord, exists := database["user1"]
@@ -211,6 +214,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 						"name":   "John Doe",
 						"email":  "john@example.com",
 						"status": "active",
+						"age":    25,
 					},
 				},
 			},
@@ -259,6 +263,7 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Name:    "Original Name",
 			Email:   "original@example.com",
 			Status:  "active",
+			Age:     25,
 			Created: time.Now().Add(-1 * time.Hour),
 			Updated: time.Now().Add(-1 * time.Hour),
 		}
@@ -276,9 +281,10 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 
 		input := struct {
 			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
-			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional)"`
-			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional)"`
+			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
+			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
 			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
+			Age    *int   `json:"age,omitempty"    jsonschema:"description:New age (optional),minimum:18,maximum:120"`
 		}{
 			ID:     "update1",
 			Name:   "Updated Name",
@@ -309,6 +315,7 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Name:    "Original Name",
 			Email:   "original@example.com",
 			Status:  "active",
+			Age:     25,
 			Created: time.Now().Add(-1 * time.Hour),
 			Updated: time.Now().Add(-1 * time.Hour),
 		}
@@ -322,9 +329,10 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 
 		input := struct {
 			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
-			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional)"`
-			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional)"`
+			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
+			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
 			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
+			Age    *int   `json:"age,omitempty"    jsonschema:"description:New age (optional),minimum:18,maximum:120"`
 		}{
 			ID:   "update1",
 			Name: "Should Not Change",
@@ -348,6 +356,7 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Name:    "Original Name",
 			Email:   "original@example.com",
 			Status:  "active",
+			Age:     25,
 			Created: time.Now().Add(-1 * time.Hour),
 			Updated: time.Now().Add(-1 * time.Hour),
 		}
@@ -366,9 +375,10 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 
 		input := struct {
 			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
-			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional)"`
-			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional)"`
+			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
+			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
 			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
+			Age    *int   `json:"age,omitempty"    jsonschema:"description:New age (optional),minimum:18,maximum:120"`
 		}{
 			ID:   "update1",
 			Name: "Should Not Change",
@@ -389,6 +399,7 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Name:    "Original Name",
 			Email:   "original@example.com",
 			Status:  "active",
+			Age:     25,
 			Created: time.Now().Add(-1 * time.Hour),
 			Updated: time.Now().Add(-1 * time.Hour),
 		}
@@ -397,9 +408,10 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 		mockCapability := &MockElicitationCapability{}
 		input := struct {
 			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
-			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional)"`
-			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional)"`
+			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
+			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
 			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
+			Age    *int   `json:"age,omitempty"    jsonschema:"description:New age (optional),minimum:18,maximum:120"`
 		}{
 			ID: "update1",
 		}
@@ -414,9 +426,10 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 		mockCapability := &MockElicitationCapability{}
 		input := struct {
 			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
-			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional)"`
-			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional)"`
+			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
+			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
 			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
+			Age    *int   `json:"age,omitempty"    jsonschema:"description:New age (optional),minimum:18,maximum:120"`
 		}{
 			ID:   "nonexistent",
 			Name: "New Name",
@@ -439,6 +452,7 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 		Name:    "To Be Deleted",
 		Email:   "delete@example.com",
 		Status:  "inactive",
+		Age:     40,
 		Created: time.Now(),
 		Updated: time.Now(),
 	}
@@ -550,9 +564,9 @@ func (s *DatabaseTestSuite) TestDatabaseReport() {
 
 	// Add some test data
 	records := []*Record{
-		{ID: "a1", Name: "Active 1", Status: "active", Created: time.Now().Add(-2 * time.Hour)},
-		{ID: "i1", Name: "Inactive 1", Status: "inactive", Created: time.Now().Add(-1 * time.Hour)},
-		{ID: "p1", Name: "Pending 1", Status: "pending", Created: time.Now()},
+		{ID: "a1", Name: "Active 1", Status: "active", Age: 25, Created: time.Now().Add(-2 * time.Hour)},
+		{ID: "i1", Name: "Inactive 1", Status: "inactive", Age: 35, Created: time.Now().Add(-1 * time.Hour)},
+		{ID: "p1", Name: "Pending 1", Status: "pending", Age: 45, Created: time.Now()},
 	}
 	for _, record := range records {
 		record.Updated = record.Created
