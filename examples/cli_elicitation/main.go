@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -77,8 +78,6 @@ func readRecord(ctx context.Context, input struct {
 	dbMutex.RLock()
 	defer dbMutex.RUnlock()
 
-	fmt.Printf("[Server] Looking up record: %s\n", input.ID)
-
 	record, exists := database[input.ID]
 	if !exists {
 		return map[string]any{
@@ -100,8 +99,6 @@ func listRecords(ctx context.Context, input struct {
 ) (map[string]any, error) {
 	dbMutex.RLock()
 	defer dbMutex.RUnlock()
-
-	fmt.Printf("[Server] Listing records (status filter: %s)\n", input.Status)
 
 	var records []*Record
 	for _, record := range database {
@@ -127,15 +124,16 @@ func listRecords(ctx context.Context, input struct {
 
 // createRecord demonstrates elicitation for gathering structured data
 func createRecord(ctx context.Context, capability mcpio.ElicitationCapability, input struct{}) (map[string]any, error) {
-	fmt.Println("[Server] Creating new record - need to gather record data")
+	slog.Debug("createRecord starting", "operation", "elicitation")
 
 	// Server pauses to elicit structured record data
 	result, err := mcpio.ElicitTypedResult[CreateRecordInput](ctx, capability, "To create a new database record, please provide the following information. This data will be stored in the local database and can be updated or deleted later:")
 	if err != nil {
+		slog.Error("createRecord elicitation failed", "error", err)
 		return nil, fmt.Errorf("failed to elicit record data: %w", err)
 	}
 
-	fmt.Printf("[Server] Received record data: action=%s\n", result.Action)
+	slog.Debug("createRecord elicitation completed", "action", result.Action)
 
 	if !result.IsAccepted() {
 		return map[string]any{
@@ -147,8 +145,11 @@ func createRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 	// Decode the elicited data
 	var recordData CreateRecordInput
 	if err := result.DecodeContent(&recordData); err != nil {
+		slog.Error("createRecord decode failed", "error", err)
 		return nil, fmt.Errorf("failed to decode record data: %w", err)
 	}
+
+	slog.Debug("createRecord decoded data", "id", recordData.ID, "name", recordData.Name, "email", recordData.Email, "status", recordData.Status, "age", recordData.Age)
 
 	// Validate ID format (no spaces)
 	if strings.Contains(recordData.ID, " ") {
@@ -182,7 +183,8 @@ func createRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 	}
 
 	database[recordData.ID] = record
-	fmt.Printf("[Server] Created record: %s (%s)\n", record.ID, record.Name)
+
+	slog.Info("createRecord success", "id", record.ID, "name", record.Name)
 
 	return map[string]any{
 		"status": "created",
@@ -201,8 +203,6 @@ func updateRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 ) (map[string]any, error) {
 	dbMutex.Lock()
 	defer dbMutex.Unlock()
-
-	fmt.Printf("[Server] Updating record: %s\n", input.ID)
 
 	// Check if record exists
 	record, exists := database[input.ID]
@@ -244,8 +244,6 @@ func updateRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 		return nil, fmt.Errorf("failed to elicit confirmation: %w", err)
 	}
 
-	fmt.Printf("[Server] Received update confirmation: action=%s\n", result.Action)
-
 	// Validate confirmation
 	if valid, reason := validateConfirmation(result, "UPDATE"); !valid {
 		return map[string]any{
@@ -270,8 +268,6 @@ func updateRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 	}
 	record.Updated = time.Now()
 
-	fmt.Printf("[Server] Updated record: %s\n", record.ID)
-
 	return map[string]any{
 		"status":  "updated",
 		"record":  record,
@@ -286,8 +282,6 @@ func deleteRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 ) (map[string]any, error) {
 	dbMutex.Lock()
 	defer dbMutex.Unlock()
-
-	fmt.Printf("[Server] Request to delete record: %s\n", input.ID)
 
 	// Check if record exists
 	record, exists := database[input.ID]
@@ -307,8 +301,6 @@ func deleteRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 		return nil, fmt.Errorf("failed to elicit confirmation: %w", err)
 	}
 
-	fmt.Printf("[Server] Received deletion confirmation: action=%s\n", result.Action)
-
 	// Validate confirmation
 	if valid, reason := validateConfirmation(result, record.ID); !valid {
 		return map[string]any{
@@ -320,7 +312,6 @@ func deleteRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 
 	// Delete the record
 	delete(database, input.ID)
-	fmt.Printf("[Server] Deleted record: %s\n", input.ID)
 
 	return map[string]any{
 		"status":         "deleted",
@@ -330,15 +321,11 @@ func deleteRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 
 // databaseReport demonstrates elicitation within prompts
 func databaseReport(ctx context.Context, capability mcpio.ElicitationCapability, args map[string]any) (*mcpio.PromptResult, error) {
-	fmt.Println("[Server] Generating database report prompt...")
-
 	// Server pauses to elicit report preferences
 	result, err := mcpio.ElicitTypedResult[ReportConfig](ctx, capability, "To generate a customized database report, please specify your preferences. These settings will determine the format, filtering, and content of the generated report:")
 	if err != nil {
 		return nil, fmt.Errorf("failed to elicit report preferences: %w", err)
 	}
-
-	fmt.Printf("[Server] Received report preferences: action=%s\n", result.Action)
 
 	// Default preferences if user declines
 	reportConfig := ReportConfig{
@@ -350,10 +337,8 @@ func databaseReport(ctx context.Context, capability mcpio.ElicitationCapability,
 
 	if result.IsAccepted() {
 		if err := result.DecodeContent(&reportConfig); err != nil {
-			fmt.Printf("[Server] Failed to decode preferences, using defaults: %v\n", err)
+			slog.Error("Failed to decode report preferences, using defaults", "error", err)
 		}
-	} else {
-		fmt.Printf("[Server] User %s preferences, using defaults\n", result.Action)
 	}
 
 	// Generate database snapshot
@@ -406,6 +391,9 @@ func databaseReport(ctx context.Context, capability mcpio.ElicitationCapability,
 }
 
 func main() {
+	// Setup structured logging to stderr at debug level
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
+
 	// Create an MCP server that demonstrates elicitation with a practical in-memory database.
 	// This server provides both standard database operations and elicitation-enhanced operations.
 	handler, err := mcpio.NewHandler(
@@ -426,17 +414,13 @@ func main() {
 		mcpio.WithSessionPrompt("database_report", "Generate database reports with custom preferences", databaseReport),
 	)
 	if err != nil {
-		log.Fatalf("Failed to create handler: %v", err)
+		slog.Error("Failed to create handler", "error", err)
+		os.Exit(1)
 	}
-
-	fmt.Println("[Server] Starting MCP database server with elicitation capabilities...")
-	fmt.Println("[Server] Standard operations: read_record, list_records")
-	fmt.Println("[Server] Elicitation operations: create_record, update_record, delete_record")
-	fmt.Println("[Server] Interactive prompts: database_report")
-	fmt.Println("[Server] Connect with Claude Desktop to interact with the database")
 
 	// Run the server on stdio transport
 	if err := handler.ServeStdio(context.Background(), nil, nil); err != nil {
-		log.Fatalf("Server failed: %v", err)
+		slog.Error("Server failed", "error", err)
+		os.Exit(1)
 	}
 }

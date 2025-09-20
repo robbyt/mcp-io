@@ -118,6 +118,7 @@ When implementing MCP clients that support elicitation, clients should:
 - Define reusable input types (like `CreateRecordInput`, `ReportConfig`) to avoid duplicating struct definitions
 - Use helper functions for common validation patterns to reduce code duplication
 - Prefer `ElicitTypedResult[T]()` over `ElicitTyped[T]()` for cleaner error handling
+- **Important for stdio transport**: Never use `fmt.Printf` or `fmt.Println` in stdio servers - use `log.Printf` (stderr) instead to avoid corrupting the JSON-RPC protocol on stdout
 
 
 ## Running
@@ -130,6 +131,8 @@ make build-cli-elicitation
 ## Testing the Elicitation Server
 
 **Important**: The `mcp` CLI tool does not support elicitation features. Elicitation requires a session-aware MCP client that can handle interactive back-and-forth communication. The CLI tool only supports stateless, one-shot operations.
+
+**Timeout Note**: If you experience timeout errors (-32001) with the MCP Inspector, the default timeout is 10 seconds. For elicitation testing, use a longer timeout by adding `?timeout=30000` (30 seconds) to the Inspector URL.
 
 ### What you CAN test with mcp CLI:
 ```bash
@@ -157,6 +160,7 @@ mcp call delete_record --params '{"id":"test1"}' ./bin/cli-elicitation
 
 ### To test elicitation features:
 - Use an MCP client that supports elicitation (like Claude Desktop)
+- Use the MCP Inspector with extended timeout: `npx @modelcontextprotocol/inspector go run ./examples/cli_elicitation/` then add `?timeout=30000` to the URL for 30 seconds
 - Write integration tests with mock elicitation handlers
 - Use the HTTP version with a custom client that handles elicitation requests
 
