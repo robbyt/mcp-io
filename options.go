@@ -33,8 +33,22 @@ func WithVersion(version string) Option {
 	}
 }
 
-// WithTool adds a type-safe tool with automatic schema generation
-func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut]) Option {
+// WithTool adds a type-safe tool with automatic schema generation from Go types.
+// Optional ToolOption parameters can override the auto-generated schemas.
+//
+// Examples:
+//
+//	// Basic usage with auto-generated schemas from struct types
+//	WithTool("to_upper", "Convert text to uppercase", toUpperFunc)
+//
+//	// Override input schema with JSON string
+//	WithTool("to_upper", "Convert text", toUpperFunc,
+//	    WithInputSchema(`{"type":"object","properties":{"text":{"type":"string"}}}`))
+//
+//	// Override both input and output schemas
+//	WithTool("calc", "Calculator", calcFunc,
+//	    WithSchemas(inputSchemaJSON, outputSchemaJSON))
+func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], opts ...ToolOption) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
 			return ErrEmptyToolName
@@ -45,14 +59,23 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut]) O
 		}
 
 		// Create registration function that uses the generic AddTool
-		registerFunc := func(server *mcp.Server) {
+		registerFunc := func(server *mcp.Server) error {
 			tool := &mcp.Tool{
 				Name:        name,
 				Description: description,
-				// Let the generic AddTool handle schema generation
+				// Let the generic AddTool handle schema generation initially
 			}
+
+			// Apply any custom schema options after tool creation but before registration
+			for _, opt := range opts {
+				if err := opt.apply(tool); err != nil {
+					return fmt.Errorf("failed to apply tool option for %q: %w", name, err)
+				}
+			}
+
 			handler := createTypedHandler(fn)
 			mcp.AddTool(server, tool, handler)
+			return nil
 		}
 
 		cfg.tools = append(cfg.tools, registerFunc)
@@ -61,13 +84,19 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut]) O
 	}
 }
 
-// WithRawTool adds a tool with manual JSON handling and explicit schema
-func WithRawTool(name, description string, inputSchema *jsonschema.Schema, fn RawToolFunc) Option {
+// WithRawTool adds a tool with manual JSON handling and explicit schema.
+// The inputSchema can be any value that JSON-marshals to valid JSON schema,
+// including *jsonschema.Schema, json.RawMessage, or map[string]any.
+func WithRawTool(name, description string, inputSchema any, fn RawToolFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
 			return ErrEmptyToolName
 		}
 		if inputSchema == nil {
+			return ErrNilSchema
+		}
+		// Check for typed nil pointers
+		if schema, ok := inputSchema.(*jsonschema.Schema); ok && schema == nil {
 			return ErrNilSchema
 		}
 
@@ -76,7 +105,7 @@ func WithRawTool(name, description string, inputSchema *jsonschema.Schema, fn Ra
 		}
 
 		// Create registration function that uses the low-level AddTool
-		registerFunc := func(server *mcp.Server) {
+		registerFunc := func(server *mcp.Server) error {
 			tool := &mcp.Tool{
 				Name:        name,
 				Description: description,
@@ -84,6 +113,7 @@ func WithRawTool(name, description string, inputSchema *jsonschema.Schema, fn Ra
 			}
 			handler := createRawToolHandler(fn)
 			server.AddTool(tool, handler)
+			return nil
 		}
 
 		cfg.tools = append(cfg.tools, registerFunc)
@@ -103,13 +133,14 @@ func WithPrompt(name, description string, fn PromptFunc) Option {
 			return ErrIncompatibleHandler
 		}
 
-		registerFunc := func(server *mcp.Server) {
+		registerFunc := func(server *mcp.Server) error {
 			prompt := &mcp.Prompt{
 				Name:        name,
 				Description: description,
 			}
 			handler := createPromptHandler(fn)
 			server.AddPrompt(prompt, handler)
+			return nil
 		}
 
 		cfg.prompts = append(cfg.prompts, registerFunc)
@@ -128,7 +159,7 @@ func WithPromptWithArgs(name, description string, args []*mcp.PromptArgument, fn
 			return ErrIncompatibleHandler
 		}
 
-		registerFunc := func(server *mcp.Server) {
+		registerFunc := func(server *mcp.Server) error {
 			prompt := &mcp.Prompt{
 				Name:        name,
 				Description: description,
@@ -136,6 +167,7 @@ func WithPromptWithArgs(name, description string, args []*mcp.PromptArgument, fn
 			}
 			handler := createPromptHandler(fn)
 			server.AddPrompt(prompt, handler)
+			return nil
 		}
 
 		cfg.prompts = append(cfg.prompts, registerFunc)
@@ -144,8 +176,14 @@ func WithPromptWithArgs(name, description string, args []*mcp.PromptArgument, fn
 }
 
 // schemaToPromptArguments converts a JSON schema to MCP prompt arguments
-func schemaToPromptArguments(schema *jsonschema.Schema) []*mcp.PromptArgument {
-	if schema == nil || schema.Properties == nil {
+func schemaToPromptArguments(schema any) []*mcp.PromptArgument {
+	if schema == nil {
+		return nil
+	}
+
+	// Convert to *jsonschema.Schema to access Properties and Required fields
+	jsonSchemaObj, err := convertToJSONSchemaSchema(schema)
+	if err != nil || jsonSchemaObj == nil || jsonSchemaObj.Properties == nil {
 		return nil
 	}
 
@@ -153,12 +191,12 @@ func schemaToPromptArguments(schema *jsonschema.Schema) []*mcp.PromptArgument {
 	requiredMap := make(map[string]bool)
 
 	// Create a map of required fields
-	for _, field := range schema.Required {
+	for _, field := range jsonSchemaObj.Required {
 		requiredMap[field] = true
 	}
 
 	// Convert schema properties to prompt arguments
-	for name, propSchema := range schema.Properties {
+	for name, propSchema := range jsonSchemaObj.Properties {
 		arg := &mcp.PromptArgument{
 			Name:        name,
 			Description: propSchema.Description,
@@ -190,7 +228,7 @@ func WithTypedPrompt[TArgs any](name, description string, fn TypedPromptFunc[TAr
 		// Convert schema to prompt arguments
 		args := schemaToPromptArguments(s)
 
-		registerFunc := func(server *mcp.Server) {
+		registerFunc := func(server *mcp.Server) error {
 			prompt := &mcp.Prompt{
 				Name:        name,
 				Description: description,
@@ -198,6 +236,7 @@ func WithTypedPrompt[TArgs any](name, description string, fn TypedPromptFunc[TAr
 			}
 			handler := createTypedPromptHandler(fn)
 			server.AddPrompt(prompt, handler)
+			return nil
 		}
 
 		cfg.prompts = append(cfg.prompts, registerFunc)
@@ -216,7 +255,7 @@ func WithResource(uri, description string, fn ResourceFunc) Option {
 			return ErrIncompatibleHandler
 		}
 
-		registerFunc := func(server *mcp.Server) {
+		registerFunc := func(server *mcp.Server) error {
 			resource := &mcp.Resource{
 				URI:         uri,
 				Name:        uri, // Use URI as name by default
@@ -224,6 +263,7 @@ func WithResource(uri, description string, fn ResourceFunc) Option {
 			}
 			handler := createResourceHandler(fn)
 			server.AddResource(resource, handler)
+			return nil
 		}
 
 		cfg.resources = append(cfg.resources, registerFunc)
@@ -242,7 +282,7 @@ func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Opti
 			return ErrIncompatibleHandler
 		}
 
-		registerFunc := func(server *mcp.Server) {
+		registerFunc := func(server *mcp.Server) error {
 			template := &mcp.ResourceTemplate{
 				URITemplate: uriTemplate,
 				Name:        uriTemplate, // Use template as name by default
@@ -250,6 +290,7 @@ func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Opti
 			}
 			handler := createResourceHandler(fn) // Same handler type
 			server.AddResourceTemplate(template, handler)
+			return nil
 		}
 
 		cfg.resourceTemplates = append(cfg.resourceTemplates, registerFunc)

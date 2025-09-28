@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/robbyt/mcp-io/schema"
 	"github.com/stretchr/testify/assert"
@@ -196,7 +195,7 @@ func TestWithRawToolOptions(t *testing.T) {
 		name        string
 		toolName    string
 		description string
-		schema      *jsonschema.Schema
+		schema      any
 		toolFunc    RawToolFunc
 		wantErr     error
 	}{
@@ -563,7 +562,7 @@ func TestOptionErrorConditions(t *testing.T) {
 	// Apply an invalid option - should not change existing state
 	err = WithName("")(cfg)
 	require.ErrorIs(t, err, ErrEmptyName)
-	assert.Equal(t, "test-server", cfg.name) // Should remain unchanged
+	assert.Equal(t, "test-server", cfg.name)
 
 	// Apply another valid option
 	err = WithVersion("1.0.0")(cfg)
@@ -573,5 +572,5 @@ func TestOptionErrorConditions(t *testing.T) {
 	// Apply invalid version - should not change version state
 	err = WithVersion("")(cfg)
 	require.ErrorIs(t, err, ErrEmptyVersion)
-	assert.Equal(t, "1.0.0", cfg.version) // Should remain unchanged
+	assert.Equal(t, "1.0.0", cfg.version)
 }

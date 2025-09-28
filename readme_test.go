@@ -2,6 +2,7 @@ package mcpio_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -163,6 +164,123 @@ func TestReadmeExamples(t *testing.T) {
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "division by zero")
+	})
+
+	t.Run("SchemaFlexibilityExamples", func(t *testing.T) {
+		// Test examples from the new Schema Flexibility section
+
+		// Traditional struct-based example
+		handler1, err := mcpio.NewToolHandler(
+			mcpio.WithName("traditional-example"),
+			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler1)
+
+		// Calculator with JSON string schemas
+		calcFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
+			op := input["operation"].(string)
+			a := input["a"].(float64)
+			b := input["b"].(float64)
+
+			var result float64
+			switch op {
+			case "add":
+				result = a + b
+			case "subtract":
+				result = a - b
+			case "multiply":
+				result = a * b
+			case "divide":
+				if b == 0 {
+					return nil, mcpio.NewToolError("division by zero")
+				}
+				result = a / b
+			}
+			return map[string]any{"result": result}, nil
+		}
+
+		handler2, err := mcpio.NewToolHandler(
+			mcpio.WithName("calculator-example"),
+			mcpio.WithTool("calculator", "Arithmetic calculator", calcFunc,
+				mcpio.WithInputSchema(`{
+					"type": "object",
+					"properties": {
+						"operation": {"type": "string", "enum": ["add", "subtract", "multiply", "divide"]},
+						"a": {"type": "number"},
+						"b": {"type": "number"}
+					},
+					"required": ["operation", "a", "b"]
+				}`),
+				mcpio.WithOutputSchema(`{
+					"type": "object",
+					"properties": {"result": {"type": "number"}},
+					"required": ["result"]
+				}`),
+			),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler2)
+
+		// Maximum performance with json.RawMessage
+		processorFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
+			output := make(map[string]any)
+			for k, v := range input {
+				output[k] = v
+			}
+			output["processed"] = true
+			return output, nil
+		}
+
+		handler3, err := mcpio.NewToolHandler(
+			mcpio.WithName("fast-processor-example"),
+			mcpio.WithTool("fast_processor", "High-performance processing", processorFunc,
+				mcpio.WithSchemas(
+					json.RawMessage(`{"type":"object","additionalProperties":true}`),
+					json.RawMessage(`{"type":"object","properties":{"processed":{"type":"boolean"}}}`),
+				),
+			),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler3)
+
+		// Dynamic schemas using map[string]any
+		echoFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
+			message := input["message"].(string)
+			repeat := 1
+			if r, ok := input["repeat"]; ok {
+				repeat = int(r.(float64))
+			}
+
+			var echoed []string
+			for i := 0; i < repeat; i++ {
+				echoed = append(echoed, message)
+			}
+
+			return map[string]any{
+				"echoed":  echoed,
+				"count":   len(echoed),
+				"message": message,
+			}, nil
+		}
+
+		dynamicSchema := map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"message": map[string]any{"type": "string"},
+				"repeat":  map[string]any{"type": "integer", "minimum": 1, "maximum": 10},
+			},
+			"required": []string{"message"},
+		}
+
+		handler4, err := mcpio.NewToolHandler(
+			mcpio.WithName("echo-example"),
+			mcpio.WithTool("echo", "Echo with repetition", echoFunc,
+				mcpio.WithInputSchema(dynamicSchema),
+			),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler4)
 	})
 
 	t.Run("RawJSONTool", func(t *testing.T) {

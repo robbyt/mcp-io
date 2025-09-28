@@ -53,14 +53,14 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 			// Clean up pipes
 			defer func() {
 				closeErr := stdin.Close()
-				s.Assert().NoError(closeErr)
+				s.NoError(closeErr) //nolint:testifylint // Assert is appropriate in defer cleanup
 				closeErr = stdout.Close()
-				s.Assert().NoError(closeErr)
+				s.NoError(closeErr)
 			}()
 
 			// Wait for command to finish
 			waitErr := cmd.Wait()
-			s.Assert().NoError(waitErr)
+			s.NoError(waitErr)
 		}()
 
 		// Actually, let's use our library directly for testing
@@ -110,8 +110,8 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 		})
 		s.Require().NoError(err)
 
-		s.Assert().False(result.IsError)
-		s.Assert().Len(result.Content, 1)
+		s.False(result.IsError)
+		s.Len(result.Content, 1)
 	})
 
 	s.Run("CountWords", func() {
@@ -170,7 +170,7 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 			},
 		})
 		s.Require().NoError(err)
-		s.Assert().False(result.IsError)
+		s.False(result.IsError)
 	})
 
 	s.Run("ValidationError", func() {
@@ -231,10 +231,10 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 		})
 		s.Require().NoError(err)
 
-		s.Assert().True(result.IsError)
-		s.Assert().Len(result.Content, 1)
-		if textContent, ok := result.Content[0].(*mcp.TextContent); s.Assert().True(ok) {
-			s.Assert().Contains(textContent.Text, "unsupported count type:")
+		s.True(result.IsError)
+		s.Len(result.Content, 1)
+		if textContent, ok := result.Content[0].(*mcp.TextContent); s.True(ok) {
+			s.Contains(textContent.Text, "unsupported count type:")
 		}
 	})
 }

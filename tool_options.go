@@ -1,0 +1,154 @@
+package mcpio
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+// ToolOption allows customizing tool schema configuration
+type ToolOption interface {
+	apply(tool *mcp.Tool) error
+}
+
+// inputSchemaOption sets the input schema for a tool
+type inputSchemaOption struct {
+	schema any
+}
+
+func (o inputSchemaOption) apply(tool *mcp.Tool) error {
+	converted, err := convertToOptimalSchema(o.schema)
+	if err != nil {
+		return fmt.Errorf("invalid input schema: %w", err)
+	}
+	tool.InputSchema = converted
+	return nil
+}
+
+// outputSchemaOption sets the output schema for a tool
+type outputSchemaOption struct {
+	schema any
+}
+
+func (o outputSchemaOption) apply(tool *mcp.Tool) error {
+	converted, err := convertToOptimalSchema(o.schema)
+	if err != nil {
+		return fmt.Errorf("invalid output schema: %w", err)
+	}
+	tool.OutputSchema = converted
+	return nil
+}
+
+// WithInputSchema sets a custom input schema for the tool.
+// Accepts string (JSON), json.RawMessage, *jsonschema.Schema, or map[string]any.
+// Converts all types to json.RawMessage for optimal performance.
+func WithInputSchema(schema any) ToolOption {
+	return inputSchemaOption{schema: schema}
+}
+
+// WithOutputSchema sets a custom output schema for the tool.
+// Accepts string (JSON), json.RawMessage, *jsonschema.Schema, or map[string]any.
+// Converts all types to json.RawMessage for optimal performance.
+func WithOutputSchema(schema any) ToolOption {
+	return outputSchemaOption{schema: schema}
+}
+
+// WithSchemas sets both input and output schemas for the tool.
+// Convenience function for setting both schemas at once.
+func WithSchemas(inputSchema, outputSchema any) ToolOption {
+	return combinedSchemaOption{
+		input:  inputSchema,
+		output: outputSchema,
+	}
+}
+
+type combinedSchemaOption struct {
+	input  any
+	output any
+}
+
+func (o combinedSchemaOption) apply(tool *mcp.Tool) error {
+	if err := WithInputSchema(o.input).apply(tool); err != nil {
+		return err
+	}
+	return WithOutputSchema(o.output).apply(tool)
+}
+
+// convertToOptimalSchema converts any schema type to json.RawMessage for optimal
+// performance with MCP SDK v0.8.0. Based on analysis of the MCP SDK source code,
+// json.RawMessage provides the best performance as it:
+//   - Has zero marshaling overhead during tool listing
+//   - Uses minimal memory (byte slice vs full structs)
+//   - Has fast validation path in the SDK's remarshal function
+//   - Is directly compatible with the wire protocol
+func convertToOptimalSchema(schema any) (json.RawMessage, error) {
+	if schema == nil {
+		return nil, fmt.Errorf("schema cannot be nil")
+	}
+
+	switch v := schema.(type) {
+	case json.RawMessage:
+		// Already optimal format
+		return v, nil
+
+	case string:
+		// Convert JSON string to json.RawMessage
+		if !json.Valid([]byte(v)) {
+			return nil, fmt.Errorf("invalid JSON string: %s", v)
+		}
+		return json.RawMessage(v), nil
+
+	case *jsonschema.Schema:
+		// Convert to json.RawMessage for optimal performance
+		bytes, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal jsonschema.Schema: %w", err)
+		}
+		return json.RawMessage(bytes), nil
+
+	case map[string]any:
+		// Convert to json.RawMessage
+		bytes, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal map[string]any: %w", err)
+		}
+		return json.RawMessage(bytes), nil
+
+	default:
+		// Try to marshal any other type
+		bytes, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("unsupported schema type %T: failed to marshal: %w", v, err)
+		}
+		return json.RawMessage(bytes), nil
+	}
+}
+
+// convertToJSONSchemaSchema converts any schema type to *jsonschema.Schema for
+// internal processing that requires accessing specific schema fields like
+// Properties and Required (e.g., schemaToPromptArguments function).
+func convertToJSONSchemaSchema(schema any) (*jsonschema.Schema, error) {
+	if schema == nil {
+		return nil, fmt.Errorf("schema cannot be nil")
+	}
+
+	// If it's already a *jsonschema.Schema, use it directly
+	if s, ok := schema.(*jsonschema.Schema); ok {
+		return s, nil
+	}
+
+	// Convert other types by marshaling to JSON and unmarshaling to *jsonschema.Schema
+	jsonBytes, err := json.Marshal(schema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal schema to JSON: %w", err)
+	}
+
+	var result *jsonschema.Schema
+	if err := json.Unmarshal(jsonBytes, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal schema from JSON: %w", err)
+	}
+
+	return result, nil
+}

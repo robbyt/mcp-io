@@ -11,7 +11,7 @@ import (
 
 // toolRegisterFunc is an internal function type that registers a tool on an MCP server.
 // This is used internally by the option functions to defer tool registration.
-type toolRegisterFunc func(*mcp.Server)
+type toolRegisterFunc func(*mcp.Server) error
 
 // ToolFunc is the function signature for typed tools with automatic schema generation.
 // The function receives a context and typed input, and returns typed output with an optional error.

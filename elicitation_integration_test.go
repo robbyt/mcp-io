@@ -7,7 +7,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/robbyt/mcp-io/schema"
 	"github.com/stretchr/testify/assert"
@@ -16,15 +15,15 @@ import (
 
 // Integration test types
 type UserPreferences struct {
-	Theme         string `json:"theme" jsonschema:"UI theme preference"`
-	Language      string `json:"language" jsonschema:"Preferred language"`
+	Theme         string `json:"theme"         jsonschema:"UI theme preference"`
+	Language      string `json:"language"      jsonschema:"Preferred language"`
 	Notifications bool   `json:"notifications" jsonschema:"Enable notifications"`
 }
 
 type APIConfiguration struct {
 	Endpoint string `json:"endpoint" jsonschema:"API endpoint URL"`
-	Timeout  int    `json:"timeout" jsonschema:"Request timeout in seconds"`
-	Retries  int    `json:"retries" jsonschema:"Number of retry attempts"`
+	Timeout  int    `json:"timeout"  jsonschema:"Request timeout in seconds"`
+	Retries  int    `json:"retries"  jsonschema:"Number of retry attempts"`
 }
 
 // MockElicitationCapabilityWithResponses for integration testing
@@ -33,7 +32,7 @@ type MockElicitationCapabilityWithResponses struct {
 	CallIndex int
 }
 
-func (m *MockElicitationCapabilityWithResponses) Elicit(ctx context.Context, message string, requestedSchema *jsonschema.Schema) (*mcp.ElicitResult, error) {
+func (m *MockElicitationCapabilityWithResponses) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
 	if m.CallIndex >= len(m.Responses) {
 		return &mcp.ElicitResult{Action: "cancel"}, nil
 	}
@@ -341,12 +340,12 @@ func TestElicitationSchemaValidation(t *testing.T) {
 	// Test schema generation for complex type
 	type ComplexConfig struct {
 		Database struct {
-			Host     string `json:"host" jsonschema:"Database host"`
-			Port     int    `json:"port" jsonschema:"Database port"`
+			Host     string `json:"host"     jsonschema:"Database host"`
+			Port     int    `json:"port"     jsonschema:"Database port"`
 			Username string `json:"username" jsonschema:"Database username"`
 		} `json:"database" jsonschema:"Database configuration"`
 		Features struct {
-			EnableCache    bool     `json:"enableCache" jsonschema:"Enable caching"`
+			EnableCache    bool     `json:"enableCache"    jsonschema:"Enable caching"`
 			AllowedOrigins []string `json:"allowedOrigins" jsonschema:"Allowed CORS origins"`
 		} `json:"features" jsonschema:"Feature flags"`
 	}

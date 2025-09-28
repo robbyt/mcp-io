@@ -73,6 +73,65 @@ func main() {
 }
 ```
 
+## Schema Flexibility (New in v0.8.0+)
+
+The library now supports multiple ways to define tool schemas, giving you complete flexibility while optimizing for performance:
+
+```go
+// Traditional struct-based schemas (unchanged - recommended for most use cases)
+mcpio.WithTool("to_upper", "Convert text to uppercase", toUpperFunc)
+
+// Custom JSON schemas from strings (converted to optimal json.RawMessage)
+mcpio.WithTool("calculator", "Arithmetic calculator", calcFunc,
+    mcpio.WithInputSchema(`{
+        "type": "object",
+        "properties": {
+            "operation": {"type": "string", "enum": ["add", "subtract", "multiply", "divide"]},
+            "a": {"type": "number"},
+            "b": {"type": "number"}
+        },
+        "required": ["operation", "a", "b"]
+    }`),
+    mcpio.WithOutputSchema(`{
+        "type": "object",
+        "properties": {"result": {"type": "number"}},
+        "required": ["result"]
+    }`),
+)
+
+// Maximum performance with json.RawMessage (zero marshaling overhead)
+mcpio.WithTool("fast_processor", "High-performance processing", processorFunc,
+    mcpio.WithSchemas(
+        json.RawMessage(`{"type":"object","additionalProperties":true}`),
+        json.RawMessage(`{"type":"object","properties":{"processed":{"type":"boolean"}}}`),
+    ),
+)
+
+// Dynamic schemas using map[string]any
+dynamicSchema := map[string]any{
+    "type": "object",
+    "properties": map[string]any{
+        "message": map[string]any{"type": "string"},
+        "repeat": map[string]any{"type": "integer", "minimum": 1, "maximum": 10},
+    },
+    "required": []string{"message"},
+}
+mcpio.WithTool("echo", "Echo with repetition", echoFunc,
+    mcpio.WithInputSchema(dynamicSchema),
+)
+```
+
+### Performance Hierarchy
+
+Based on analysis of MCP SDK v0.8.0 internals, schema types are optimized in this order:
+
+1. **`json.RawMessage`** - Zero marshaling overhead, direct wire compatibility (fastest)
+2. **JSON strings** - Validated and converted to `json.RawMessage` internally
+3. **`*jsonschema.Schema`** - Type-safe but requires JSON marshaling
+4. **`map[string]any`** - Flexible but with map overhead (slowest)
+
+**Recommendation**: Use `json.RawMessage` for high-performance tools, JSON strings for readability, and struct-based schemas for development convenience.
+
 ## Testing Your Server
 
 You can test your MCP server using the [MCP CLI tools](https://github.com/f/mcptools):
@@ -375,6 +434,54 @@ handler, err := mcpio.NewHandler(
 - See [godoc](https://pkg.go.dev/github.com/robbyt/mcp-io) for detailed API documentation with examples
 - Complete working example: [examples/cli_elicitation](examples/cli_elicitation/)
 - Session-aware prompts and resources: `WithSessionPrompt`, `WithSessionResource`
+
+## Migration Guide
+
+### Upgrading to Schema Flexibility (v0.8.0+)
+
+The new schema flexibility features are backward compatible. Existing code continues to work unchanged:
+
+```go
+// Before and after - no changes needed
+mcpio.WithTool("my_tool", "Description", myToolFunc)
+```
+
+To leverage new schema options, simply add them:
+
+```go
+// Add custom schema options
+mcpio.WithTool("my_tool", "Description", myToolFunc,
+    mcpio.WithInputSchema(`{"type":"object","properties":{"field":{"type":"string"}}}`),
+    mcpio.WithOutputSchema(outputSchema),
+)
+```
+
+### Raw Tool Schema Updates
+
+If you're using `WithRawTool`, the schema parameter now accepts `any` instead of `*jsonschema.Schema`:
+
+```go
+// Before (still works)
+schema := &jsonschema.Schema{Type: "object", Properties: ...}
+mcpio.WithRawTool("tool", "desc", schema, rawFunc)
+
+// After (recommended for performance)
+schemaJSON := `{"type":"object","properties":...}`
+mcpio.WithRawTool("tool", "desc", schemaJSON, rawFunc)
+```
+
+### Performance Optimization
+
+For high-performance tools, use `json.RawMessage`:
+
+```go
+mcpio.WithTool("fast_tool", "High-performance tool", toolFunc,
+    mcpio.WithSchemas(
+        json.RawMessage(`{"type":"object","properties":...}`),
+        json.RawMessage(`{"type":"object","properties":...}`),
+    ),
+)
+```
 
 ## Comparison with Direct MCP SDK
 

@@ -13,9 +13,9 @@ import (
 
 // Resource registration function types
 type (
-	promptRegisterFunc           func(*mcp.Server)
-	resourceRegisterFunc         func(*mcp.Server)
-	resourceTemplateRegisterFunc func(*mcp.Server)
+	promptRegisterFunc           func(*mcp.Server) error
+	resourceRegisterFunc         func(*mcp.Server) error
+	resourceTemplateRegisterFunc func(*mcp.Server) error
 )
 
 // handlerConfig holds the configuration built by options
@@ -70,16 +70,24 @@ func NewHandler(opts ...Option) (*Handler, error) {
 
 	// Register all resources
 	for _, registerFunc := range cfg.tools {
-		registerFunc(cfg.server)
+		if err := registerFunc(cfg.server); err != nil {
+			return nil, fmt.Errorf("failed to register tool: %w", err)
+		}
 	}
 	for _, registerFunc := range cfg.prompts {
-		registerFunc(cfg.server)
+		if err := registerFunc(cfg.server); err != nil {
+			return nil, fmt.Errorf("failed to register prompt: %w", err)
+		}
 	}
 	for _, registerFunc := range cfg.resources {
-		registerFunc(cfg.server)
+		if err := registerFunc(cfg.server); err != nil {
+			return nil, fmt.Errorf("failed to register resource: %w", err)
+		}
 	}
 	for _, registerFunc := range cfg.resourceTemplates {
-		registerFunc(cfg.server)
+		if err := registerFunc(cfg.server); err != nil {
+			return nil, fmt.Errorf("failed to register resource template: %w", err)
+		}
 	}
 
 	// Create transport handler
