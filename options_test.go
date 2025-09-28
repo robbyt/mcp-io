@@ -191,6 +191,9 @@ func TestWithRawToolOptions(t *testing.T) {
 		[]string{"value"},
 	)
 
+	// Example function matching the documentation
+	rawFunc := func(ctx context.Context, input []byte) ([]byte, error) { return input, nil }
+
 	tests := []struct {
 		name        string
 		toolName    string
@@ -205,6 +208,14 @@ func TestWithRawToolOptions(t *testing.T) {
 			description: "A raw test tool",
 			schema:      validSchema,
 			toolFunc:    testRawToolFunc,
+			wantErr:     nil,
+		},
+		{
+			name:        "WithRawTool with JSON string schema",
+			toolName:    "process",
+			description: "Process JSON",
+			schema:      `{"type":"object"}`,
+			toolFunc:    rawFunc,
 			wantErr:     nil,
 		},
 		{

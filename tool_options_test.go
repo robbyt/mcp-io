@@ -113,9 +113,18 @@ func TestSchemaConversion(t *testing.T) {
 }
 
 func TestToolOptionsIntegration(t *testing.T) {
-	// Test tool function
-	testFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
-		return map[string]any{"processed": input}, nil
+	// Test tool functions matching the documentation examples
+	userFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{"created": input}, nil
+	}
+	fastFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{"processed": true}, nil
+	}
+	analyzeFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{"score": 0.95}, nil
+	}
+	convertFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{"converted": input}, nil
 	}
 
 	tests := []struct {
@@ -124,26 +133,30 @@ func TestToolOptionsIntegration(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "WithInputSchema using JSON string",
+			name: "WithInputSchema with email validation",
 			options: []ToolOption{
-				WithInputSchema(`{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}`),
+				WithInputSchema(`{"type":"object","properties":{"email":{"format":"email"}}}`),
 			},
 			wantErr: false,
 		},
 		{
-			name: "WithOutputSchema using json.RawMessage",
+			name: "WithInputSchema using json.RawMessage for performance",
 			options: []ToolOption{
-				WithOutputSchema(json.RawMessage(`{"type":"object","properties":{"result":{"type":"string"}}}`)),
+				WithInputSchema(json.RawMessage(`{"type":"object","additionalProperties":true}`)),
 			},
 			wantErr: false,
 		},
 		{
-			name: "WithSchemas using map[string]any",
+			name: "WithOutputSchema with score property",
 			options: []ToolOption{
-				WithSchemas(
-					map[string]any{"type": "object", "properties": map[string]any{"input": map[string]any{"type": "string"}}},
-					map[string]any{"type": "object", "properties": map[string]any{"output": map[string]any{"type": "string"}}},
-				),
+				WithOutputSchema(`{"type":"object","properties":{"score":{"type":"number"}}}`),
+			},
+			wantErr: false,
+		},
+		{
+			name: "WithSchemas setting both input and output",
+			options: []ToolOption{
+				WithSchemas(`{"type":"object"}`, `{"type":"object"}`),
 			},
 			wantErr: false,
 		},
@@ -165,9 +178,30 @@ func TestToolOptionsIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var toolFunc func(context.Context, map[string]any) (map[string]any, error)
+			toolName := "test-tool"
+
+			// Select appropriate function based on test
+			switch tt.name {
+			case "WithInputSchema with email validation":
+				toolFunc = userFunc
+				toolName = "user"
+			case "WithInputSchema using json.RawMessage for performance":
+				toolFunc = fastFunc
+				toolName = "fast"
+			case "WithOutputSchema with score property":
+				toolFunc = analyzeFunc
+				toolName = "analyze"
+			case "WithSchemas setting both input and output":
+				toolFunc = convertFunc
+				toolName = "converter"
+			default:
+				toolFunc = userFunc
+			}
+
 			_, err := NewToolHandler(
 				WithName("test-server"),
-				WithTool("test-tool", "Test tool", testFunc, tt.options...),
+				WithTool(toolName, "Test tool", toolFunc, tt.options...),
 			)
 
 			if tt.wantErr {

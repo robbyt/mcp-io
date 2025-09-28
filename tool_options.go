@@ -42,21 +42,36 @@ func (o outputSchemaOption) apply(tool *mcp.Tool) error {
 }
 
 // WithInputSchema sets a custom input schema for the tool.
-// Accepts string (JSON), json.RawMessage, *jsonschema.Schema, or map[string]any.
-// Converts all types to json.RawMessage for optimal performance.
+// Use this to override the auto-generated schema from your Go struct types.
+// Useful for adding validation constraints, descriptions, or supporting flexible input.
+//
+// Examples:
+//
+//	// Add validation to struct-based tool
+//	WithTool("user", "Create user", userFunc,
+//	    WithInputSchema(`{"type":"object","properties":{"email":{"format":"email"}}}`))
+//
+//	// Performance optimization with json.RawMessage
+//	schema := json.RawMessage(`{"type":"object","additionalProperties":true}`)
+//	WithTool("fast", "High-speed processing", fastFunc, WithInputSchema(schema))
 func WithInputSchema(schema any) ToolOption {
 	return inputSchemaOption{schema: schema}
 }
 
 // WithOutputSchema sets a custom output schema for the tool.
-// Accepts string (JSON), json.RawMessage, *jsonschema.Schema, or map[string]any.
-// Converts all types to json.RawMessage for optimal performance.
+// Use this to document API responses, add metadata, or override struct-based output.
+//
+//	WithTool("analyze", "Text analysis", analyzeFunc,
+//	    WithOutputSchema(`{"type":"object","properties":{"score":{"type":"number"}}}`)
 func WithOutputSchema(schema any) ToolOption {
 	return outputSchemaOption{schema: schema}
 }
 
 // WithSchemas sets both input and output schemas for the tool.
 // Convenience function for setting both schemas at once.
+//
+//	WithTool("converter", "Convert units", convertFunc,
+//	    WithSchemas(`{"type":"object"}`, `{"type":"object"}`))
 func WithSchemas(inputSchema, outputSchema any) ToolOption {
 	return combinedSchemaOption{
 		input:  inputSchema,

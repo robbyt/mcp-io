@@ -85,8 +85,10 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 }
 
 // WithRawTool adds a tool with manual JSON handling and explicit schema.
-// The inputSchema can be any value that JSON-marshals to valid JSON schema,
-// including *jsonschema.Schema, json.RawMessage, or map[string]any.
+// Use this when you need direct control over JSON processing or dynamic schemas.
+//
+//	rawFunc := func(ctx context.Context, input []byte) ([]byte, error) { return input, nil }
+//	WithRawTool("process", "Process JSON", `{"type":"object"}`, rawFunc)
 func WithRawTool(name, description string, inputSchema any, fn RawToolFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
