@@ -69,25 +69,29 @@ func NewHandler(opts ...Option) (*Handler, error) {
 	}
 
 	// Register all resources
+	errz := make([]error, 0)
 	for _, registerFunc := range cfg.tools {
 		if err := registerFunc(cfg.server); err != nil {
-			return nil, fmt.Errorf("failed to register tool: %w", err)
+			errz = append(errz, fmt.Errorf("failed to register tool: %w", err))
 		}
 	}
 	for _, registerFunc := range cfg.prompts {
 		if err := registerFunc(cfg.server); err != nil {
-			return nil, fmt.Errorf("failed to register prompt: %w", err)
+			errz = append(errz, fmt.Errorf("failed to register prompt: %w", err))
 		}
 	}
 	for _, registerFunc := range cfg.resources {
 		if err := registerFunc(cfg.server); err != nil {
-			return nil, fmt.Errorf("failed to register resource: %w", err)
+			errz = append(errz, fmt.Errorf("failed to register resource: %w", err))
 		}
 	}
 	for _, registerFunc := range cfg.resourceTemplates {
 		if err := registerFunc(cfg.server); err != nil {
-			return nil, fmt.Errorf("failed to register resource template: %w", err)
+			errz = append(errz, fmt.Errorf("failed to register resource template: %w", err))
 		}
+	}
+	if len(errz) > 0 {
+		return nil, errors.Join(errz...)
 	}
 
 	// Create transport handler
