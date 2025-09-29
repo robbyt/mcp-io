@@ -41,8 +41,8 @@ func (o outputSchemaOption) apply(tool *mcp.Tool) error {
 	return nil
 }
 
-// WithInputSchema sets a custom input schema for the tool.
-// Use this to override the auto-generated schema from your Go struct types.
+// WithInputSchema overrides the auto-generated input schema from Go struct types.
+// When used with WithTool, this completely replaces schema generation from the TIn type.
 // Useful for adding validation constraints, descriptions, or supporting flexible input.
 //
 // Examples:
@@ -58,8 +58,9 @@ func WithInputSchema(schema any) ToolOption {
 	return inputSchemaOption{schema: schema}
 }
 
-// WithOutputSchema sets a custom output schema for the tool.
-// Use this to document API responses, add metadata, or override struct-based output.
+// WithOutputSchema overrides the auto-generated output schema from Go struct types.
+// When used with WithTool, this completely replaces schema generation from the TOut type.
+// Use this to document API responses, add metadata, or specify flexible output.
 //
 //	WithTool("analyze", "Text analysis", analyzeFunc,
 //	    WithOutputSchema(`{"type":"object","properties":{"score":{"type":"number"}}}`)
@@ -67,7 +68,8 @@ func WithOutputSchema(schema any) ToolOption {
 	return outputSchemaOption{schema: schema}
 }
 
-// WithSchemas sets both input and output schemas for the tool.
+// WithSchemas overrides both auto-generated input and output schemas.
+// When used with WithTool, this completely replaces schema generation from TIn/TOut types.
 // Convenience function for setting both schemas at once.
 //
 //	WithTool("converter", "Convert units", convertFunc,

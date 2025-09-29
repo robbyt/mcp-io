@@ -34,18 +34,19 @@ func WithVersion(version string) Option {
 }
 
 // WithTool adds a type-safe tool with automatic schema generation from Go types.
-// Optional ToolOption parameters can override the auto-generated schemas.
+// Schema options (WithInputSchema, WithOutputSchema, WithSchemas) completely
+// override the auto-generated schemas from TIn/TOut types.
 //
 // Examples:
 //
-//	// Basic usage with auto-generated schemas from struct types
+//	// Auto-generated schemas: Uses TIn/TOut struct types
 //	WithTool("to_upper", "Convert text to uppercase", toUpperFunc)
 //
-//	// Override input schema with JSON string
+//	// Schema override: Replaces auto-generated input schema
 //	WithTool("to_upper", "Convert text", toUpperFunc,
 //	    WithInputSchema(`{"type":"object","properties":{"text":{"type":"string"}}}`))
 //
-//	// Override both input and output schemas
+//	// Schema override: Replaces both auto-generated schemas
 //	WithTool("calc", "Calculator", calcFunc,
 //	    WithSchemas(inputSchemaJSON, outputSchemaJSON))
 func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], opts ...ToolOption) Option {
