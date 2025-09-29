@@ -185,7 +185,7 @@ func schemaToPromptArguments(schema any) []*mcp.PromptArgument {
 	}
 
 	// Convert to *jsonschema.Schema to access Properties and Required fields
-	jsonSchemaObj, err := convertToJSONSchemaSchema(schema)
+	jsonSchemaObj, err := convertToJSONSchema(schema)
 	if err != nil || jsonSchemaObj == nil || jsonSchemaObj.Properties == nil {
 		return nil
 	}

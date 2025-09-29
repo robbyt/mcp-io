@@ -143,10 +143,10 @@ func convertToOptimalSchema(schema any) (json.RawMessage, error) {
 	}
 }
 
-// convertToJSONSchemaSchema converts any schema type to *jsonschema.Schema for
+// convertToJSONSchema converts any schema type to *jsonschema.Schema for
 // internal processing that requires accessing specific schema fields like
 // Properties and Required (e.g., schemaToPromptArguments function).
-func convertToJSONSchemaSchema(schema any) (*jsonschema.Schema, error) {
+func convertToJSONSchema(schema any) (*jsonschema.Schema, error) {
 	if schema == nil {
 		return nil, fmt.Errorf("schema cannot be nil")
 	}

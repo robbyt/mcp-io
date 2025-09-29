@@ -79,7 +79,7 @@ func TestElicitTyped_SchemaGeneration(t *testing.T) {
 	assert.NotNil(t, capturedSchema)
 
 	// Convert captured schema back to jsonschema.Schema for testing
-	jsonSchemaObj, err := convertToJSONSchemaSchema(capturedSchema)
+	jsonSchemaObj, err := convertToJSONSchema(capturedSchema)
 	require.NoError(t, err)
 	assert.Equal(t, "object", jsonSchemaObj.Type)
 
@@ -196,7 +196,7 @@ func TestElicitSimple_Success(t *testing.T) {
 	assert.Equal(t, "testuser", result.GetContent()["username"])
 
 	// Convert captured schema back to jsonschema.Schema for testing
-	jsonSchemaObj, err := convertToJSONSchemaSchema(capturedSchema)
+	jsonSchemaObj, err := convertToJSONSchema(capturedSchema)
 	require.NoError(t, err)
 
 	// Verify schema structure
