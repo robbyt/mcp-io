@@ -95,7 +95,7 @@ func TestSchemaConversion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := convertToOptimalSchema(tt.input)
+			result, err := convertToRawMessage(tt.input)
 
 			if tt.wantError {
 				require.Error(t, err)
@@ -241,11 +241,11 @@ func TestPerformanceComparison(t *testing.T) {
 	inputSchema := `{"type":"object","properties":{"data":{"type":"string"}},"required":["data"]}`
 
 	// Test conversion from string to json.RawMessage
-	result1, err1 := convertToOptimalSchema(inputSchema)
+	result1, err1 := convertToRawMessage(inputSchema)
 	require.NoError(t, err1)
 
 	// Test conversion from json.RawMessage (should be identity)
-	result2, err2 := convertToOptimalSchema(json.RawMessage(inputSchema))
+	result2, err2 := convertToRawMessage(json.RawMessage(inputSchema))
 	require.NoError(t, err2)
 
 	// Both should produce identical json.RawMessage

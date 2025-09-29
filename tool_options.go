@@ -19,7 +19,7 @@ type inputSchemaOption struct {
 }
 
 func (o inputSchemaOption) apply(tool *mcp.Tool) error {
-	converted, err := convertToOptimalSchema(o.schema)
+	converted, err := convertToRawMessage(o.schema)
 	if err != nil {
 		return fmt.Errorf("invalid input schema: %w", err)
 	}
@@ -33,7 +33,7 @@ type outputSchemaOption struct {
 }
 
 func (o outputSchemaOption) apply(tool *mcp.Tool) error {
-	converted, err := convertToOptimalSchema(o.schema)
+	converted, err := convertToRawMessage(o.schema)
 	if err != nil {
 		return fmt.Errorf("invalid output schema: %w", err)
 	}
@@ -93,14 +93,10 @@ func (o combinedSchemaOption) apply(tool *mcp.Tool) error {
 	return WithOutputSchema(o.output).apply(tool)
 }
 
-// convertToOptimalSchema converts any schema type to json.RawMessage for optimal
-// performance with MCP SDK v0.8.0. Based on analysis of the MCP SDK source code,
-// json.RawMessage provides the best performance as it:
-//   - Has zero marshaling overhead during tool listing
-//   - Uses minimal memory (byte slice vs full structs)
-//   - Has fast validation path in the SDK's remarshal function
-//   - Is directly compatible with the wire protocol
-func convertToOptimalSchema(schema any) (json.RawMessage, error) {
+// convertToRawMessage converts any schema type to json.RawMessage for optimal performance with
+// the MCP SDK. json.RawMessage has zero marshaling overhead during tool listing, so it uses fewer
+// resources.
+func convertToRawMessage(schema any) (json.RawMessage, error) {
 	if schema == nil {
 		return nil, fmt.Errorf("schema cannot be nil")
 	}
