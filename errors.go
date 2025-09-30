@@ -120,9 +120,11 @@ var (
 
 // Nil value validation errors
 var (
-	ErrNilSchema   = errors.New("schema cannot be nil")
-	ErrNilFunction = errors.New("function cannot be nil")
-	ErrNilServer   = errors.New("server cannot be nil")
+	ErrNilSchema                = errors.New("schema cannot be nil")
+	ErrNilFunction              = errors.New("function cannot be nil")
+	ErrNilServer                = errors.New("server cannot be nil")
+	ErrNilServerOptions         = errors.New("server options cannot be nil")
+	ErrNilStreamableHTTPOptions = errors.New("streamable HTTP options cannot be nil")
 )
 
 // Schema validation errors

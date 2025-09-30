@@ -206,3 +206,108 @@ func TestOptionErrorConditions(t *testing.T) {
 	require.ErrorIs(t, err, ErrEmptyVersion)
 	assert.Equal(t, "1.0.0", cfg.version)
 }
+
+func TestWithServerOptions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		opts    *mcp.ServerOptions
+		wantErr error
+	}{
+		{
+			name: "valid server options with all fields",
+			opts: &mcp.ServerOptions{
+				Instructions: "Test instructions",
+				PageSize:     100,
+				HasPrompts:   true,
+				HasResources: true,
+				HasTools:     true,
+			},
+			wantErr: nil,
+		},
+		{
+			name:    "valid empty server options",
+			opts:    &mcp.ServerOptions{},
+			wantErr: nil,
+		},
+		{
+			name:    "nil server options should return error",
+			opts:    nil,
+			wantErr: ErrNilServerOptions,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &handlerConfig{}
+			option := WithServerOptions(tt.opts)
+			err := option(cfg)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.opts, cfg.serverOptions)
+			}
+		})
+	}
+}
+
+func TestWithStreamableHTTPOptions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		opts    *mcp.StreamableHTTPOptions
+		wantErr error
+	}{
+		{
+			name: "stateless mode enabled",
+			opts: &mcp.StreamableHTTPOptions{
+				Stateless: true,
+			},
+			wantErr: nil,
+		},
+		{
+			name: "JSON response mode enabled",
+			opts: &mcp.StreamableHTTPOptions{
+				JSONResponse: true,
+			},
+			wantErr: nil,
+		},
+		{
+			name: "both options enabled",
+			opts: &mcp.StreamableHTTPOptions{
+				Stateless:    true,
+				JSONResponse: true,
+			},
+			wantErr: nil,
+		},
+		{
+			name:    "valid empty streamable HTTP options",
+			opts:    &mcp.StreamableHTTPOptions{},
+			wantErr: nil,
+		},
+		{
+			name:    "nil streamable HTTP options should return error",
+			opts:    nil,
+			wantErr: ErrNilStreamableHTTPOptions,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &handlerConfig{}
+			option := WithStreamableHTTPOptions(tt.opts)
+			err := option(cfg)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.opts, cfg.streamableHTTPOptions)
+			}
+		})
+	}
+}
