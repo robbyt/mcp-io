@@ -39,3 +39,25 @@ func WithServer(server *mcp.Server) Option {
 		return nil
 	}
 }
+
+// WithServerOptions sets the MCP server options
+func WithServerOptions(opts *mcp.ServerOptions) Option {
+	return func(cfg *handlerConfig) error {
+		if opts == nil {
+			return ErrNilServerOptions
+		}
+		cfg.serverOptions = opts
+		return nil
+	}
+}
+
+// WithStreamableHTTPOptions sets the streamable HTTP handler options
+func WithStreamableHTTPOptions(opts *mcp.StreamableHTTPOptions) Option {
+	return func(cfg *handlerConfig) error {
+		if opts == nil {
+			return ErrNilStreamableHTTPOptions
+		}
+		cfg.streamableHTTPOptions = opts
+		return nil
+	}
+}

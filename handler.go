@@ -20,19 +20,21 @@ type (
 
 // handlerConfig holds the configuration built by options
 type handlerConfig struct {
-	name              string
-	version           string
-	tools             []toolRegisterFunc
-	prompts           []promptRegisterFunc
-	resources         []resourceRegisterFunc
-	resourceTemplates []resourceTemplateRegisterFunc
-	server            *mcp.Server // The MCP-SDK server instance
+	name                  string
+	version               string
+	tools                 []toolRegisterFunc
+	prompts               []promptRegisterFunc
+	resources             []resourceRegisterFunc
+	resourceTemplates     []resourceTemplateRegisterFunc
+	server                *mcp.Server // The MCP-SDK server instance
+	serverOptions         *mcp.ServerOptions
+	streamableHTTPOptions *mcp.StreamableHTTPOptions
 }
 
 // Handler is the main MCP handler struct
 type Handler struct {
-	server      *mcp.Server
-	httpHandler http.Handler
+	server  *mcp.Server
+	handler *mcp.StreamableHTTPHandler
 }
 
 // GetServer returns the underlying MCP server for advanced usage
@@ -44,12 +46,15 @@ func (h *Handler) GetServer() *mcp.Server {
 // This is the unified constructor that can handle tools, prompts, resources, and resource templates.
 func NewHandler(opts ...Option) (*Handler, error) {
 	cfg := &handlerConfig{
-		name:              "mcp-server",
-		version:           "1.0.0",
-		tools:             make([]toolRegisterFunc, 0),
-		prompts:           make([]promptRegisterFunc, 0),
-		resources:         make([]resourceRegisterFunc, 0),
-		resourceTemplates: make([]resourceTemplateRegisterFunc, 0),
+		name:                  "mcp-server",
+		version:               "1.0.0",
+		tools:                 make([]toolRegisterFunc, 0),
+		prompts:               make([]promptRegisterFunc, 0),
+		resources:             make([]resourceRegisterFunc, 0),
+		resourceTemplates:     make([]resourceTemplateRegisterFunc, 0),
+		server:                nil, // Will be created if not provided
+		serverOptions:         &mcp.ServerOptions{},
+		streamableHTTPOptions: &mcp.StreamableHTTPOptions{},
 	}
 
 	// Apply all options
@@ -65,7 +70,7 @@ func NewHandler(opts ...Option) (*Handler, error) {
 			Name:    cfg.name,
 			Version: cfg.version,
 		}
-		cfg.server = mcp.NewServer(impl, nil)
+		cfg.server = mcp.NewServer(impl, cfg.serverOptions)
 	}
 
 	// Register all resources
@@ -94,21 +99,18 @@ func NewHandler(opts ...Option) (*Handler, error) {
 		return nil, errors.Join(errz...)
 	}
 
-	// Create transport handler
-	httpHandler := mcp.NewStreamableHTTPHandler(
-		func(*http.Request) *mcp.Server { return cfg.server },
-		nil,
-	)
-
 	return &Handler{
-		server:      cfg.server,
-		httpHandler: httpHandler,
+		server: cfg.server,
+		handler: mcp.NewStreamableHTTPHandler(
+			func(*http.Request) *mcp.Server { return cfg.server },
+			cfg.streamableHTTPOptions,
+		),
 	}, nil
 }
 
 // ServeHTTP implements http.Handler for HTTP transport
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.httpHandler.ServeHTTP(w, r)
+	h.handler.ServeHTTP(w, r)
 }
 
 // ServeSSE implements SSE transport by delegating to ServeHTTP
