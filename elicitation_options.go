@@ -79,7 +79,7 @@ func WithSessionTool[TIn, TOut any](name, description string, fn SessionAwareToo
 		}
 
 		// Create registration function that uses the session-aware handler
-		registerFunc := func(server *mcp.Server) {
+		registerFunc := func(server *mcp.Server) error {
 			tool := &mcp.Tool{
 				Name:        name,
 				Description: description,
@@ -87,6 +87,7 @@ func WithSessionTool[TIn, TOut any](name, description string, fn SessionAwareToo
 			}
 			handler := createSessionAwareToolHandler(fn)
 			mcp.AddTool(server, tool, handler)
+			return nil
 		}
 
 		cfg.tools = append(cfg.tools, registerFunc)
@@ -142,13 +143,14 @@ func WithSessionPrompt(name, description string, fn SessionAwarePromptFunc) Opti
 			return ErrEmptyPromptName
 		}
 
-		registerFunc := func(server *mcp.Server) {
+		registerFunc := func(server *mcp.Server) error {
 			prompt := &mcp.Prompt{
 				Name:        name,
 				Description: description,
 			}
 			handler := createSessionAwarePromptHandler(fn)
 			server.AddPrompt(prompt, handler)
+			return nil
 		}
 
 		cfg.prompts = append(cfg.prompts, registerFunc)
@@ -163,7 +165,7 @@ func WithSessionPromptWithArgs(name, description string, args []*mcp.PromptArgum
 			return ErrEmptyPromptName
 		}
 
-		registerFunc := func(server *mcp.Server) {
+		registerFunc := func(server *mcp.Server) error {
 			prompt := &mcp.Prompt{
 				Name:        name,
 				Description: description,
@@ -171,6 +173,7 @@ func WithSessionPromptWithArgs(name, description string, args []*mcp.PromptArgum
 			}
 			handler := createSessionAwarePromptHandler(fn)
 			server.AddPrompt(prompt, handler)
+			return nil
 		}
 
 		cfg.prompts = append(cfg.prompts, registerFunc)
@@ -223,7 +226,7 @@ func WithSessionResource(uri, description string, fn SessionAwareResourceFunc) O
 			return ErrEmptyResourceURI
 		}
 
-		registerFunc := func(server *mcp.Server) {
+		registerFunc := func(server *mcp.Server) error {
 			resource := &mcp.Resource{
 				URI:         uri,
 				Name:        uri, // Use URI as name by default
@@ -231,6 +234,7 @@ func WithSessionResource(uri, description string, fn SessionAwareResourceFunc) O
 			}
 			handler := createSessionAwareResourceHandler(fn)
 			server.AddResource(resource, handler)
+			return nil
 		}
 
 		cfg.resources = append(cfg.resources, registerFunc)
@@ -245,7 +249,7 @@ func WithSessionResourceTemplate(uriTemplate, description string, fn SessionAwar
 			return ErrEmptyResourceTemplate
 		}
 
-		registerFunc := func(server *mcp.Server) {
+		registerFunc := func(server *mcp.Server) error {
 			template := &mcp.ResourceTemplate{
 				URITemplate: uriTemplate,
 				Name:        uriTemplate, // Use template as name by default
@@ -253,6 +257,7 @@ func WithSessionResourceTemplate(uriTemplate, description string, fn SessionAwar
 			}
 			handler := createSessionAwareResourceHandler(fn)
 			server.AddResourceTemplate(template, handler)
+			return nil
 		}
 
 		cfg.resourceTemplates = append(cfg.resourceTemplates, registerFunc)

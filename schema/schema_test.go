@@ -15,6 +15,7 @@ type TestStruct struct {
 
 func TestNew(t *testing.T) {
 	t.Parallel()
+
 	schema, err := New[TestStruct]()
 	require.NoError(t, err)
 	assert.NotNil(t, schema)
@@ -24,6 +25,7 @@ func TestNew(t *testing.T) {
 
 func TestNewDynamic(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name     string
 		fields   []FieldDef
@@ -98,6 +100,7 @@ func TestNewDynamic(t *testing.T) {
 
 func TestNewString(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name        string
 		description string
@@ -153,6 +156,7 @@ func TestNewString(t *testing.T) {
 
 func TestNewObject(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name        string
 		description string

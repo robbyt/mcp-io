@@ -9,9 +9,31 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// ToolSchemas allows overriding auto-generated schemas for tools.
+// When provided to WithTool, these completely replace schema generation from TIn/TOut types.
+//
+// Examples:
+//
+//	// Override only input schema
+//	schemas := &ToolSchemas{
+//	    InputSchema: `{"type":"object","properties":{"name":{"type":"string"}}}`,
+//	}
+//	WithTool("create_user", "Create a user", userFunc, schemas)
+//
+//	// Override both schemas with json.RawMessage for best performance
+//	schemas := &ToolSchemas{
+//	    InputSchema:  json.RawMessage(`{"type":"object"}`),
+//	    OutputSchema: json.RawMessage(`{"type":"object"}`),
+//	}
+//	WithTool("process", "Process data", processFunc, schemas)
+type ToolSchemas struct {
+	InputSchema  any // Can be json.RawMessage, string, *jsonschema.Schema, or map[string]any
+	OutputSchema any // Can be json.RawMessage, string, *jsonschema.Schema, or map[string]any
+}
+
 // toolRegisterFunc is an internal function type that registers a tool on an MCP server.
 // This is used internally by the option functions to defer tool registration.
-type toolRegisterFunc func(*mcp.Server)
+type toolRegisterFunc func(*mcp.Server) error
 
 // ToolFunc is the function signature for typed tools with automatic schema generation.
 // The function receives a context and typed input, and returns typed output with an optional error.

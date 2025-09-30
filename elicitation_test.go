@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -17,7 +17,7 @@ type MockElicitationCapability struct {
 	mock.Mock
 }
 
-func (m *MockElicitationCapability) Elicit(ctx context.Context, message string, requestedSchema *jsonschema.Schema) (*mcp.ElicitResult, error) {
+func (m *MockElicitationCapability) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
 	args := m.Called(ctx, message, requestedSchema)
 	return args.Get(0).(*mcp.ElicitResult), args.Error(1)
 }
@@ -48,7 +48,7 @@ func TestElicitTyped_Success(t *testing.T) {
 	}
 
 	// Setup mock expectation
-	mockCapability.On("Elicit", mock.Anything, "Test message", mock.AnythingOfType("*jsonschema.Schema")).Return(expectedResult, nil)
+	mockCapability.On("Elicit", mock.Anything, "Test message", mock.Anything).Return(expectedResult, nil)
 
 	// Call ElicitTyped
 	result, err := ElicitTyped[TestConfig](context.Background(), mockCapability, "Test message")
@@ -67,10 +67,10 @@ func TestElicitTyped_SchemaGeneration(t *testing.T) {
 	expectedResult := &mcp.ElicitResult{Action: "decline"}
 
 	// Capture the schema that gets passed to Elicit
-	var capturedSchema *jsonschema.Schema
-	mockCapability.On("Elicit", mock.Anything, "Test message", mock.AnythingOfType("*jsonschema.Schema")).
+	var capturedSchema any
+	mockCapability.On("Elicit", mock.Anything, "Test message", mock.Anything).
 		Run(func(args mock.Arguments) {
-			capturedSchema = args.Get(2).(*jsonschema.Schema)
+			capturedSchema = args.Get(2)
 		}).Return(expectedResult, nil)
 
 	// Call ElicitTyped
@@ -78,18 +78,22 @@ func TestElicitTyped_SchemaGeneration(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, capturedSchema)
-	assert.Equal(t, "object", capturedSchema.Type)
+
+	// Convert captured schema back to jsonschema.Schema for testing
+	jsonSchemaObj, err := schema.ConvertToJSONSchema(capturedSchema)
+	require.NoError(t, err)
+	assert.Equal(t, "object", jsonSchemaObj.Type)
 
 	// Check that required fields are present
-	assert.Contains(t, capturedSchema.Properties, "name")
-	assert.Contains(t, capturedSchema.Properties, "value")
+	assert.Contains(t, jsonSchemaObj.Properties, "name")
+	assert.Contains(t, jsonSchemaObj.Properties, "value")
 
 	// Check field types
-	nameField := capturedSchema.Properties["name"]
+	nameField := jsonSchemaObj.Properties["name"]
 	assert.Equal(t, "string", nameField.Type)
 	assert.Equal(t, "Test name", nameField.Description)
 
-	valueField := capturedSchema.Properties["value"]
+	valueField := jsonSchemaObj.Properties["value"]
 	assert.Equal(t, "integer", valueField.Type)
 	assert.Equal(t, "Test value", valueField.Description)
 
@@ -159,7 +163,7 @@ func TestElicitTypedResult(t *testing.T) {
 		Content: map[string]any{"name": "test"},
 	}
 
-	mockCapability.On("Elicit", mock.Anything, "Test message", mock.AnythingOfType("*jsonschema.Schema")).Return(expectedResult, nil)
+	mockCapability.On("Elicit", mock.Anything, "Test message", mock.Anything).Return(expectedResult, nil)
 
 	result, err := ElicitTypedResult[TestConfig](context.Background(), mockCapability, "Test message")
 
@@ -180,10 +184,10 @@ func TestElicitSimple_Success(t *testing.T) {
 	}
 
 	// Capture the schema to verify it's constructed correctly
-	var capturedSchema *jsonschema.Schema
-	mockCapability.On("Elicit", mock.Anything, "Enter username", mock.AnythingOfType("*jsonschema.Schema")).
+	var capturedSchema any
+	mockCapability.On("Elicit", mock.Anything, "Enter username", mock.Anything).
 		Run(func(args mock.Arguments) {
-			capturedSchema = args.Get(2).(*jsonschema.Schema)
+			capturedSchema = args.Get(2)
 		}).Return(expectedResult, nil)
 
 	result, err := ElicitSimple(context.Background(), mockCapability, "Enter username", "username", "Your username")
@@ -192,12 +196,16 @@ func TestElicitSimple_Success(t *testing.T) {
 	assert.True(t, result.IsAccepted())
 	assert.Equal(t, "testuser", result.GetContent()["username"])
 
-	// Verify schema structure
-	assert.Equal(t, "object", capturedSchema.Type)
-	assert.Contains(t, capturedSchema.Properties, "username")
-	assert.Equal(t, []string{"username"}, capturedSchema.Required)
+	// Convert captured schema back to jsonschema.Schema for testing
+	jsonSchemaObj, err := schema.ConvertToJSONSchema(capturedSchema)
+	require.NoError(t, err)
 
-	usernameField := capturedSchema.Properties["username"]
+	// Verify schema structure
+	assert.Equal(t, "object", jsonSchemaObj.Type)
+	assert.Contains(t, jsonSchemaObj.Properties, "username")
+	assert.Equal(t, []string{"username"}, jsonSchemaObj.Required)
+
+	usernameField := jsonSchemaObj.Properties["username"]
 	assert.Equal(t, "string", usernameField.Type)
 	assert.Equal(t, "Your username", usernameField.Description)
 
@@ -208,7 +216,7 @@ func TestElicitSimple_Decline(t *testing.T) {
 	mockCapability := &MockElicitationCapability{}
 
 	expectedResult := &mcp.ElicitResult{Action: "decline"}
-	mockCapability.On("Elicit", mock.Anything, "Enter username", mock.AnythingOfType("*jsonschema.Schema")).Return(expectedResult, nil)
+	mockCapability.On("Elicit", mock.Anything, "Enter username", mock.Anything).Return(expectedResult, nil)
 
 	result, err := ElicitSimple(context.Background(), mockCapability, "Enter username", "username", "Your username")
 
@@ -263,7 +271,7 @@ func TestElicitTypedResult_ElicitError(t *testing.T) {
 	mockCapability := &MockElicitationCapability{}
 	expectedError := fmt.Errorf("elicit failed")
 
-	mockCapability.On("Elicit", mock.Anything, "test message", mock.AnythingOfType("*jsonschema.Schema")).Return((*mcp.ElicitResult)(nil), expectedError)
+	mockCapability.On("Elicit", mock.Anything, "test message", mock.Anything).Return((*mcp.ElicitResult)(nil), expectedError)
 
 	result, err := ElicitTypedResult[TestConfig](context.Background(), mockCapability, "test message")
 
@@ -278,7 +286,7 @@ func TestElicitSimple_ElicitError(t *testing.T) {
 	mockCapability := &MockElicitationCapability{}
 	expectedError := fmt.Errorf("elicit failed")
 
-	mockCapability.On("Elicit", mock.Anything, "test message", mock.AnythingOfType("*jsonschema.Schema")).Return((*mcp.ElicitResult)(nil), expectedError)
+	mockCapability.On("Elicit", mock.Anything, "test message", mock.Anything).Return((*mcp.ElicitResult)(nil), expectedError)
 
 	result, err := ElicitSimple(context.Background(), mockCapability, "test message", "fieldName", "description")
 
@@ -369,7 +377,7 @@ func TestElicitTyped_Success_ComplexType(t *testing.T) {
 		},
 	}
 
-	mockCapability.On("Elicit", mock.Anything, "Complex config", mock.AnythingOfType("*jsonschema.Schema")).Return(expectedResult, nil)
+	mockCapability.On("Elicit", mock.Anything, "Complex config", mock.Anything).Return(expectedResult, nil)
 
 	result, err := ElicitTyped[ComplexType](context.Background(), mockCapability, "Complex config")
 

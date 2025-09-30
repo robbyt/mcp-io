@@ -80,18 +80,18 @@ func (s *PromptsIntegrationTestSuite) TestPromptHandlerIntegration() {
 		})
 		s.Require().NoError(err)
 
-		s.Assert().Len(result.Messages, 2)
+		s.Len(result.Messages, 2)
 
 		// Check system message
-		s.Assert().Equal(mcp.Role("system"), result.Messages[0].Role)
-		if systemContent, ok := result.Messages[0].Content.(*mcp.TextContent); s.Assert().True(ok) {
-			s.Assert().Equal("You are a helpful assistant.", systemContent.Text)
+		s.Equal(mcp.Role("system"), result.Messages[0].Role)
+		if systemContent, ok := result.Messages[0].Content.(*mcp.TextContent); s.True(ok) {
+			s.Equal("You are a helpful assistant.", systemContent.Text)
 		}
 
 		// Check user message
-		s.Assert().Equal(mcp.Role("user"), result.Messages[1].Role)
-		if userContent, ok := result.Messages[1].Content.(*mcp.TextContent); s.Assert().True(ok) {
-			s.Assert().Equal("Create a friendly greeting for World", userContent.Text)
+		s.Equal(mcp.Role("user"), result.Messages[1].Role)
+		if userContent, ok := result.Messages[1].Content.(*mcp.TextContent); s.True(ok) {
+			s.Equal("Create a friendly greeting for World", userContent.Text)
 		}
 	})
 }

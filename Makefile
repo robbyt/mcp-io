@@ -1,3 +1,5 @@
+ALL_BUILD_TAGS := "integration"
+
 .PHONY: all
 all: help
 
@@ -13,7 +15,7 @@ help: Makefile
 ## test: Run all tests (unit + integration) with coverage
 .PHONY: test
 test:
-	go test -race -cover -tags=integration ./...
+	go test -race -cover -tags $(ALL_BUILD_TAGS) ./...
 
 ## test-short: Run tests in short mode (fast, no coverage)
 .PHONY: test-short
@@ -28,13 +30,13 @@ bench:
 ## lint: Run golangci-lint code quality checks
 .PHONY: lint
 lint:
-	golangci-lint run ./...
+	golangci-lint run --build-tags $(ALL_BUILD_TAGS) ./...
 
 ## lint-fix: Run golangci-lint with auto-fix for common issues
 .PHONY: lint-fix
 lint-fix:
 	golangci-lint fmt
-	golangci-lint run --fix ./...
+	golangci-lint run --build-tags $(ALL_BUILD_TAGS) --fix ./...
 
 ## tidy: Clean up go modules
 .PHONY: tidy

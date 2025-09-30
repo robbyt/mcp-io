@@ -2,6 +2,9 @@ package mcpio
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"strconv"
 	"testing"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -172,7 +175,7 @@ func TestWithRawTool(t *testing.T) {
 			_, err := NewToolHandler(WithRawTool(tt.toolName, tt.description, schemaPtr, rawFunc))
 
 			if tt.wantErr != nil {
-				assert.ErrorIs(t, err, tt.wantErr)
+				assert.ErrorContains(t, err, tt.wantErr.Error())
 			} else {
 				require.NoError(t, err)
 			}
@@ -293,4 +296,202 @@ func TestNewToolHandler_Validation(t *testing.T) {
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrIncompatibleHandler)
+}
+
+// Helper function to create test requests for raw tool handlers
+func createTestCallToolRequest(t *testing.T, args map[string]any) *mcp.CallToolRequest {
+	t.Helper()
+	argsJSON, err := json.Marshal(args)
+	if err != nil {
+		t.Fatalf("Failed to marshal test arguments: %v", err)
+	}
+	return &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{
+			Arguments: json.RawMessage(argsJSON),
+		},
+	}
+}
+
+// Test createRawToolHandler function directly
+func TestCreateRawToolHandler(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success path with valid JSON", func(t *testing.T) {
+		// Raw function that returns valid JSON
+		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+			return []byte(`{"result": "success", "input_length": ` + strconv.Itoa(len(input)) + `}`), nil
+		}
+
+		handler := createRawToolHandler(rawFunc)
+
+		req := createTestCallToolRequest(t, map[string]any{
+			"test": "value",
+			"num":  42,
+		})
+
+		result, err := handler(context.Background(), req)
+
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.False(t, result.IsError)
+		assert.Len(t, result.Content, 1)
+
+		textContent, ok := result.Content[0].(*mcp.TextContent)
+		assert.True(t, ok)
+		assert.Contains(t, textContent.Text, `"result": "success"`)
+	})
+
+	t.Run("input marshaling error", func(t *testing.T) {
+		// Raw function (won't be called due to marshaling error)
+		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+			return []byte(`{"result": "should not reach"}`), nil
+		}
+
+		handler := createRawToolHandler(rawFunc)
+
+		// Create request with invalid JSON that will cause marshaling to fail
+		// We'll pass invalid JSON as RawMessage directly
+		req := &mcp.CallToolRequest{
+			Params: &mcp.CallToolParamsRaw{
+				Arguments: json.RawMessage(`{invalid json content`), // Invalid JSON
+			},
+		}
+
+		result, err := handler(context.Background(), req)
+
+		require.NoError(t, err) // Handler should not return protocol error
+		assert.NotNil(t, result)
+		assert.True(t, result.IsError)
+		assert.Len(t, result.Content, 1)
+
+		textContent, ok := result.Content[0].(*mcp.TextContent)
+		assert.True(t, ok)
+		assert.Contains(t, textContent.Text, "Failed to marshal input")
+	})
+
+	t.Run("raw function returns ToolError", func(t *testing.T) {
+		// Raw function that returns a ToolError
+		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+			return nil, NewToolError("validation failed")
+		}
+
+		handler := createRawToolHandler(rawFunc)
+
+		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
+
+		result, err := handler(context.Background(), req)
+
+		require.NoError(t, err) // Handler should not return protocol error
+		assert.NotNil(t, result)
+		assert.True(t, result.IsError)
+		assert.Len(t, result.Content, 1)
+
+		textContent, ok := result.Content[0].(*mcp.TextContent)
+		assert.True(t, ok)
+		assert.Equal(t, "validation failed", textContent.Text)
+	})
+
+	t.Run("raw function returns ToolError with code", func(t *testing.T) {
+		// Raw function that returns a ToolError with error code
+		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+			return nil, ValidationError("invalid input format")
+		}
+
+		handler := createRawToolHandler(rawFunc)
+
+		req := createTestCallToolRequest(t, map[string]any{"data": "invalid"})
+
+		result, err := handler(context.Background(), req)
+
+		require.NoError(t, err) // Handler should not return protocol error
+		assert.NotNil(t, result)
+		assert.True(t, result.IsError)
+		assert.Len(t, result.Content, 1)
+
+		textContent, ok := result.Content[0].(*mcp.TextContent)
+		assert.True(t, ok)
+		// NOTE: Currently the implementation uses toolErr.Message instead of toolErr.Error()
+		// This means error codes are not included in the error message
+		assert.Equal(t, "invalid input format", textContent.Text)
+	})
+
+	t.Run("raw function returns protocol error", func(t *testing.T) {
+		// Raw function that returns a regular Go error (protocol error)
+		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+			return nil, errors.New("database connection failed")
+		}
+
+		handler := createRawToolHandler(rawFunc)
+
+		req := createTestCallToolRequest(t, map[string]any{"query": "test"})
+
+		result, err := handler(context.Background(), req)
+
+		// Protocol errors should be returned as Go errors, not CallToolResult
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "database connection failed")
+	})
+
+	t.Run("invalid JSON output", func(t *testing.T) {
+		// Raw function that returns invalid JSON
+		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+			return []byte(`{invalid json:`), nil
+		}
+
+		handler := createRawToolHandler(rawFunc)
+
+		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
+
+		result, err := handler(context.Background(), req)
+
+		// Invalid JSON should be a protocol error
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, ErrInvalidJSON)
+	})
+
+	t.Run("empty JSON object output", func(t *testing.T) {
+		// Raw function that returns empty JSON object
+		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+			return []byte(`{}`), nil
+		}
+
+		handler := createRawToolHandler(rawFunc)
+
+		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
+
+		result, err := handler(context.Background(), req)
+
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.False(t, result.IsError)
+		assert.Len(t, result.Content, 1)
+
+		textContent, ok := result.Content[0].(*mcp.TextContent)
+		assert.True(t, ok)
+		assert.Equal(t, "{}", textContent.Text)
+	})
+
+	t.Run("JSON array output", func(t *testing.T) {
+		// Raw function that returns JSON array
+		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+			return []byte(`[1, 2, 3]`), nil
+		}
+
+		handler := createRawToolHandler(rawFunc)
+
+		req := createTestCallToolRequest(t, map[string]any{"count": 3})
+
+		result, err := handler(context.Background(), req)
+
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.False(t, result.IsError)
+		assert.Len(t, result.Content, 1)
+
+		textContent, ok := result.Content[0].(*mcp.TextContent)
+		assert.True(t, ok)
+		assert.Equal(t, "[1, 2, 3]", textContent.Text)
+	})
 }

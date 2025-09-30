@@ -342,7 +342,7 @@ func TestSessionOptionErrorConditions(t *testing.T) {
 	// Apply an invalid session tool - should not change existing state
 	err = WithSessionTool("", "Invalid tool", testSessionAwareToolFunc)(cfg)
 	require.ErrorIs(t, err, ErrEmptyToolName)
-	assert.Len(t, cfg.tools, 1) // Should remain unchanged
+	assert.Len(t, cfg.tools, 1)
 
 	// Apply valid session prompt
 	err = WithSessionPrompt("valid-prompt", "Valid prompt", testSessionAwarePromptFunc)(cfg)
@@ -352,7 +352,7 @@ func TestSessionOptionErrorConditions(t *testing.T) {
 	// Apply invalid session prompt - should not change prompt state
 	err = WithSessionPrompt("", "Invalid prompt", testSessionAwarePromptFunc)(cfg)
 	require.ErrorIs(t, err, ErrEmptyPromptName)
-	assert.Len(t, cfg.prompts, 1) // Should remain unchanged
+	assert.Len(t, cfg.prompts, 1)
 
 	// Apply valid session resource
 	err = WithSessionResource("valid://resource", "Valid resource", testSessionAwareResourceFunc)(cfg)
@@ -362,7 +362,7 @@ func TestSessionOptionErrorConditions(t *testing.T) {
 	// Apply invalid session resource - should not change resource state
 	err = WithSessionResource("", "Invalid resource", testSessionAwareResourceFunc)(cfg)
 	require.ErrorIs(t, err, ErrEmptyResourceURI)
-	assert.Len(t, cfg.resources, 1) // Should remain unchanged
+	assert.Len(t, cfg.resources, 1)
 }
 
 func TestSessionOptionIntegrationWithHandler(t *testing.T) {

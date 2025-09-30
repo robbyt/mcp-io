@@ -18,10 +18,12 @@ type ElicitationCapability interface {
 	// Elicit sends an elicitation request to the client asking for user input.
 	// The message parameter is presented to the user, and requestedSchema defines
 	// the structure of the expected response using a restricted subset of JSON Schema.
+	// The requestedSchema can be any value that JSON-marshals to valid JSON schema,
+	// including *jsonschema.Schema, json.RawMessage, or map[string]any.
 	//
 	// Returns an ElicitResult containing the user's action ("accept", "decline", or "cancel")
 	// and optionally the submitted form data when action is "accept".
-	Elicit(ctx context.Context, message string, requestedSchema *jsonschema.Schema) (*mcp.ElicitResult, error)
+	Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error)
 }
 
 // sessionElicitationCapability implements ElicitationCapability using a ServerSession
@@ -30,7 +32,7 @@ type sessionElicitationCapability struct {
 }
 
 // Elicit implements ElicitationCapability interface
-func (s *sessionElicitationCapability) Elicit(ctx context.Context, message string, requestedSchema *jsonschema.Schema) (*mcp.ElicitResult, error) {
+func (s *sessionElicitationCapability) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
 	params := &mcp.ElicitParams{
 		Message:         message,
 		RequestedSchema: requestedSchema,

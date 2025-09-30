@@ -6,7 +6,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
 	"github.com/robbyt/mcp-io/internal/testutil"
@@ -19,7 +18,7 @@ type MockElicitationCapability struct {
 	CallIndex int
 }
 
-func (m *MockElicitationCapability) Elicit(ctx context.Context, message string, requestedSchema *jsonschema.Schema) (*mcp.ElicitResult, error) {
+func (m *MockElicitationCapability) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
 	if m.CallIndex >= len(m.Responses) {
 		return &mcp.ElicitResult{Action: "cancel"}, nil
 	}

@@ -78,11 +78,11 @@ func (s *ResourcesIntegrationTestSuite) TestResourceHandlerIntegration() {
 		})
 		s.Require().NoError(err)
 
-		s.Assert().Len(result.Contents, 1)
+		s.Len(result.Contents, 1)
 
 		content := result.Contents[0]
-		s.Assert().Equal("res://kv/greeting", content.URI)
-		s.Assert().Equal("text/plain", content.MIMEType)
-		s.Assert().Equal("Hello, World!", content.Text)
+		s.Equal("res://kv/greeting", content.URI)
+		s.Equal("text/plain", content.MIMEType)
+		s.Equal("Hello, World!", content.Text)
 	})
 }
