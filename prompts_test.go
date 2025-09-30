@@ -223,14 +223,18 @@ func TestSchemaToPromptArguments(t *testing.T) {
 	t.Parallel()
 
 	// Test with nil schema
-	args := schemaToPromptArguments(nil)
+	args, err := schemaToPromptArguments(nil)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNilSchema)
 	assert.Nil(t, args)
 
 	// Test with schema that has no properties
 	schema := &jsonschema.Schema{
 		Type: "object",
 	}
-	args = schemaToPromptArguments(schema)
+	args, err = schemaToPromptArguments(schema)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNoSchemaProperties)
 	assert.Nil(t, args)
 
 	// Test with valid schema
@@ -249,7 +253,8 @@ func TestSchemaToPromptArguments(t *testing.T) {
 		Required: []string{"name"},
 	}
 
-	args = schemaToPromptArguments(schema)
+	args, err = schemaToPromptArguments(schema)
+	require.NoError(t, err)
 	require.Len(t, args, 2)
 
 	// Check that arguments are created correctly

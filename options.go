@@ -33,23 +33,21 @@ func WithVersion(version string) Option {
 	}
 }
 
-// WithTool adds a type-safe tool with automatic schema generation from Go types.
-// Schema options (WithInputSchema, WithOutputSchema, WithSchemas) completely
-// override the auto-generated schemas from TIn/TOut types.
+// WithToolWithSchema adds a type-safe tool with automatic schema generation from Go types.
+// Optional schemas parameter overrides the auto-generated schemas from TIn/TOut types.
 //
 // Examples:
 //
 //	// Auto-generated schemas: Uses TIn/TOut struct types
-//	WithTool("to_upper", "Convert text to uppercase", toUpperFunc)
+//	WithToolWithSchema("to_upper", "Convert text to uppercase", toUpperFunc, nil)
 //
-//	// Schema override: Replaces auto-generated input schema
-//	WithTool("to_upper", "Convert text", toUpperFunc,
-//	    WithInputSchema(`{"type":"object","properties":{"text":{"type":"string"}}}`))
-//
-//	// Schema override: Replaces both auto-generated schemas
-//	WithTool("calc", "Calculator", calcFunc,
-//	    WithSchemas(inputSchemaJSON, outputSchemaJSON))
-func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], opts ...ToolOption) Option {
+//	// Schema override: Replaces auto-generated input/output
+//	customSchemas := &ToolSchemas{
+//	    InputSchema:  `{"type":"object","properties":{"text":{"type":"string"}}}`,
+//	    OutputSchema: json.RawMessage(`{"type":"object"}`),
+//	}
+//	WithToolWithSchema("to_upper", "Convert text", toUpperFunc, customSchemas)
+func WithToolWithSchema[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], schemas *ToolSchemas) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
 			return ErrEmptyToolName
@@ -64,13 +62,23 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 			tool := &mcp.Tool{
 				Name:        name,
 				Description: description,
-				// Let the generic AddTool handle schema generation initially
 			}
 
-			// Apply any custom schema options after tool creation but before registration
-			for _, opt := range opts {
-				if err := opt.apply(tool); err != nil {
-					return fmt.Errorf("failed to apply tool option for %q: %w", name, err)
+			// Apply custom schemas if provided
+			if schemas != nil {
+				if schemas.InputSchema != nil {
+					converted, err := convertToRawMessage(schemas.InputSchema)
+					if err != nil {
+						return fmt.Errorf("invalid input schema for tool %q: %w", name, err)
+					}
+					tool.InputSchema = converted
+				}
+				if schemas.OutputSchema != nil {
+					converted, err := convertToRawMessage(schemas.OutputSchema)
+					if err != nil {
+						return fmt.Errorf("invalid output schema for tool %q: %w", name, err)
+					}
+					tool.OutputSchema = converted
 				}
 			}
 
@@ -83,6 +91,16 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 
 		return nil
 	}
+}
+
+// WithTool adds a type-safe tool with automatic schema generation from Go types.
+// This is a convenience wrapper around WithToolWithSchema with nil schemas.
+//
+// Example:
+//
+//	WithTool("to_upper", "Convert text to uppercase", toUpperFunc)
+func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut]) Option {
+	return WithToolWithSchema(name, description, fn, nil)
 }
 
 // WithRawTool adds a tool with manual JSON handling and explicit schema.
@@ -179,15 +197,19 @@ func WithPromptWithArgs(name, description string, args []*mcp.PromptArgument, fn
 }
 
 // schemaToPromptArguments converts a JSON schema to MCP prompt arguments
-func schemaToPromptArguments(schema any) []*mcp.PromptArgument {
+func schemaToPromptArguments(schema any) ([]*mcp.PromptArgument, error) {
 	if schema == nil {
-		return nil
+		return nil, ErrNilSchema
 	}
 
 	// Convert to *jsonschema.Schema to access Properties and Required fields
 	jsonSchemaObj, err := convertToJSONSchema(schema)
-	if err != nil || jsonSchemaObj == nil || jsonSchemaObj.Properties == nil {
-		return nil
+	if err != nil {
+		return nil, err
+	}
+
+	if jsonSchemaObj.Properties == nil {
+		return nil, ErrNoSchemaProperties
 	}
 
 	var args []*mcp.PromptArgument
@@ -208,7 +230,7 @@ func schemaToPromptArguments(schema any) []*mcp.PromptArgument {
 		args = append(args, arg)
 	}
 
-	return args
+	return args, nil
 }
 
 // WithTypedPrompt adds a type-safe prompt with automatic schema generation
@@ -229,7 +251,10 @@ func WithTypedPrompt[TArgs any](name, description string, fn TypedPromptFunc[TAr
 		}
 
 		// Convert schema to prompt arguments
-		args := schemaToPromptArguments(s)
+		args, err := schemaToPromptArguments(s)
+		if err != nil {
+			return fmt.Errorf("failed to convert schema to prompt arguments for %s: %w", name, err)
+		}
 
 		registerFunc := func(server *mcp.Server) error {
 			prompt := &mcp.Prompt{

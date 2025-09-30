@@ -125,6 +125,13 @@ var (
 	ErrNilServer   = errors.New("server cannot be nil")
 )
 
+// Schema validation errors
+var (
+	ErrInvalidJSONSchema     = errors.New("invalid JSON schema")
+	ErrUnsupportedSchemaType = errors.New("unsupported schema type")
+	ErrNoSchemaProperties    = errors.New("schema has no properties")
+)
+
 // Runtime and operational errors
 var (
 	ErrDuplicateTool    = errors.New("tool already registered")

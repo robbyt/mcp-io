@@ -15,7 +15,7 @@ func TestSchemaConversion(t *testing.T) {
 		name        string
 		input       any
 		wantError   bool
-		errorMsg    string
+		wantErrIs   error
 		validateOut func(t *testing.T, result json.RawMessage)
 	}{
 		{
@@ -77,19 +77,19 @@ func TestSchemaConversion(t *testing.T) {
 			name:      "nil input should error",
 			input:     nil,
 			wantError: true,
-			errorMsg:  "schema cannot be nil",
+			wantErrIs: ErrNilSchema,
 		},
 		{
 			name:      "invalid JSON string should error",
 			input:     `{invalid json}`,
 			wantError: true,
-			errorMsg:  "invalid JSON string",
+			wantErrIs: ErrInvalidJSONSchema,
 		},
 		{
 			name:      "unmarshalable type should error",
 			input:     make(chan int),
 			wantError: true,
-			errorMsg:  "failed to marshal",
+			wantErrIs: ErrUnsupportedSchemaType,
 		},
 	}
 
@@ -99,7 +99,7 @@ func TestSchemaConversion(t *testing.T) {
 
 			if tt.wantError {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorMsg)
+				require.ErrorIs(t, err, tt.wantErrIs)
 				assert.Nil(t, result)
 			} else {
 				require.NoError(t, err)
@@ -128,80 +128,72 @@ func TestToolOptionsIntegration(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		options []ToolOption
-		wantErr bool
+		name     string
+		schemas  *ToolSchemas
+		toolFunc func(context.Context, map[string]any) (map[string]any, error)
+		toolName string
+		wantErr  bool
 	}{
 		{
-			name: "WithInputSchema with email validation",
-			options: []ToolOption{
-				WithInputSchema(`{"type":"object","properties":{"email":{"format":"email"}}}`),
+			name: "InputSchema with email validation",
+			schemas: &ToolSchemas{
+				InputSchema: `{"type":"object","properties":{"email":{"format":"email"}}}`,
 			},
-			wantErr: false,
+			toolFunc: userFunc,
+			toolName: "user",
+			wantErr:  false,
 		},
 		{
-			name: "WithInputSchema using json.RawMessage for performance",
-			options: []ToolOption{
-				WithInputSchema(json.RawMessage(`{"type":"object","additionalProperties":true}`)),
+			name: "InputSchema using json.RawMessage for performance",
+			schemas: &ToolSchemas{
+				InputSchema: json.RawMessage(`{"type":"object","additionalProperties":true}`),
 			},
-			wantErr: false,
+			toolFunc: fastFunc,
+			toolName: "fast",
+			wantErr:  false,
 		},
 		{
-			name: "WithOutputSchema with score property",
-			options: []ToolOption{
-				WithOutputSchema(`{"type":"object","properties":{"score":{"type":"number"}}}`),
+			name: "OutputSchema with score property",
+			schemas: &ToolSchemas{
+				OutputSchema: `{"type":"object","properties":{"score":{"type":"number"}}}`,
 			},
-			wantErr: false,
+			toolFunc: analyzeFunc,
+			toolName: "analyze",
+			wantErr:  false,
 		},
 		{
-			name: "WithSchemas setting both input and output",
-			options: []ToolOption{
-				WithSchemas(`{"type":"object"}`, `{"type":"object"}`),
+			name: "Both input and output schemas",
+			schemas: &ToolSchemas{
+				InputSchema:  `{"type":"object"}`,
+				OutputSchema: `{"type":"object"}`,
 			},
-			wantErr: false,
+			toolFunc: convertFunc,
+			toolName: "converter",
+			wantErr:  false,
 		},
 		{
-			name: "WithInputSchema with invalid JSON should error",
-			options: []ToolOption{
-				WithInputSchema(`{invalid json}`),
+			name: "Invalid JSON input schema should error",
+			schemas: &ToolSchemas{
+				InputSchema: `{invalid json}`,
 			},
-			wantErr: true,
+			toolFunc: userFunc,
+			toolName: "invalid-input",
+			wantErr:  true,
 		},
 		{
-			name: "WithOutputSchema with nil should error",
-			options: []ToolOption{
-				WithOutputSchema(nil),
-			},
-			wantErr: true,
+			name:     "Nil schemas should work (uses auto-generated)",
+			schemas:  nil,
+			toolFunc: userFunc,
+			toolName: "auto-schema",
+			wantErr:  false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var toolFunc func(context.Context, map[string]any) (map[string]any, error)
-			toolName := "test-tool"
-
-			// Select appropriate function based on test
-			switch tt.name {
-			case "WithInputSchema with email validation":
-				toolFunc = userFunc
-				toolName = "user"
-			case "WithInputSchema using json.RawMessage for performance":
-				toolFunc = fastFunc
-				toolName = "fast"
-			case "WithOutputSchema with score property":
-				toolFunc = analyzeFunc
-				toolName = "analyze"
-			case "WithSchemas setting both input and output":
-				toolFunc = convertFunc
-				toolName = "converter"
-			default:
-				toolFunc = userFunc
-			}
-
 			_, err := NewToolHandler(
 				WithName("test-server"),
-				WithTool(toolName, "Test tool", toolFunc, tt.options...),
+				WithToolWithSchema(tt.toolName, "Test tool", tt.toolFunc, tt.schemas),
 			)
 
 			if tt.wantErr {

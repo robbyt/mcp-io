@@ -5,92 +5,28 @@ import (
 	"fmt"
 
 	"github.com/google/jsonschema-go/jsonschema"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// ToolOption allows customizing tool schema configuration
-type ToolOption interface {
-	apply(tool *mcp.Tool) error
-}
-
-// inputSchemaOption sets the input schema for a tool
-type inputSchemaOption struct {
-	schema any
-}
-
-func (o inputSchemaOption) apply(tool *mcp.Tool) error {
-	converted, err := convertToRawMessage(o.schema)
-	if err != nil {
-		return fmt.Errorf("invalid input schema: %w", err)
-	}
-	tool.InputSchema = converted
-	return nil
-}
-
-// outputSchemaOption sets the output schema for a tool
-type outputSchemaOption struct {
-	schema any
-}
-
-func (o outputSchemaOption) apply(tool *mcp.Tool) error {
-	converted, err := convertToRawMessage(o.schema)
-	if err != nil {
-		return fmt.Errorf("invalid output schema: %w", err)
-	}
-	tool.OutputSchema = converted
-	return nil
-}
-
-// WithInputSchema overrides the auto-generated input schema from Go struct types.
-// When used with WithTool, this completely replaces schema generation from the TIn type.
-// Useful for adding validation constraints, descriptions, or supporting flexible input.
+// ToolSchemas allows overriding auto-generated schemas for tools.
+// When provided to WithTool, these completely replace schema generation from TIn/TOut types.
 //
 // Examples:
 //
-//	// Add validation to struct-based tool
-//	WithTool("user", "Create user", userFunc,
-//	    WithInputSchema(`{"type":"object","properties":{"email":{"format":"email"}}}`))
+//	// Override only input schema
+//	schemas := &ToolSchemas{
+//	    InputSchema: `{"type":"object","properties":{"name":{"type":"string"}}}`,
+//	}
+//	WithTool("create_user", "Create a user", userFunc, schemas)
 //
-//	// Performance optimization with json.RawMessage
-//	schema := json.RawMessage(`{"type":"object","additionalProperties":true}`)
-//	WithTool("fast", "High-speed processing", fastFunc, WithInputSchema(schema))
-func WithInputSchema(schema any) ToolOption {
-	return inputSchemaOption{schema: schema}
-}
-
-// WithOutputSchema overrides the auto-generated output schema from Go struct types.
-// When used with WithTool, this completely replaces schema generation from the TOut type.
-// Use this to document API responses, add metadata, or specify flexible output.
-//
-//	WithTool("analyze", "Text analysis", analyzeFunc,
-//	    WithOutputSchema(`{"type":"object","properties":{"score":{"type":"number"}}}`)
-func WithOutputSchema(schema any) ToolOption {
-	return outputSchemaOption{schema: schema}
-}
-
-// WithSchemas overrides both auto-generated input and output schemas.
-// When used with WithTool, this completely replaces schema generation from TIn/TOut types.
-// Convenience function for setting both schemas at once.
-//
-//	WithTool("converter", "Convert units", convertFunc,
-//	    WithSchemas(`{"type":"object"}`, `{"type":"object"}`))
-func WithSchemas(inputSchema, outputSchema any) ToolOption {
-	return combinedSchemaOption{
-		input:  inputSchema,
-		output: outputSchema,
-	}
-}
-
-type combinedSchemaOption struct {
-	input  any
-	output any
-}
-
-func (o combinedSchemaOption) apply(tool *mcp.Tool) error {
-	if err := WithInputSchema(o.input).apply(tool); err != nil {
-		return err
-	}
-	return WithOutputSchema(o.output).apply(tool)
+//	// Override both schemas with json.RawMessage for best performance
+//	schemas := &ToolSchemas{
+//	    InputSchema:  json.RawMessage(`{"type":"object"}`),
+//	    OutputSchema: json.RawMessage(`{"type":"object"}`),
+//	}
+//	WithTool("process", "Process data", processFunc, schemas)
+type ToolSchemas struct {
+	InputSchema  any // Can be json.RawMessage, string, *jsonschema.Schema, or map[string]any
+	OutputSchema any // Can be json.RawMessage, string, *jsonschema.Schema, or map[string]any
 }
 
 // convertToRawMessage converts any schema type to json.RawMessage for optimal performance with
@@ -98,7 +34,7 @@ func (o combinedSchemaOption) apply(tool *mcp.Tool) error {
 // resources.
 func convertToRawMessage(schema any) (json.RawMessage, error) {
 	if schema == nil {
-		return nil, fmt.Errorf("schema cannot be nil")
+		return nil, ErrNilSchema
 	}
 
 	switch v := schema.(type) {
@@ -109,7 +45,7 @@ func convertToRawMessage(schema any) (json.RawMessage, error) {
 	case string:
 		// Convert JSON string to json.RawMessage
 		if !json.Valid([]byte(v)) {
-			return nil, fmt.Errorf("invalid JSON string: %s", v)
+			return nil, fmt.Errorf("%w: %s", ErrInvalidJSONSchema, v)
 		}
 		return json.RawMessage(v), nil
 
@@ -133,7 +69,7 @@ func convertToRawMessage(schema any) (json.RawMessage, error) {
 		// Try to marshal any other type
 		bytes, err := json.Marshal(v)
 		if err != nil {
-			return nil, fmt.Errorf("unsupported schema type %T: failed to marshal: %w", v, err)
+			return nil, fmt.Errorf("%w %T: %w", ErrUnsupportedSchemaType, v, err)
 		}
 		return json.RawMessage(bytes), nil
 	}

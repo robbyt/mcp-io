@@ -133,23 +133,21 @@ func main() {
 		mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
 
 		// Tool with JSON string schemas (optimal performance with json.RawMessage conversion)
-		mcpio.WithTool("calculator", "Perform arithmetic operations", calculator,
-			mcpio.WithInputSchema(calculatorInputSchema),
-			mcpio.WithOutputSchema(calculatorOutputSchema),
-		),
+		mcpio.WithToolWithSchema("calculator", "Perform arithmetic operations", calculator, &mcpio.ToolSchemas{
+			InputSchema:  calculatorInputSchema,
+			OutputSchema: calculatorOutputSchema,
+		}),
 
 		// Tool with dynamic map[string]any schema
-		mcpio.WithTool("echo", "Echo a message with optional repetition", echo,
-			mcpio.WithInputSchema(dynamicSchema),
-		),
+		mcpio.WithToolWithSchema("echo", "Echo a message with optional repetition", echo, &mcpio.ToolSchemas{
+			InputSchema: dynamicSchema,
+		}),
 
 		// Tool with json.RawMessage schemas (maximum performance)
-		mcpio.WithTool("process_json", "Add processed flag to any JSON object", processJSON,
-			mcpio.WithSchemas(
-				json.RawMessage(`{"type":"object","additionalProperties":true}`),
-				json.RawMessage(`{"type":"object","additionalProperties":true,"properties":{"processed":{"type":"boolean"}}}`),
-			),
-		),
+		mcpio.WithToolWithSchema("process_json", "Add processed flag to any JSON object", processJSON, &mcpio.ToolSchemas{
+			InputSchema:  json.RawMessage(`{"type":"object","additionalProperties":true}`),
+			OutputSchema: json.RawMessage(`{"type":"object","additionalProperties":true,"properties":{"processed":{"type":"boolean"}}}`),
+		}),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create handler: %v", err)

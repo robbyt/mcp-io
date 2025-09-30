@@ -202,8 +202,8 @@ func TestReadmeExamples(t *testing.T) {
 
 		handler2, err := mcpio.NewToolHandler(
 			mcpio.WithName("calculator-example"),
-			mcpio.WithTool("calculator", "Arithmetic calculator", calcFunc,
-				mcpio.WithInputSchema(`{
+			mcpio.WithToolWithSchema("calculator", "Arithmetic calculator", calcFunc, &mcpio.ToolSchemas{
+				InputSchema: `{
 					"type": "object",
 					"properties": {
 						"operation": {"type": "string", "enum": ["add", "subtract", "multiply", "divide"]},
@@ -211,13 +211,13 @@ func TestReadmeExamples(t *testing.T) {
 						"b": {"type": "number"}
 					},
 					"required": ["operation", "a", "b"]
-				}`),
-				mcpio.WithOutputSchema(`{
+				}`,
+				OutputSchema: `{
 					"type": "object",
 					"properties": {"result": {"type": "number"}},
 					"required": ["result"]
-				}`),
-			),
+				}`,
+			}),
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler2)
@@ -234,12 +234,10 @@ func TestReadmeExamples(t *testing.T) {
 
 		handler3, err := mcpio.NewToolHandler(
 			mcpio.WithName("fast-processor-example"),
-			mcpio.WithTool("fast_processor", "High-performance processing", processorFunc,
-				mcpio.WithSchemas(
-					json.RawMessage(`{"type":"object","additionalProperties":true}`),
-					json.RawMessage(`{"type":"object","properties":{"processed":{"type":"boolean"}}}`),
-				),
-			),
+			mcpio.WithToolWithSchema("fast_processor", "High-performance processing", processorFunc, &mcpio.ToolSchemas{
+				InputSchema:  json.RawMessage(`{"type":"object","additionalProperties":true}`),
+				OutputSchema: json.RawMessage(`{"type":"object","properties":{"processed":{"type":"boolean"}}}`),
+			}),
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler3)
@@ -275,9 +273,9 @@ func TestReadmeExamples(t *testing.T) {
 
 		handler4, err := mcpio.NewToolHandler(
 			mcpio.WithName("echo-example"),
-			mcpio.WithTool("echo", "Echo with repetition", echoFunc,
-				mcpio.WithInputSchema(dynamicSchema),
-			),
+			mcpio.WithToolWithSchema("echo", "Echo with repetition", echoFunc, &mcpio.ToolSchemas{
+				InputSchema: dynamicSchema,
+			}),
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler4)
