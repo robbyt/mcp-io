@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -79,7 +80,7 @@ func TestElicitTyped_SchemaGeneration(t *testing.T) {
 	assert.NotNil(t, capturedSchema)
 
 	// Convert captured schema back to jsonschema.Schema for testing
-	jsonSchemaObj, err := convertToJSONSchema(capturedSchema)
+	jsonSchemaObj, err := schema.ConvertToJSONSchema(capturedSchema)
 	require.NoError(t, err)
 	assert.Equal(t, "object", jsonSchemaObj.Type)
 
@@ -196,7 +197,7 @@ func TestElicitSimple_Success(t *testing.T) {
 	assert.Equal(t, "testuser", result.GetContent()["username"])
 
 	// Convert captured schema back to jsonschema.Schema for testing
-	jsonSchemaObj, err := convertToJSONSchema(capturedSchema)
+	jsonSchemaObj, err := schema.ConvertToJSONSchema(capturedSchema)
 	require.NoError(t, err)
 
 	// Verify schema structure

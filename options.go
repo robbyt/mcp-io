@@ -67,14 +67,14 @@ func WithToolWithSchema[TIn, TOut any](name, description string, fn ToolFunc[TIn
 			// Apply custom schemas if provided
 			if schemas != nil {
 				if schemas.InputSchema != nil {
-					converted, err := convertToRawMessage(schemas.InputSchema)
+					converted, err := schema.ConvertToRawMessage(schemas.InputSchema)
 					if err != nil {
 						return fmt.Errorf("invalid input schema for tool %q: %w", name, err)
 					}
 					tool.InputSchema = converted
 				}
 				if schemas.OutputSchema != nil {
-					converted, err := convertToRawMessage(schemas.OutputSchema)
+					converted, err := schema.ConvertToRawMessage(schemas.OutputSchema)
 					if err != nil {
 						return fmt.Errorf("invalid output schema for tool %q: %w", name, err)
 					}
@@ -197,13 +197,13 @@ func WithPromptWithArgs(name, description string, args []*mcp.PromptArgument, fn
 }
 
 // schemaToPromptArguments converts a JSON schema to MCP prompt arguments
-func schemaToPromptArguments(schema any) ([]*mcp.PromptArgument, error) {
-	if schema == nil {
+func schemaToPromptArguments(s any) ([]*mcp.PromptArgument, error) {
+	if s == nil {
 		return nil, ErrNilSchema
 	}
 
 	// Convert to *jsonschema.Schema to access Properties and Required fields
-	jsonSchemaObj, err := convertToJSONSchema(schema)
+	jsonSchemaObj, err := schema.ConvertToJSONSchema(s)
 	if err != nil {
 		return nil, err
 	}

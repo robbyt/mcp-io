@@ -1,4 +1,4 @@
-package mcpio
+package schema
 
 import (
 	"encoding/json"
@@ -7,34 +7,12 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-// ToolSchemas allows overriding auto-generated schemas for tools.
-// When provided to WithTool, these completely replace schema generation from TIn/TOut types.
-//
-// Examples:
-//
-//	// Override only input schema
-//	schemas := &ToolSchemas{
-//	    InputSchema: `{"type":"object","properties":{"name":{"type":"string"}}}`,
-//	}
-//	WithTool("create_user", "Create a user", userFunc, schemas)
-//
-//	// Override both schemas with json.RawMessage for best performance
-//	schemas := &ToolSchemas{
-//	    InputSchema:  json.RawMessage(`{"type":"object"}`),
-//	    OutputSchema: json.RawMessage(`{"type":"object"}`),
-//	}
-//	WithTool("process", "Process data", processFunc, schemas)
-type ToolSchemas struct {
-	InputSchema  any // Can be json.RawMessage, string, *jsonschema.Schema, or map[string]any
-	OutputSchema any // Can be json.RawMessage, string, *jsonschema.Schema, or map[string]any
-}
-
-// convertToRawMessage converts any schema type to json.RawMessage for optimal performance with
+// ConvertToRawMessage converts any schema type to json.RawMessage for optimal performance with
 // the MCP SDK. json.RawMessage has zero marshaling overhead during tool listing, so it uses fewer
 // resources.
-func convertToRawMessage(schema any) (json.RawMessage, error) {
+func ConvertToRawMessage(schema any) (json.RawMessage, error) {
 	if schema == nil {
-		return nil, ErrNilSchema
+		return nil, fmt.Errorf("schema cannot be nil")
 	}
 
 	switch v := schema.(type) {
@@ -45,7 +23,7 @@ func convertToRawMessage(schema any) (json.RawMessage, error) {
 	case string:
 		// Convert JSON string to json.RawMessage
 		if !json.Valid([]byte(v)) {
-			return nil, fmt.Errorf("%w: %s", ErrInvalidJSONSchema, v)
+			return nil, fmt.Errorf("invalid JSON schema: %s", v)
 		}
 		return json.RawMessage(v), nil
 
@@ -69,16 +47,16 @@ func convertToRawMessage(schema any) (json.RawMessage, error) {
 		// Try to marshal any other type
 		bytes, err := json.Marshal(v)
 		if err != nil {
-			return nil, fmt.Errorf("%w %T: %w", ErrUnsupportedSchemaType, v, err)
+			return nil, fmt.Errorf("unsupported schema type %T: %w", v, err)
 		}
 		return json.RawMessage(bytes), nil
 	}
 }
 
-// convertToJSONSchema converts any schema type to *jsonschema.Schema for
+// ConvertToJSONSchema converts any schema type to *jsonschema.Schema for
 // internal processing that requires accessing specific schema fields like
 // Properties and Required (e.g., schemaToPromptArguments function).
-func convertToJSONSchema(schema any) (*jsonschema.Schema, error) {
+func ConvertToJSONSchema(schema any) (*jsonschema.Schema, error) {
 	if schema == nil {
 		return nil, fmt.Errorf("schema cannot be nil")
 	}

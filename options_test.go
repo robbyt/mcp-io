@@ -2,6 +2,7 @@ package mcpio
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -584,4 +585,120 @@ func TestOptionErrorConditions(t *testing.T) {
 	err = WithVersion("")(cfg)
 	require.ErrorIs(t, err, ErrEmptyVersion)
 	assert.Equal(t, "1.0.0", cfg.version)
+}
+
+func TestToolOptionsIntegration(t *testing.T) {
+	// Test tool functions matching the documentation examples
+	userFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{"created": input}, nil
+	}
+	fastFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{"processed": true}, nil
+	}
+	analyzeFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{"score": 0.95}, nil
+	}
+	convertFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{"converted": input}, nil
+	}
+
+	tests := []struct {
+		name     string
+		schemas  *ToolSchemas
+		toolFunc func(context.Context, map[string]any) (map[string]any, error)
+		toolName string
+		wantErr  bool
+	}{
+		{
+			name: "InputSchema with email validation",
+			schemas: &ToolSchemas{
+				InputSchema: `{"type":"object","properties":{"email":{"format":"email"}}}`,
+			},
+			toolFunc: userFunc,
+			toolName: "user",
+			wantErr:  false,
+		},
+		{
+			name: "InputSchema using json.RawMessage for performance",
+			schemas: &ToolSchemas{
+				InputSchema: json.RawMessage(`{"type":"object","additionalProperties":true}`),
+			},
+			toolFunc: fastFunc,
+			toolName: "fast",
+			wantErr:  false,
+		},
+		{
+			name: "OutputSchema with score property",
+			schemas: &ToolSchemas{
+				OutputSchema: `{"type":"object","properties":{"score":{"type":"number"}}}`,
+			},
+			toolFunc: analyzeFunc,
+			toolName: "analyze",
+			wantErr:  false,
+		},
+		{
+			name: "Both input and output schemas",
+			schemas: &ToolSchemas{
+				InputSchema:  `{"type":"object"}`,
+				OutputSchema: `{"type":"object"}`,
+			},
+			toolFunc: convertFunc,
+			toolName: "converter",
+			wantErr:  false,
+		},
+		{
+			name: "Invalid JSON input schema should error",
+			schemas: &ToolSchemas{
+				InputSchema: `{invalid json}`,
+			},
+			toolFunc: userFunc,
+			toolName: "invalid-input",
+			wantErr:  true,
+		},
+		{
+			name:     "Nil schemas should work (uses auto-generated)",
+			schemas:  nil,
+			toolFunc: userFunc,
+			toolName: "auto-schema",
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewToolHandler(
+				WithName("test-server"),
+				WithToolWithSchema(tt.toolName, "Test tool", tt.toolFunc, tt.schemas),
+			)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestBackwardsCompatibility(t *testing.T) {
+	// Test that existing struct-based tools still work without options
+	type TestInput struct {
+		Message string `json:"message" jsonschema:"Message to process"`
+	}
+
+	type TestOutput struct {
+		Result string `json:"result" jsonschema:"Processed message"`
+	}
+
+	testFunc := func(ctx context.Context, input TestInput) (TestOutput, error) {
+		return TestOutput{Result: "processed: " + input.Message}, nil
+	}
+
+	handler, err := NewToolHandler(
+		WithName("test-server"),
+		WithTool("echo", "Echo tool", testFunc),
+	)
+
+	require.NoError(t, err)
+	assert.NotNil(t, handler)
 }
