@@ -8,7 +8,7 @@ import (
 func WithResource(uri, description string, fn ResourceFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if uri == "" {
-			return ErrEmptyResourceURI
+			return ErrEmptyValue
 		}
 
 		if cfg.resources == nil {
@@ -35,7 +35,7 @@ func WithResource(uri, description string, fn ResourceFunc) Option {
 func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if uriTemplate == "" {
-			return ErrEmptyResourceTemplate
+			return ErrEmptyValue
 		}
 
 		if cfg.resourceTemplates == nil {

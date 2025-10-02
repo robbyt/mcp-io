@@ -57,19 +57,19 @@ func TestHandlerConstruction(t *testing.T) {
 		{
 			name:           "empty name error",
 			opts:           []Option{WithName("")},
-			wantErr:        ErrEmptyName,
+			wantErr:        ErrEmptyValue,
 			wantNilHandler: true,
 		},
 		{
 			name:           "empty version error",
 			opts:           []Option{WithVersion("")},
-			wantErr:        ErrEmptyVersion,
+			wantErr:        ErrEmptyValue,
 			wantNilHandler: true,
 		},
 		{
 			name:           "nil server error",
 			opts:           []Option{WithServer(nil)},
-			wantErr:        ErrNilServer,
+			wantErr:        ErrNilValue,
 			wantNilHandler: true,
 		},
 	}
@@ -110,7 +110,7 @@ func TestWithTypedTool(t *testing.T) {
 			name:        "empty tool name error",
 			toolName:    "",
 			description: "description",
-			wantErr:     ErrEmptyToolName,
+			wantErr:     ErrEmptyValue,
 		},
 	}
 
@@ -154,14 +154,14 @@ func TestWithRawTool(t *testing.T) {
 			toolName:    "",
 			description: "description",
 			s:           s,
-			wantErr:     ErrEmptyToolName,
+			wantErr:     ErrEmptyValue,
 		},
 		{
 			name:        "nil schema error",
 			toolName:    "test",
 			description: "description",
 			s:           nil,
-			wantErr:     ErrNilSchema,
+			wantErr:     ErrNilValue,
 		},
 	}
 
@@ -233,17 +233,17 @@ func TestErrorHandling(t *testing.T) {
 		{
 			name:    "invalid name option",
 			opts:    []Option{WithName("")},
-			wantErr: ErrEmptyName,
+			wantErr: ErrEmptyValue,
 		},
 		{
 			name:    "invalid version option",
 			opts:    []Option{WithVersion("")},
-			wantErr: ErrEmptyVersion,
+			wantErr: ErrEmptyValue,
 		},
 		{
 			name:    "invalid tool name",
 			opts:    []Option{WithTool("", "desc", greetFunc)},
-			wantErr: ErrEmptyToolName,
+			wantErr: ErrEmptyValue,
 		},
 	}
 

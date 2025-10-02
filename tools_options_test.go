@@ -51,7 +51,7 @@ func TestWithTool(t *testing.T) {
 			toolName:    "",
 			description: "A test tool",
 			toolFunc:    testToolFunc,
-			wantErr:     ErrEmptyToolName,
+			wantErr:     ErrEmptyValue,
 		},
 		{
 			name:        "empty description should be valid",
@@ -132,7 +132,7 @@ func TestWithRawToolOptions(t *testing.T) {
 			description: "A raw test tool",
 			schema:      validSchema,
 			toolFunc:    testRawToolFunc,
-			wantErr:     ErrEmptyToolName,
+			wantErr:     ErrEmptyValue,
 		},
 		{
 			name:        "nil schema should return error",
@@ -140,7 +140,7 @@ func TestWithRawToolOptions(t *testing.T) {
 			description: "A raw test tool",
 			schema:      nil,
 			toolFunc:    testRawToolFunc,
-			wantErr:     ErrNilSchema,
+			wantErr:     ErrNilValue,
 		},
 		{
 			name:        "empty description should be valid",

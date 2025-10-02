@@ -75,7 +75,7 @@ type SessionAwareResourceFunc func(context.Context, ElicitationCapability, strin
 func WithSessionTool[TIn, TOut any](name, description string, fn SessionAwareToolFunc[TIn, TOut]) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
-			return ErrEmptyToolName
+			return ErrEmptyValue
 		}
 
 		// Create registration function that uses the session-aware handler
@@ -140,7 +140,7 @@ func WithSessionTool[TIn, TOut any](name, description string, fn SessionAwareToo
 func WithSessionPrompt(name, description string, fn SessionAwarePromptFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
-			return ErrEmptyPromptName
+			return ErrEmptyValue
 		}
 
 		registerFunc := func(server *mcp.Server) error {
@@ -162,7 +162,7 @@ func WithSessionPrompt(name, description string, fn SessionAwarePromptFunc) Opti
 func WithSessionPromptWithArgs(name, description string, args []*mcp.PromptArgument, fn SessionAwarePromptFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
-			return ErrEmptyPromptName
+			return ErrEmptyValue
 		}
 
 		registerFunc := func(server *mcp.Server) error {
@@ -223,7 +223,7 @@ func WithSessionPromptWithArgs(name, description string, args []*mcp.PromptArgum
 func WithSessionResource(uri, description string, fn SessionAwareResourceFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if uri == "" {
-			return ErrEmptyResourceURI
+			return ErrEmptyValue
 		}
 
 		registerFunc := func(server *mcp.Server) error {
@@ -246,7 +246,7 @@ func WithSessionResource(uri, description string, fn SessionAwareResourceFunc) O
 func WithSessionResourceTemplate(uriTemplate, description string, fn SessionAwareResourceFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if uriTemplate == "" {
-			return ErrEmptyResourceTemplate
+			return ErrEmptyValue
 		}
 
 		registerFunc := func(server *mcp.Server) error {

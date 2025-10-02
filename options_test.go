@@ -25,7 +25,7 @@ func TestWithName(t *testing.T) {
 		{
 			name:      "empty name should return error",
 			inputName: "",
-			wantErr:   ErrEmptyName,
+			wantErr:   ErrEmptyValue,
 		},
 		{
 			name:      "whitespace only name should be valid",
@@ -71,7 +71,7 @@ func TestWithVersion(t *testing.T) {
 		{
 			name:         "empty version should return error",
 			inputVersion: "",
-			wantErr:      ErrEmptyVersion,
+			wantErr:      ErrEmptyValue,
 		},
 		{
 			name:         "semantic version",
@@ -122,7 +122,7 @@ func TestWithServer(t *testing.T) {
 		{
 			name:    "nil server should return error",
 			server:  nil,
-			wantErr: ErrNilServer,
+			wantErr: ErrNilValue,
 		},
 	}
 
@@ -193,7 +193,7 @@ func TestOptionErrorConditions(t *testing.T) {
 
 	// Apply an invalid option - should not change existing state
 	err = WithName("")(cfg)
-	require.ErrorIs(t, err, ErrEmptyName)
+	require.ErrorIs(t, err, ErrEmptyValue)
 	assert.Equal(t, "test-server", cfg.name)
 
 	// Apply another valid option
@@ -203,7 +203,7 @@ func TestOptionErrorConditions(t *testing.T) {
 
 	// Apply invalid version - should not change version state
 	err = WithVersion("")(cfg)
-	require.ErrorIs(t, err, ErrEmptyVersion)
+	require.ErrorIs(t, err, ErrEmptyValue)
 	assert.Equal(t, "1.0.0", cfg.version)
 }
 
@@ -234,7 +234,7 @@ func TestWithServerOptions(t *testing.T) {
 		{
 			name:    "nil server options should return error",
 			opts:    nil,
-			wantErr: ErrNilServerOptions,
+			wantErr: ErrNilValue,
 		},
 	}
 
@@ -292,7 +292,7 @@ func TestWithStreamableHTTPOptions(t *testing.T) {
 		{
 			name:    "nil streamable HTTP options should return error",
 			opts:    nil,
-			wantErr: ErrNilStreamableHTTPOptions,
+			wantErr: ErrNilValue,
 		},
 	}
 

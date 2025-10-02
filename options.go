@@ -11,7 +11,7 @@ type Option func(*handlerConfig) error
 func WithName(name string) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
-			return ErrEmptyName
+			return ErrEmptyValue
 		}
 		cfg.name = name
 		return nil
@@ -22,7 +22,7 @@ func WithName(name string) Option {
 func WithVersion(version string) Option {
 	return func(cfg *handlerConfig) error {
 		if version == "" {
-			return ErrEmptyVersion
+			return ErrEmptyValue
 		}
 		cfg.version = version
 		return nil
@@ -33,7 +33,7 @@ func WithVersion(version string) Option {
 func WithServer(server *mcp.Server) Option {
 	return func(cfg *handlerConfig) error {
 		if server == nil {
-			return ErrNilServer
+			return ErrNilValue
 		}
 		cfg.server = server
 		return nil
@@ -44,7 +44,7 @@ func WithServer(server *mcp.Server) Option {
 func WithServerOptions(opts *mcp.ServerOptions) Option {
 	return func(cfg *handlerConfig) error {
 		if opts == nil {
-			return ErrNilServerOptions
+			return ErrNilValue
 		}
 		cfg.serverOptions = opts
 		return nil
@@ -55,7 +55,7 @@ func WithServerOptions(opts *mcp.ServerOptions) Option {
 func WithStreamableHTTPOptions(opts *mcp.StreamableHTTPOptions) Option {
 	return func(cfg *handlerConfig) error {
 		if opts == nil {
-			return ErrNilStreamableHTTPOptions
+			return ErrNilValue
 		}
 		cfg.streamableHTTPOptions = opts
 		return nil

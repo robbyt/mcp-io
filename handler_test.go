@@ -307,7 +307,7 @@ func TestNewHandlerOptionError(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to apply option")
-	assert.Contains(t, err.Error(), "name cannot be empty")
+	assert.Contains(t, err.Error(), "value cannot be empty")
 }
 
 func TestServeStdioExists(t *testing.T) {

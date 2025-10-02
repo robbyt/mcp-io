@@ -296,12 +296,12 @@ func TestReadmeExamples(t *testing.T) {
 		// Test configuration error - empty name
 		_, err := mcpio.NewToolHandler(mcpio.WithName(""))
 		require.Error(t, err)
-		require.ErrorIs(t, err, mcpio.ErrEmptyName)
+		require.ErrorIs(t, err, mcpio.ErrEmptyValue)
 
 		// Test configuration error - empty version
 		_, err = mcpio.NewToolHandler(mcpio.WithVersion(""))
 		require.Error(t, err)
-		require.ErrorIs(t, err, mcpio.ErrEmptyVersion)
+		require.ErrorIs(t, err, mcpio.ErrEmptyValue)
 
 		// Test tool error types
 		validationErr := mcpio.ValidationError("test validation error")
@@ -478,9 +478,9 @@ func TestErrorTypes(t *testing.T) {
 			opts     []mcpio.Option
 			expected error
 		}{
-			{"EmptyName", []mcpio.Option{mcpio.WithName("")}, mcpio.ErrEmptyName},
-			{"EmptyVersion", []mcpio.Option{mcpio.WithVersion("")}, mcpio.ErrEmptyVersion},
-			{"NilServer", []mcpio.Option{mcpio.WithServer(nil)}, mcpio.ErrNilServer},
+			{"EmptyName", []mcpio.Option{mcpio.WithName("")}, mcpio.ErrEmptyValue},
+			{"EmptyVersion", []mcpio.Option{mcpio.WithVersion("")}, mcpio.ErrEmptyValue},
+			{"NilServer", []mcpio.Option{mcpio.WithServer(nil)}, mcpio.ErrNilValue},
 		}
 
 		for _, tt := range tests {
