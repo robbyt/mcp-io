@@ -175,7 +175,7 @@ func TestWithRawTool(t *testing.T) {
 			_, err := NewToolHandler(WithRawTool(tt.toolName, tt.description, schemaPtr, rawFunc))
 
 			if tt.wantErr != nil {
-				assert.ErrorContains(t, err, tt.wantErr.Error())
+				assert.ErrorIs(t, err, tt.wantErr)
 			} else {
 				require.NoError(t, err)
 			}
@@ -416,9 +416,11 @@ func TestCreateRawToolHandler(t *testing.T) {
 	})
 
 	t.Run("raw function returns protocol error", func(t *testing.T) {
+		errDatabaseFailed := errors.New("database connection failed")
+
 		// Raw function that returns a regular Go error (protocol error)
 		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
-			return nil, errors.New("database connection failed")
+			return nil, errDatabaseFailed
 		}
 
 		handler := createRawToolHandler(rawFunc)
@@ -428,9 +430,8 @@ func TestCreateRawToolHandler(t *testing.T) {
 		result, err := handler(context.Background(), req)
 
 		// Protocol errors should be returned as Go errors, not CallToolResult
-		require.Error(t, err)
+		require.ErrorIs(t, err, errDatabaseFailed)
 		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "database connection failed")
 	})
 
 	t.Run("invalid JSON output", func(t *testing.T) {

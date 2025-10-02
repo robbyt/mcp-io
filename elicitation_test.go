@@ -260,8 +260,7 @@ func TestElicitTyped_SchemaGenerationError(t *testing.T) {
 
 	result, err := ElicitTyped[BadType](context.Background(), mockCapability, "test message")
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to generate schema for elicitation")
+	require.ErrorIs(t, err, ErrSchemaGeneration)
 	assert.Nil(t, result)
 
 	mockCapability.AssertNotCalled(t, "Elicit")
@@ -471,8 +470,7 @@ func TestElicitationResult_DecodeContent_NotAccepted(t *testing.T) {
 	var config SimpleDecodeConfig
 	err := result.DecodeContent(&config)
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no content to decode: elicitation was not accepted")
+	require.ErrorIs(t, err, ErrNoContent)
 }
 
 func TestElicitationResult_DecodeContent_CancelledResult(t *testing.T) {
@@ -489,8 +487,7 @@ func TestElicitationResult_DecodeContent_CancelledResult(t *testing.T) {
 	var config SimpleDecodeConfig
 	err := result.DecodeContent(&config)
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no content to decode: elicitation was not accepted")
+	require.ErrorIs(t, err, ErrNoContent)
 }
 
 func TestElicitationResult_DecodeContent_InvalidJSONUnmarshal(t *testing.T) {
@@ -510,8 +507,7 @@ func TestElicitationResult_DecodeContent_InvalidJSONUnmarshal(t *testing.T) {
 	var config SimpleDecodeConfig
 	err := result.DecodeContent(&config)
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to unmarshal elicitation content")
+	require.ErrorIs(t, err, ErrUnmarshalContent)
 }
 
 func TestElicitationResult_DecodeContent_NilTarget(t *testing.T) {
@@ -529,8 +525,7 @@ func TestElicitationResult_DecodeContent_NilTarget(t *testing.T) {
 
 	err := result.DecodeContent(nil)
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to unmarshal elicitation content")
+	require.ErrorIs(t, err, ErrUnmarshalContent)
 }
 
 func TestElicitationResult_DecodeContent_NonPointerTarget(t *testing.T) {
@@ -550,8 +545,7 @@ func TestElicitationResult_DecodeContent_NonPointerTarget(t *testing.T) {
 	var config SimpleDecodeConfig
 	err := result.DecodeContent(config) // Not &config
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to unmarshal elicitation content")
+	require.ErrorIs(t, err, ErrUnmarshalContent)
 }
 
 func TestElicitationResult_DecodeContent_EmptyContent(t *testing.T) {

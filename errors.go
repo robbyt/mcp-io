@@ -122,7 +122,10 @@ var (
 
 // Runtime and operational errors
 var (
-	ErrInvalidJSON = errors.New("tool returned invalid JSON")
+	ErrInvalidJSON      = errors.New("tool returned invalid JSON")
+	ErrSchemaGeneration = errors.New("failed to generate schema")
+	ErrNoContent        = errors.New("no content to decode")
+	ErrUnmarshalContent = errors.New("failed to unmarshal content")
 )
 
 // Handler option type compatibility errors

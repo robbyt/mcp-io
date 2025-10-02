@@ -3,6 +3,7 @@ package mcpio
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -107,7 +108,7 @@ func createTypedPromptHandler[TArgs any](fn TypedPromptFunc[TArgs]) mcp.PromptHa
 			}
 
 			if err := json.Unmarshal(argBytes, &args); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal prompt arguments into %T: %w", args, err)
+				return nil, fmt.Errorf("into %T: %w", args, errors.Join(ErrUnmarshalContent, err))
 			}
 		}
 

@@ -113,7 +113,7 @@ func ElicitTyped[T any](ctx context.Context, capability ElicitationCapability, m
 	// Generate schema from type T
 	s, err := schema.New[T]()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate schema for elicitation: %w", err)
+		return nil, errors.Join(ErrSchemaGeneration, err)
 	}
 	return capability.Elicit(ctx, message, s)
 }
@@ -228,7 +228,7 @@ func (r *ElicitationResult) GetContent() map[string]any {
 func (r *ElicitationResult) DecodeContent(target any) error {
 	content := r.GetContent()
 	if content == nil {
-		return errors.New("no content to decode: elicitation was not accepted")
+		return ErrNoContent
 	}
 
 	data, err := json.Marshal(content)
@@ -237,7 +237,7 @@ func (r *ElicitationResult) DecodeContent(target any) error {
 	}
 
 	if err := json.Unmarshal(data, target); err != nil {
-		return fmt.Errorf("failed to unmarshal elicitation content: %w", err)
+		return errors.Join(ErrUnmarshalContent, err)
 	}
 
 	return nil

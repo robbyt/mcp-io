@@ -191,8 +191,7 @@ func TestCreateTypedPromptHandler_InvalidJSON(t *testing.T) {
 	}
 
 	_, err := handler(ctx, req)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to unmarshal prompt arguments")
+	require.ErrorIs(t, err, ErrUnmarshalContent)
 }
 
 func TestCreateTypedPromptHandler_PromptError(t *testing.T) {
