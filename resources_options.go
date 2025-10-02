@@ -1,6 +1,8 @@
 package mcpio
 
 import (
+	"fmt"
+
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -8,7 +10,7 @@ import (
 func WithResource(uri, description string, fn ResourceFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if uri == "" {
-			return ErrEmptyValue
+			return fmt.Errorf("resource URI cannot be empty: %w", ErrEmptyValue)
 		}
 
 		if cfg.resources == nil {
@@ -35,7 +37,7 @@ func WithResource(uri, description string, fn ResourceFunc) Option {
 func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if uriTemplate == "" {
-			return ErrEmptyValue
+			return fmt.Errorf("resource template cannot be empty: %w", ErrEmptyValue)
 		}
 
 		if cfg.resourceTemplates == nil {

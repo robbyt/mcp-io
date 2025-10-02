@@ -26,7 +26,7 @@ import (
 func WithToolWithSchema[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], schemas *ToolSchemas) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
-			return ErrEmptyValue
+			return fmt.Errorf("tool name cannot be empty: %w", ErrEmptyValue)
 		}
 
 		if cfg.tools == nil {
@@ -87,14 +87,14 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut]) O
 func WithRawTool(name, description string, inputSchema any, fn RawToolFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
-			return ErrEmptyValue
+			return fmt.Errorf("tool name cannot be empty: %w", ErrEmptyValue)
 		}
 		if inputSchema == nil {
-			return ErrNilValue
+			return fmt.Errorf("input schema cannot be nil: %w", ErrNilValue)
 		}
 		// Check for typed nil pointers
 		if schema, ok := inputSchema.(*jsonschema.Schema); ok && schema == nil {
-			return ErrNilValue
+			return fmt.Errorf("input schema cannot be nil: %w", ErrNilValue)
 		}
 
 		if cfg.tools == nil {

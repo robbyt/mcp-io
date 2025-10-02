@@ -1,6 +1,8 @@
 package mcpio
 
 import (
+	"fmt"
+
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -11,7 +13,7 @@ type Option func(*handlerConfig) error
 func WithName(name string) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
-			return ErrEmptyValue
+			return fmt.Errorf("name cannot be empty: %w", ErrEmptyValue)
 		}
 		cfg.name = name
 		return nil
@@ -22,7 +24,7 @@ func WithName(name string) Option {
 func WithVersion(version string) Option {
 	return func(cfg *handlerConfig) error {
 		if version == "" {
-			return ErrEmptyValue
+			return fmt.Errorf("version cannot be empty: %w", ErrEmptyValue)
 		}
 		cfg.version = version
 		return nil
@@ -33,7 +35,7 @@ func WithVersion(version string) Option {
 func WithServer(server *mcp.Server) Option {
 	return func(cfg *handlerConfig) error {
 		if server == nil {
-			return ErrNilValue
+			return fmt.Errorf("server cannot be nil: %w", ErrNilValue)
 		}
 		cfg.server = server
 		return nil
@@ -44,7 +46,7 @@ func WithServer(server *mcp.Server) Option {
 func WithServerOptions(opts *mcp.ServerOptions) Option {
 	return func(cfg *handlerConfig) error {
 		if opts == nil {
-			return ErrNilValue
+			return fmt.Errorf("server options cannot be nil: %w", ErrNilValue)
 		}
 		cfg.serverOptions = opts
 		return nil
@@ -55,7 +57,7 @@ func WithServerOptions(opts *mcp.ServerOptions) Option {
 func WithStreamableHTTPOptions(opts *mcp.StreamableHTTPOptions) Option {
 	return func(cfg *handlerConfig) error {
 		if opts == nil {
-			return ErrNilValue
+			return fmt.Errorf("streamable HTTP options cannot be nil: %w", ErrNilValue)
 		}
 		cfg.streamableHTTPOptions = opts
 		return nil
