@@ -4,7 +4,7 @@ go 1.25.1
 
 require (
 	github.com/google/jsonschema-go v0.3.0
-	github.com/modelcontextprotocol/go-sdk v0.8.0
+	github.com/modelcontextprotocol/go-sdk v1.0.0
 	github.com/stretchr/testify v1.11.1
 )
 
