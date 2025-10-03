@@ -59,7 +59,7 @@ func calculate(ctx context.Context, input CalculateInput) (CalculateOutput, erro
 		}
 		result = input.A / input.B
 	default:
-		return CalculateOutput{}, errUnsupportedOp
+		return CalculateOutput{}, fmt.Errorf("operation %q: %w", input.Operation, errUnsupportedOp)
 	}
 	return CalculateOutput{Result: result}, nil
 }
