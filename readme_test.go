@@ -39,6 +39,11 @@ func toUpper(ctx context.Context, input TextInput) (TextOutput, error) {
 	return TextOutput{Result: strings.ToUpper(input.Text)}, nil
 }
 
+var (
+	errDivisionByZero = mcpio.NewToolError("division by zero")
+	errUnsupportedOp  = mcpio.ValidationError("unsupported operation")
+)
+
 func calculate(ctx context.Context, input CalculateInput) (CalculateOutput, error) {
 	var result float64
 	switch input.Operation {
@@ -50,11 +55,11 @@ func calculate(ctx context.Context, input CalculateInput) (CalculateOutput, erro
 		result = input.A * input.B
 	case "divide":
 		if input.B == 0 {
-			return CalculateOutput{}, mcpio.NewToolError("division by zero")
+			return CalculateOutput{}, errDivisionByZero
 		}
 		result = input.A / input.B
 	default:
-		return CalculateOutput{}, mcpio.ValidationError("unsupported operation: " + input.Operation)
+		return CalculateOutput{}, fmt.Errorf("operation %q: %w", input.Operation, errUnsupportedOp)
 	}
 	return CalculateOutput{Result: result}, nil
 }
@@ -162,8 +167,7 @@ func TestReadmeExamples(t *testing.T) {
 			A:         5.0,
 			B:         0.0,
 		})
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "division by zero")
+		require.ErrorIs(t, err, errDivisionByZero)
 	})
 
 	t.Run("SchemaFlexibilityExamples", func(t *testing.T) {
@@ -296,12 +300,12 @@ func TestReadmeExamples(t *testing.T) {
 		// Test configuration error - empty name
 		_, err := mcpio.NewToolHandler(mcpio.WithName(""))
 		require.Error(t, err)
-		require.ErrorIs(t, err, mcpio.ErrEmptyName)
+		require.ErrorIs(t, err, mcpio.ErrEmptyValue)
 
 		// Test configuration error - empty version
 		_, err = mcpio.NewToolHandler(mcpio.WithVersion(""))
 		require.Error(t, err)
-		require.ErrorIs(t, err, mcpio.ErrEmptyVersion)
+		require.ErrorIs(t, err, mcpio.ErrEmptyValue)
 
 		// Test tool error types
 		validationErr := mcpio.ValidationError("test validation error")
@@ -423,27 +427,25 @@ func TestToolExecution(t *testing.T) {
 
 	t.Run("CalculateTool", func(t *testing.T) {
 		testCases := []struct {
-			name      string
-			input     CalculateInput
-			expected  float64
-			expectErr bool
-			errMsg    string
+			name     string
+			input    CalculateInput
+			expected float64
+			wantErr  error
 		}{
-			{"Add", CalculateInput{"add", 10, 5}, 15, false, ""},
-			{"Subtract", CalculateInput{"subtract", 10, 5}, 5, false, ""},
-			{"Multiply", CalculateInput{"multiply", 10, 5}, 50, false, ""},
-			{"Divide", CalculateInput{"divide", 10, 5}, 2, false, ""},
-			{"DivideByZero", CalculateInput{"divide", 10, 0}, 0, true, "division by zero"},
-			{"InvalidOperation", CalculateInput{"invalid", 10, 5}, 0, true, "unsupported operation"},
+			{"Add", CalculateInput{"add", 10, 5}, 15, nil},
+			{"Subtract", CalculateInput{"subtract", 10, 5}, 5, nil},
+			{"Multiply", CalculateInput{"multiply", 10, 5}, 50, nil},
+			{"Divide", CalculateInput{"divide", 10, 5}, 2, nil},
+			{"DivideByZero", CalculateInput{"divide", 10, 0}, 0, errDivisionByZero},
+			{"InvalidOperation", CalculateInput{"invalid", 10, 5}, 0, errUnsupportedOp},
 		}
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				result, err := calculate(context.Background(), tc.input)
 
-				if tc.expectErr {
-					require.Error(t, err)
-					assert.Contains(t, err.Error(), tc.errMsg)
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
 				} else {
 					require.NoError(t, err)
 					assert.InDelta(t, tc.expected, result.Result, 0.001)
@@ -478,9 +480,9 @@ func TestErrorTypes(t *testing.T) {
 			opts     []mcpio.Option
 			expected error
 		}{
-			{"EmptyName", []mcpio.Option{mcpio.WithName("")}, mcpio.ErrEmptyName},
-			{"EmptyVersion", []mcpio.Option{mcpio.WithVersion("")}, mcpio.ErrEmptyVersion},
-			{"NilServer", []mcpio.Option{mcpio.WithServer(nil)}, mcpio.ErrNilServer},
+			{"EmptyName", []mcpio.Option{mcpio.WithName("")}, mcpio.ErrEmptyValue},
+			{"EmptyVersion", []mcpio.Option{mcpio.WithVersion("")}, mcpio.ErrEmptyValue},
+			{"NilServer", []mcpio.Option{mcpio.WithServer(nil)}, mcpio.ErrNilValue},
 		}
 
 		for _, tt := range tests {

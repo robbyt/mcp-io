@@ -108,37 +108,24 @@ func ResourceNotFoundError(uri string) error {
 
 // Sentinel errors for configuration validation
 
-// String validation errors
+// Configuration validation errors
 var (
-	ErrEmptyName             = errors.New("name cannot be empty")
-	ErrEmptyVersion          = errors.New("version cannot be empty")
-	ErrEmptyToolName         = errors.New("tool name cannot be empty")
-	ErrEmptyPromptName       = errors.New("prompt name cannot be empty")
-	ErrEmptyResourceURI      = errors.New("resource URI cannot be empty")
-	ErrEmptyResourceTemplate = errors.New("resource template cannot be empty")
-)
-
-// Nil value validation errors
-var (
-	ErrNilSchema                = errors.New("schema cannot be nil")
-	ErrNilFunction              = errors.New("function cannot be nil")
-	ErrNilServer                = errors.New("server cannot be nil")
-	ErrNilServerOptions         = errors.New("server options cannot be nil")
-	ErrNilStreamableHTTPOptions = errors.New("streamable HTTP options cannot be nil")
+	ErrEmptyValue = errors.New("value cannot be empty")
+	ErrNilValue   = errors.New("value cannot be nil")
 )
 
 // Schema validation errors
 var (
-	ErrInvalidJSONSchema     = errors.New("invalid JSON schema")
-	ErrUnsupportedSchemaType = errors.New("unsupported schema type")
-	ErrNoSchemaProperties    = errors.New("schema has no properties")
+	ErrInvalidJSONSchema  = errors.New("invalid JSON schema")
+	ErrNoSchemaProperties = errors.New("schema has no properties")
 )
 
 // Runtime and operational errors
 var (
-	ErrDuplicateTool    = errors.New("tool already registered")
-	ErrInvalidOperation = errors.New("invalid operation")
 	ErrInvalidJSON      = errors.New("tool returned invalid JSON")
+	ErrSchemaGeneration = errors.New("failed to generate schema")
+	ErrNoContent        = errors.New("no content to decode")
+	ErrUnmarshalContent = errors.New("failed to unmarshal content")
 )
 
 // Handler option type compatibility errors

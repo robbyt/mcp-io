@@ -56,7 +56,7 @@ func TestWithSessionTool(t *testing.T) {
 			toolName:    "",
 			description: "A session-aware test tool",
 			toolFunc:    testSessionAwareToolFunc,
-			wantErr:     ErrEmptyToolName,
+			wantErr:     ErrEmptyValue,
 			expectTools: 0,
 		},
 		{
@@ -119,7 +119,7 @@ func TestWithSessionPrompt(t *testing.T) {
 			promptName:    "",
 			description:   "A session-aware test prompt",
 			promptFunc:    testSessionAwarePromptFunc,
-			wantErr:       ErrEmptyPromptName,
+			wantErr:       ErrEmptyValue,
 			expectPrompts: 0,
 		},
 		{
@@ -185,7 +185,7 @@ func TestWithSessionPromptWithArgs(t *testing.T) {
 			description:   "A session-aware test prompt",
 			args:          promptArgs,
 			promptFunc:    testSessionAwarePromptFunc,
-			wantErr:       ErrEmptyPromptName,
+			wantErr:       ErrEmptyValue,
 			expectPrompts: 0,
 		},
 		{
@@ -236,7 +236,7 @@ func TestWithSessionResource(t *testing.T) {
 		wantCount int
 	}{
 		{"valid session resource", "session://resource", nil, 1},
-		{"empty URI should return error", "", ErrEmptyResourceURI, 0},
+		{"empty URI should return error", "", ErrEmptyValue, 0},
 		{"empty description should be valid", "session://resource", nil, 1},
 		{"complex URI should be valid", "file:///path/to/session/resource.txt", nil, 1},
 	}
@@ -267,7 +267,7 @@ func TestWithSessionResourceTemplate(t *testing.T) {
 		wantCount int
 	}{
 		{"valid session resource template", "session://users/{id}", nil, 1},
-		{"empty URI template should return error", "", ErrEmptyResourceTemplate, 0},
+		{"empty URI template should return error", "", ErrEmptyValue, 0},
 		{"empty description should be valid", "session://config/{section}", nil, 1},
 		{"multiple placeholders should be valid", "api://v1/users/{userId}/posts/{postId}", nil, 1},
 	}
@@ -341,7 +341,7 @@ func TestSessionOptionErrorConditions(t *testing.T) {
 
 	// Apply an invalid session tool - should not change existing state
 	err = WithSessionTool("", "Invalid tool", testSessionAwareToolFunc)(cfg)
-	require.ErrorIs(t, err, ErrEmptyToolName)
+	require.ErrorIs(t, err, ErrEmptyValue)
 	assert.Len(t, cfg.tools, 1)
 
 	// Apply valid session prompt
@@ -351,7 +351,7 @@ func TestSessionOptionErrorConditions(t *testing.T) {
 
 	// Apply invalid session prompt - should not change prompt state
 	err = WithSessionPrompt("", "Invalid prompt", testSessionAwarePromptFunc)(cfg)
-	require.ErrorIs(t, err, ErrEmptyPromptName)
+	require.ErrorIs(t, err, ErrEmptyValue)
 	assert.Len(t, cfg.prompts, 1)
 
 	// Apply valid session resource
@@ -361,7 +361,7 @@ func TestSessionOptionErrorConditions(t *testing.T) {
 
 	// Apply invalid session resource - should not change resource state
 	err = WithSessionResource("", "Invalid resource", testSessionAwareResourceFunc)(cfg)
-	require.ErrorIs(t, err, ErrEmptyResourceURI)
+	require.ErrorIs(t, err, ErrEmptyValue)
 	assert.Len(t, cfg.resources, 1)
 }
 

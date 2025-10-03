@@ -11,7 +11,7 @@ import (
 func WithPrompt(name, description string, fn PromptFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
-			return ErrEmptyPromptName
+			return fmt.Errorf("prompt name cannot be empty: %w", ErrEmptyValue)
 		}
 
 		if cfg.prompts == nil {
@@ -37,7 +37,7 @@ func WithPrompt(name, description string, fn PromptFunc) Option {
 func WithPromptWithArgs(name, description string, args []*mcp.PromptArgument, fn PromptFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
-			return ErrEmptyPromptName
+			return fmt.Errorf("prompt name cannot be empty: %w", ErrEmptyValue)
 		}
 
 		if cfg.prompts == nil {
@@ -63,7 +63,7 @@ func WithPromptWithArgs(name, description string, args []*mcp.PromptArgument, fn
 // schemaToPromptArguments converts a JSON schema to MCP prompt arguments
 func schemaToPromptArguments(s any) ([]*mcp.PromptArgument, error) {
 	if s == nil {
-		return nil, ErrNilSchema
+		return nil, ErrNilValue
 	}
 
 	// Convert to *jsonschema.Schema to access Properties and Required fields
@@ -101,7 +101,7 @@ func schemaToPromptArguments(s any) ([]*mcp.PromptArgument, error) {
 func WithTypedPrompt[TArgs any](name, description string, fn TypedPromptFunc[TArgs]) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
-			return ErrEmptyPromptName
+			return fmt.Errorf("prompt name cannot be empty: %w", ErrEmptyValue)
 		}
 
 		if cfg.prompts == nil {

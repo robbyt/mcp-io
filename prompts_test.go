@@ -73,7 +73,7 @@ func TestWithTypedPrompt_EmptyName(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrEmptyPromptName)
+	assert.ErrorIs(t, err, ErrEmptyValue)
 }
 
 func TestWithTypedPrompt_SchemaGeneration(t *testing.T) {
@@ -191,8 +191,7 @@ func TestCreateTypedPromptHandler_InvalidJSON(t *testing.T) {
 	}
 
 	_, err := handler(ctx, req)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to unmarshal prompt arguments")
+	require.ErrorIs(t, err, ErrUnmarshalContent)
 }
 
 func TestCreateTypedPromptHandler_PromptError(t *testing.T) {
@@ -225,7 +224,7 @@ func TestSchemaToPromptArguments(t *testing.T) {
 	// Test with nil schema
 	args, err := schemaToPromptArguments(nil)
 	require.Error(t, err)
-	require.ErrorIs(t, err, ErrNilSchema)
+	require.ErrorIs(t, err, ErrNilValue)
 	assert.Nil(t, args)
 
 	// Test with schema that has no properties

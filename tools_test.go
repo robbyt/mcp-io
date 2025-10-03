@@ -57,19 +57,19 @@ func TestHandlerConstruction(t *testing.T) {
 		{
 			name:           "empty name error",
 			opts:           []Option{WithName("")},
-			wantErr:        ErrEmptyName,
+			wantErr:        ErrEmptyValue,
 			wantNilHandler: true,
 		},
 		{
 			name:           "empty version error",
 			opts:           []Option{WithVersion("")},
-			wantErr:        ErrEmptyVersion,
+			wantErr:        ErrEmptyValue,
 			wantNilHandler: true,
 		},
 		{
 			name:           "nil server error",
 			opts:           []Option{WithServer(nil)},
-			wantErr:        ErrNilServer,
+			wantErr:        ErrNilValue,
 			wantNilHandler: true,
 		},
 	}
@@ -110,7 +110,7 @@ func TestWithTypedTool(t *testing.T) {
 			name:        "empty tool name error",
 			toolName:    "",
 			description: "description",
-			wantErr:     ErrEmptyToolName,
+			wantErr:     ErrEmptyValue,
 		},
 	}
 
@@ -154,14 +154,14 @@ func TestWithRawTool(t *testing.T) {
 			toolName:    "",
 			description: "description",
 			s:           s,
-			wantErr:     ErrEmptyToolName,
+			wantErr:     ErrEmptyValue,
 		},
 		{
 			name:        "nil schema error",
 			toolName:    "test",
 			description: "description",
 			s:           nil,
-			wantErr:     ErrNilSchema,
+			wantErr:     ErrNilValue,
 		},
 	}
 
@@ -175,7 +175,7 @@ func TestWithRawTool(t *testing.T) {
 			_, err := NewToolHandler(WithRawTool(tt.toolName, tt.description, schemaPtr, rawFunc))
 
 			if tt.wantErr != nil {
-				assert.ErrorContains(t, err, tt.wantErr.Error())
+				assert.ErrorIs(t, err, tt.wantErr)
 			} else {
 				require.NoError(t, err)
 			}
@@ -233,17 +233,17 @@ func TestErrorHandling(t *testing.T) {
 		{
 			name:    "invalid name option",
 			opts:    []Option{WithName("")},
-			wantErr: ErrEmptyName,
+			wantErr: ErrEmptyValue,
 		},
 		{
 			name:    "invalid version option",
 			opts:    []Option{WithVersion("")},
-			wantErr: ErrEmptyVersion,
+			wantErr: ErrEmptyValue,
 		},
 		{
 			name:    "invalid tool name",
 			opts:    []Option{WithTool("", "desc", greetFunc)},
-			wantErr: ErrEmptyToolName,
+			wantErr: ErrEmptyValue,
 		},
 	}
 
@@ -416,9 +416,11 @@ func TestCreateRawToolHandler(t *testing.T) {
 	})
 
 	t.Run("raw function returns protocol error", func(t *testing.T) {
+		errDatabaseFailed := errors.New("database connection failed")
+
 		// Raw function that returns a regular Go error (protocol error)
 		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
-			return nil, errors.New("database connection failed")
+			return nil, errDatabaseFailed
 		}
 
 		handler := createRawToolHandler(rawFunc)
@@ -428,9 +430,8 @@ func TestCreateRawToolHandler(t *testing.T) {
 		result, err := handler(context.Background(), req)
 
 		// Protocol errors should be returned as Go errors, not CallToolResult
-		require.Error(t, err)
+		require.ErrorIs(t, err, errDatabaseFailed)
 		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "database connection failed")
 	})
 
 	t.Run("invalid JSON output", func(t *testing.T) {

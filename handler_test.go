@@ -306,8 +306,7 @@ func TestNewHandlerOptionError(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to apply option")
-	assert.Contains(t, err.Error(), "name cannot be empty")
+	assert.ErrorIs(t, err, ErrEmptyValue)
 }
 
 func TestServeStdioExists(t *testing.T) {
@@ -471,7 +470,7 @@ func TestServeStdioActualCall(t *testing.T) {
 
 	// Expect context cancellation error
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "context canceled")
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 // Test createSessionAwareToolHandler success path
@@ -823,11 +822,12 @@ func TestCreateSessionAwareResourceHandlerError(t *testing.T) {
 // Test NewHandler with failing tool registration
 func TestNewHandlerToolRegistrationError(t *testing.T) {
 	t.Parallel()
+	errToolRegistration := errors.New("tool registration failed")
 
 	// Create a tool registration function that will fail
 	failingToolOption := func(cfg *handlerConfig) error {
 		failingRegistration := func(server *mcp.Server) error {
-			return errors.New("tool registration failed")
+			return errToolRegistration
 		}
 		cfg.tools = append(cfg.tools, failingRegistration)
 		return nil
@@ -839,18 +839,18 @@ func TestNewHandlerToolRegistrationError(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to register tool")
-	assert.Contains(t, err.Error(), "tool registration failed")
+	assert.ErrorIs(t, err, errToolRegistration)
 }
 
 // Test NewHandler with failing prompt registration
 func TestNewHandlerPromptRegistrationError(t *testing.T) {
 	t.Parallel()
+	errPromptRegistration := errors.New("prompt registration failed")
 
 	// Create a prompt registration function that will fail
 	failingPromptOption := func(cfg *handlerConfig) error {
 		failingRegistration := func(server *mcp.Server) error {
-			return errors.New("prompt registration failed")
+			return errPromptRegistration
 		}
 		cfg.prompts = append(cfg.prompts, failingRegistration)
 		return nil
@@ -862,18 +862,18 @@ func TestNewHandlerPromptRegistrationError(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to register prompt")
-	assert.Contains(t, err.Error(), "prompt registration failed")
+	assert.ErrorIs(t, err, errPromptRegistration)
 }
 
 // Test NewHandler with failing resource registration
 func TestNewHandlerResourceRegistrationError(t *testing.T) {
 	t.Parallel()
+	errResourceRegistration := errors.New("resource registration failed")
 
 	// Create a resource registration function that will fail
 	failingResourceOption := func(cfg *handlerConfig) error {
 		failingRegistration := func(server *mcp.Server) error {
-			return errors.New("resource registration failed")
+			return errResourceRegistration
 		}
 		cfg.resources = append(cfg.resources, failingRegistration)
 		return nil
@@ -885,18 +885,18 @@ func TestNewHandlerResourceRegistrationError(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to register resource")
-	assert.Contains(t, err.Error(), "resource registration failed")
+	assert.ErrorIs(t, err, errResourceRegistration)
 }
 
 // Test NewHandler with failing resource template registration
 func TestNewHandlerResourceTemplateRegistrationError(t *testing.T) {
 	t.Parallel()
+	errResourceTemplateRegistration := errors.New("resource template registration failed")
 
 	// Create a resource template registration function that will fail
 	failingTemplateOption := func(cfg *handlerConfig) error {
 		failingRegistration := func(server *mcp.Server) error {
-			return errors.New("template registration failed")
+			return errResourceTemplateRegistration
 		}
 		cfg.resourceTemplates = append(cfg.resourceTemplates, failingRegistration)
 		return nil
@@ -908,8 +908,7 @@ func TestNewHandlerResourceTemplateRegistrationError(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to register resource template")
-	assert.Contains(t, err.Error(), "template registration failed")
+	assert.ErrorIs(t, err, errResourceTemplateRegistration)
 }
 
 // Test NewHandler with successful mixed registrations

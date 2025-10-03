@@ -1,6 +1,7 @@
 package mcpio
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -25,7 +26,7 @@ import (
 func WithToolWithSchema[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], schemas *ToolSchemas) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
-			return ErrEmptyToolName
+			return fmt.Errorf("tool name cannot be empty: %w", ErrEmptyValue)
 		}
 
 		if cfg.tools == nil {
@@ -44,14 +45,14 @@ func WithToolWithSchema[TIn, TOut any](name, description string, fn ToolFunc[TIn
 				if schemas.InputSchema != nil {
 					converted, err := schema.ConvertToRawMessage(schemas.InputSchema)
 					if err != nil {
-						return fmt.Errorf("invalid input schema for tool %q: %w", name, err)
+						return fmt.Errorf("tool %q: %w", name, errors.Join(ErrInvalidJSONSchema, err))
 					}
 					tool.InputSchema = converted
 				}
 				if schemas.OutputSchema != nil {
 					converted, err := schema.ConvertToRawMessage(schemas.OutputSchema)
 					if err != nil {
-						return fmt.Errorf("invalid output schema for tool %q: %w", name, err)
+						return fmt.Errorf("tool %q: %w", name, errors.Join(ErrInvalidJSONSchema, err))
 					}
 					tool.OutputSchema = converted
 				}
@@ -86,14 +87,14 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut]) O
 func WithRawTool(name, description string, inputSchema any, fn RawToolFunc) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
-			return ErrEmptyToolName
+			return fmt.Errorf("tool name cannot be empty: %w", ErrEmptyValue)
 		}
 		if inputSchema == nil {
-			return ErrNilSchema
+			return fmt.Errorf("input schema cannot be nil: %w", ErrNilValue)
 		}
 		// Check for typed nil pointers
 		if schema, ok := inputSchema.(*jsonschema.Schema); ok && schema == nil {
-			return ErrNilSchema
+			return fmt.Errorf("input schema cannot be nil: %w", ErrNilValue)
 		}
 
 		if cfg.tools == nil {
@@ -102,10 +103,15 @@ func WithRawTool(name, description string, inputSchema any, fn RawToolFunc) Opti
 
 		// Create registration function that uses the low-level AddTool
 		registerFunc := func(server *mcp.Server) error {
+			converted, err := schema.ConvertToRawMessage(inputSchema)
+			if err != nil {
+				return fmt.Errorf("tool %q: %w", name, errors.Join(ErrInvalidJSONSchema, err))
+			}
+
 			tool := &mcp.Tool{
 				Name:        name,
 				Description: description,
-				InputSchema: inputSchema,
+				InputSchema: converted,
 			}
 			handler := createRawToolHandler(fn)
 			server.AddTool(tool, handler)

@@ -23,7 +23,7 @@ func TestWithResource(t *testing.T) {
 
 	// Test empty URI error
 	err = WithResource("", "A test resource", resourceFunc)(&handlerConfig{})
-	require.ErrorIs(t, err, ErrEmptyResourceURI)
+	require.ErrorIs(t, err, ErrEmptyValue)
 
 	// Test empty description valid
 	cfg = &handlerConfig{resources: make([]resourceRegisterFunc, 0)}
@@ -53,7 +53,7 @@ func TestWithResourceTemplate(t *testing.T) {
 
 	// Empty template error test
 	err = WithResourceTemplate("", "A test template", templateFunc)(&handlerConfig{})
-	require.ErrorIs(t, err, ErrEmptyResourceTemplate)
+	require.ErrorIs(t, err, ErrEmptyValue)
 
 	// Empty description valid test
 	cfg = &handlerConfig{resourceTemplates: make([]resourceTemplateRegisterFunc, 0)}

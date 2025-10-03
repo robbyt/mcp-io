@@ -39,7 +39,7 @@ func TestWithPrompt(t *testing.T) {
 			promptName:    "",
 			description:   "A test prompt",
 			promptFunc:    testPromptFunc,
-			wantErr:       ErrEmptyPromptName,
+			wantErr:       ErrEmptyValue,
 			expectPrompts: 0,
 		},
 		{
@@ -111,7 +111,7 @@ func TestWithPromptWithArgs(t *testing.T) {
 			description:   "A test prompt",
 			args:          promptArgs,
 			promptFunc:    testPromptFunc,
-			wantErr:       ErrEmptyPromptName,
+			wantErr:       ErrEmptyValue,
 			expectPrompts: 0,
 		},
 		{
