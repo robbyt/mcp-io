@@ -123,11 +123,11 @@ func listRecords(ctx context.Context, input struct {
 // Elicitation-based operations
 
 // createRecord demonstrates elicitation for gathering structured data
-func createRecord(ctx context.Context, capability mcpio.ElicitationCapability, input struct{}) (map[string]any, error) {
+func createRecord(ctx context.Context, input struct{}) (map[string]any, error) {
 	slog.Debug("createRecord starting", "operation", "elicitation")
 
 	// Server pauses to elicit structured record data
-	result, err := mcpio.ElicitTypedResult[CreateRecordInput](ctx, capability, "To create a new database record, please provide the following information. This data will be stored in the local database and can be updated or deleted later:")
+	result, err := mcpio.ElicitTyped[CreateRecordInput](ctx, "To create a new database record, please provide the following information. This data will be stored in the local database and can be updated or deleted later:")
 	if err != nil {
 		slog.Error("createRecord elicitation failed", "error", err)
 		return nil, fmt.Errorf("failed to elicit record data: %w", err)
@@ -193,7 +193,7 @@ func createRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 }
 
 // updateRecord demonstrates elicitation for confirming destructive changes
-func updateRecord(ctx context.Context, capability mcpio.ElicitationCapability, input struct {
+func updateRecord(ctx context.Context, input struct {
 	ID     string `json:"id"               jsonschema:"description:Record ID to update"`
 	Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
 	Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
@@ -239,7 +239,7 @@ func updateRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 	changesSummary := strings.Join(changes, "\n")
 	confirmationMessage := fmt.Sprintf("Update record '%s'?\n\nChanges:\n%s\n\nThis will overwrite the existing data.", input.ID, changesSummary)
 
-	result, err := mcpio.ElicitSimple(ctx, capability, confirmationMessage, "confirm", "Type 'UPDATE' to confirm these changes")
+	result, err := mcpio.ElicitSimple(ctx, confirmationMessage, "confirm", "Type 'UPDATE' to confirm these changes")
 	if err != nil {
 		return nil, fmt.Errorf("failed to elicit confirmation: %w", err)
 	}
@@ -276,7 +276,7 @@ func updateRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 }
 
 // deleteRecord demonstrates critical operation confirmation
-func deleteRecord(ctx context.Context, capability mcpio.ElicitationCapability, input struct {
+func deleteRecord(ctx context.Context, input struct {
 	ID string `json:"id" jsonschema:"description:Record ID to delete"`
 },
 ) (map[string]any, error) {
@@ -296,7 +296,7 @@ func deleteRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 	confirmationMessage := fmt.Sprintf("Delete record '%s'?\n\nRecord details:\n- Name: %s\n- Email: %s\n- Status: %s\n- Age: %d\n\nThis action cannot be undone.",
 		record.ID, record.Name, record.Email, record.Status, record.Age)
 
-	result, err := mcpio.ElicitSimple(ctx, capability, confirmationMessage, "confirm", fmt.Sprintf("Type '%s' to confirm deletion", record.ID))
+	result, err := mcpio.ElicitSimple(ctx, confirmationMessage, "confirm", fmt.Sprintf("Type '%s' to confirm deletion", record.ID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to elicit confirmation: %w", err)
 	}
@@ -320,9 +320,9 @@ func deleteRecord(ctx context.Context, capability mcpio.ElicitationCapability, i
 }
 
 // databaseReport demonstrates elicitation within prompts
-func databaseReport(ctx context.Context, capability mcpio.ElicitationCapability, args map[string]any) (*mcpio.PromptResult, error) {
+func databaseReport(ctx context.Context, args map[string]any) (*mcpio.PromptResult, error) {
 	// Server pauses to elicit report preferences
-	result, err := mcpio.ElicitTypedResult[ReportConfig](ctx, capability, "To generate a customized database report, please specify your preferences. These settings will determine the format, filtering, and content of the generated report:")
+	result, err := mcpio.ElicitTyped[ReportConfig](ctx, "To generate a customized database report, please specify your preferences. These settings will determine the format, filtering, and content of the generated report:")
 	if err != nil {
 		return nil, fmt.Errorf("failed to elicit report preferences: %w", err)
 	}
@@ -406,12 +406,12 @@ func main() {
 
 		// Elicitation-enhanced operations
 		// These tools pause execution to gather user input or confirmation
-		mcpio.WithSessionTool("create_record", "Create a new record with elicited data", createRecord),
-		mcpio.WithSessionTool("update_record", "Update a record with change confirmation", updateRecord),
-		mcpio.WithSessionTool("delete_record", "Delete a record with confirmation", deleteRecord),
+		mcpio.WithTool("create_record", "Create a new record with elicited data", createRecord),
+		mcpio.WithTool("update_record", "Update a record with change confirmation", updateRecord),
+		mcpio.WithTool("delete_record", "Delete a record with confirmation", deleteRecord),
 
 		// Elicitation-enhanced prompt
-		mcpio.WithSessionPrompt("database_report", "Generate database reports with custom preferences", databaseReport),
+		mcpio.WithPrompt("database_report", "Generate database reports with custom preferences", databaseReport),
 	)
 	if err != nil {
 		slog.Error("Failed to create handler", "error", err)

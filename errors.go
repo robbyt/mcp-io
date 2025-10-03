@@ -128,6 +128,13 @@ var (
 	ErrUnmarshalContent = errors.New("failed to unmarshal content")
 )
 
+// Session-related errors
+var (
+	ErrNoSession               = errors.New("no session available in context")
+	ErrSamplingNotSupported    = errors.New("client does not support sampling")
+	ErrElicitationNotSupported = errors.New("client does not support elicitation")
+)
+
 // Handler option type compatibility errors
 var (
 	ErrIncompatibleHandler = errors.New("option not compatible with this handler type")

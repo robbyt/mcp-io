@@ -382,11 +382,15 @@ fields := []schema.FieldDef{
 dynamicSchema := schema.NewDynamic(fields)
 ```
 
-## Elicitation Support
+## Session Capabilities
 
-mcp-io supports MCP's elicitation feature for requesting additional information from users at runtime. This enables interactive workflows where tools can gather configuration, preferences, or inputs dynamically.
+mcp-io provides access to MCP session capabilities through context-based injection. The session is automatically available in all tool, prompt, and resource handlers, allowing you to access features like elicitation, sampling, logging, and progress notifications.
 
-### Quick Example
+### Elicitation (Interactive User Input)
+
+Request additional information from users at runtime for configuration, preferences, or confirmation. Elicitation enables interactive workflows where tools can gather structured data dynamically.
+
+#### Quick Example
 
 ```go
 type UserConfig struct {
@@ -395,8 +399,9 @@ type UserConfig struct {
     Port        int    `json:"port" jsonschema:"minimum=1024,maximum=65535"`
 }
 
-func setupTool(ctx context.Context, capability mcpio.ElicitationCapability, input struct{}) (map[string]any, error) {
-    result, err := mcpio.ElicitTypedResult[UserConfig](ctx, capability, "Enter configuration:")
+func setupTool(ctx context.Context, input struct{}) (map[string]any, error) {
+    // Session is automatically available via context
+    result, err := mcpio.ElicitTyped[UserConfig](ctx, "Enter configuration:")
     if err != nil {
         return nil, err
     }
@@ -412,28 +417,121 @@ func setupTool(ctx context.Context, capability mcpio.ElicitationCapability, inpu
     return map[string]any{"status": "cancelled"}, nil
 }
 
-// Register session-aware tool
+// Register tool - session is automatically injected
 handler, err := mcpio.NewHandler(
     mcpio.WithName("interactive-server"),
-    mcpio.WithSessionTool("setup", "Interactive setup", setupTool),
+    mcpio.WithTool("setup", "Interactive setup", setupTool),
 )
 ```
 
-### Available Methods
+#### Elicitation Methods
 
-- **`ElicitTyped[T]`** - Type-safe elicitation with automatic schema generation from Go structs
-- **`ElicitSimple`** - Single string field elicitation for quick inputs or confirmations
-- **`capability.Elicit`** - Direct elicitation with custom JSON schemas
+- **`ElicitTyped[T](ctx, message)`** - Type-safe elicitation with automatic schema generation from Go structs
+- **`ElicitSimple(ctx, message, fieldName, prompt)`** - Single string field elicitation for quick inputs or confirmations
 
-### Security Warning
+**Security Warning**: Never use elicitation for passwords, API keys, or secrets. Use only for configuration data, preferences, and non-sensitive user input.
 
-**⚠️ Important**: Never use elicitation for passwords, API keys, or secrets. Use only for configuration data, preferences, and non-sensitive user input.
+### Sampling (LLM Integration)
+
+Request the client's LLM to generate responses, enabling AI-powered analysis, suggestions, or processing within your tools.
+
+```go
+func analyzeTool(ctx context.Context, input struct{ Code string }) (map[string]any, error) {
+    result, err := mcpio.CreateMessage(ctx, []*mcpio.Message{{
+        Role:    "user",
+        Content: "Analyze this code and suggest improvements:\n" + input.Code,
+    }}, 2000)
+    if err != nil {
+        return nil, err
+    }
+
+    return map[string]any{"analysis": result.Content.Text}, nil
+}
+```
+
+### Progress Notifications
+
+Send progress updates for long-running operations to keep users informed.
+
+```go
+func processDataTool(ctx context.Context, input struct{ Files []string }) (map[string]any, error) {
+    total := float64(len(input.Files))
+    for i, file := range input.Files {
+        mcpio.NotifyProgress(ctx, float64(i), total)
+        // Process file...
+    }
+    mcpio.NotifyProgress(ctx, total, total) // Mark complete
+    return map[string]any{"status": "done"}, nil
+}
+```
+
+### Logging
+
+Send structured log messages to the client for debugging and monitoring.
+
+```go
+func myTool(ctx context.Context, input MyInput) (MyOutput, error) {
+    mcpio.LogInfo(ctx, "Processing started", map[string]any{
+        "itemCount": len(input.Items),
+    })
+
+    // Do work...
+
+    mcpio.LogDebug(ctx, "Detailed state", map[string]any{
+        "processed": processed,
+        "remaining": remaining,
+    })
+
+    return output, nil
+}
+```
+
+Available logging functions:
+- `LogDebug(ctx, message, data)` - Debug-level logs
+- `LogInfo(ctx, message, data)` - Informational logs
+- `LogWarn(ctx, message, data)` - Warning logs
+- `LogError(ctx, message, data)` - Error logs
+
+### Direct Session Access
+
+For advanced use cases, access the full session capability:
+
+```go
+func advancedTool(ctx context.Context, input struct{}) (map[string]any, error) {
+    session := mcpio.GetSession(ctx)
+    if session == nil {
+        return nil, errors.New("no session available")
+    }
+
+    // Check capabilities
+    if session.SupportsElicitation() {
+        // Use elicitation...
+    }
+    if session.SupportsSampling() {
+        // Use sampling...
+    }
+
+    // Access client capabilities for detailed information
+    caps := session.ClientCapabilities()
+    if caps.Roots != nil && caps.Roots.ListChanged {
+        // Client supports notifications for roots list changes
+        roots, _ := session.ListRoots(ctx)
+        // Use roots...
+    }
+
+    // Access session info
+    sessionID := session.SessionID()
+    logger := session.Logger()
+
+    return map[string]any{"sessionID": sessionID}, nil
+}
+```
 
 ### Learn More
 
-- See [godoc](https://pkg.go.dev/github.com/robbyt/mcp-io) for detailed API documentation with examples
-- Complete working example: [examples/cli_elicitation](examples/cli_elicitation/)
-- Session-aware prompts and resources: `WithSessionPrompt`, `WithSessionResource`
+- Complete elicitation example: [examples/cli_elicitation](examples/cli_elicitation/)
+- Multi-step workflows: [examples/http_multistep](examples/http_multistep/)
+- See [godoc](https://pkg.go.dev/github.com/robbyt/mcp-io) for full API documentation
 
 ## Migration Guide
 
