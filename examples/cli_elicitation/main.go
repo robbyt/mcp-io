@@ -123,7 +123,7 @@ func listRecords(ctx context.Context, input struct {
 // Elicitation-based operations
 
 // createRecord demonstrates elicitation for gathering structured data
-func createRecord(ctx context.Context, input struct{}) (map[string]any, error) {
+func createRecord(ctx context.Context, _ struct{}) (map[string]any, error) {
 	slog.Debug("createRecord starting", "operation", "elicitation")
 
 	// Server pauses to elicit structured record data

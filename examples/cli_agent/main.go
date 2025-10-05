@@ -7,6 +7,7 @@ import (
 	"os"
 
 	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/capabilities"
 )
 
 // AnalyzeInput represents input for code analysis
@@ -58,7 +59,7 @@ func analyzeTool(ctx context.Context, input AnalyzeInput) (AnalyzeOutput, error)
 	prompt += "Provide:\n1. A summary of what the code does\n2. Any issues found (bugs, security, performance)\n3. Specific suggestions for improvement"
 
 	// Send message to client's LLM
-	result, err := mcpio.CreateMessage(ctx, []*mcpio.Message{{
+	result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
 		Role:    "user",
 		Content: prompt,
 	}}, 2000)
@@ -127,7 +128,7 @@ func improveTool(ctx context.Context, input ImproveInput) (ImproveOutput, error)
 	prompt += "```\n" + input.Code + "\n```\n\n"
 	prompt += "Provide the improved code and explain what changes were made."
 
-	result, err := mcpio.CreateMessage(ctx, []*mcpio.Message{{
+	result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
 		Role:    "user",
 		Content: prompt,
 	}}, 3000)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,22 +40,26 @@ type CalculateOutput struct {
 // testMockSamplingSession is a minimal mock for testing sampling
 type testMockSamplingSession struct {
 	samplingSupported bool
-	response          *mcpio.MessageResult
+	response          *capabilities.MessageResult
 }
 
 func (m *testMockSamplingSession) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
 	return nil, mcpio.ErrElicitationNotSupported
 }
 
-func (m *testMockSamplingSession) CreateMessage(ctx context.Context, messages []*mcpio.Message, maxTokens int) (*mcpio.MessageResult, error) {
+func (m *testMockSamplingSession) CreateMessage(ctx context.Context, messages []*capabilities.Message, maxTokens int) (*capabilities.MessageResult, error) {
 	return m.response, nil
 }
 
-func (m *testMockSamplingSession) ListRoots(ctx context.Context) ([]*mcpio.Root, error) {
+func (m *testMockSamplingSession) CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
 	return nil, nil
 }
 
-func (m *testMockSamplingSession) Log(ctx context.Context, level mcpio.LogLevel, message string, data map[string]any) error {
+func (m *testMockSamplingSession) ListRoots(ctx context.Context) ([]*capabilities.Root, error) {
+	return nil, nil
+}
+
+func (m *testMockSamplingSession) Log(ctx context.Context, level capabilities.LogLevel, message string, data map[string]any) error {
 	return nil
 }
 
@@ -70,8 +75,8 @@ func (m *testMockSamplingSession) SessionID() string {
 	return "test-readme-session"
 }
 
-func (m *testMockSamplingSession) ClientCapabilities() *mcpio.ClientCapabilities {
-	return &mcpio.ClientCapabilities{}
+func (m *testMockSamplingSession) ClientCapabilities() *capabilities.ClientCapabilities {
+	return &capabilities.ClientCapabilities{}
 }
 
 func (m *testMockSamplingSession) SupportsElicitation() bool {
@@ -564,7 +569,7 @@ func TestSessionCapabilities(t *testing.T) {
 		}
 
 		// Tool from README
-		setupTool := func(ctx context.Context, input struct{}) (map[string]any, error) {
+		setupTool := func(ctx context.Context, _ struct{}) (map[string]any, error) {
 			// Session is automatically available via context
 			result, err := mcpio.ElicitTyped[UserConfig](ctx, "Enter configuration:")
 			if err != nil {
@@ -614,7 +619,7 @@ func TestSessionCapabilities(t *testing.T) {
 	t.Run("SamplingExample", func(t *testing.T) {
 		// Tool from README - exact code from Sampling section
 		analyzeTool := func(ctx context.Context, input struct{ Code string }) (map[string]any, error) {
-			result, err := mcpio.CreateMessage(ctx, []*mcpio.Message{{
+			result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
 				Role:    "user",
 				Content: "Analyze this code and suggest improvements:\n" + input.Code,
 			}}, 2000)
@@ -636,7 +641,7 @@ func TestSessionCapabilities(t *testing.T) {
 	t.Run("SamplingExampleWithExecution", func(t *testing.T) {
 		// Actually test the sampling functionality with a mock
 		analyzeTool := func(ctx context.Context, input struct{ Code string }) (map[string]any, error) {
-			result, err := mcpio.CreateMessage(ctx, []*mcpio.Message{{
+			result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
 				Role:    "user",
 				Content: "Analyze this code and suggest improvements:\n" + input.Code,
 			}}, 2000)
@@ -650,9 +655,9 @@ func TestSessionCapabilities(t *testing.T) {
 		// Create a mock session that supports sampling
 		mockSession := &testMockSamplingSession{
 			samplingSupported: true,
-			response: &mcpio.MessageResult{
+			response: &capabilities.MessageResult{
 				Role:    "assistant",
-				Content: mcpio.TextContent{Text: "This code looks good. No issues found."},
+				Content: capabilities.TextContent{Text: "This code looks good. No issues found."},
 			},
 		}
 
@@ -662,6 +667,56 @@ func TestSessionCapabilities(t *testing.T) {
 		result, err := analyzeTool(ctx, struct{ Code string }{Code: "func test() {}"})
 		require.NoError(t, err)
 		assert.Contains(t, result["analysis"], "looks good")
+	})
+
+	t.Run("DungeonMasterExample", func(t *testing.T) {
+		// Test dungeon_master example from README Sampling section
+		type AdventureInput struct {
+			Action string `json:"action" jsonschema:"What the player does"`
+		}
+
+		dungeonMaster := func(ctx context.Context, input AdventureInput) (map[string]any, error) {
+			// Delegate storytelling to the client's LLM
+			prompt := "You are a dungeon master. The player: \"" + input.Action +
+				"\". Narrate what happens next in 2 sentences. Be dramatic!"
+
+			result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
+				Role:    "user",
+				Content: prompt,
+			}}, 300)
+			if err != nil {
+				return nil, err
+			}
+
+			// Use the LLM's narrative in our response
+			return map[string]any{"narrative": result.Content.Text}, nil
+		}
+
+		// Test handler creation
+		handler, err := mcpio.NewToolHandler(
+			mcpio.WithName("dungeon-master"),
+			mcpio.WithVersion("1.0.0"),
+			mcpio.WithTool("dungeon_master", "Narrate adventures using AI", dungeonMaster),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler)
+
+		// Test execution with mock
+		mockSession := &testMockSamplingSession{
+			samplingSupported: true,
+			response: &capabilities.MessageResult{
+				Role: "assistant",
+				Content: capabilities.TextContent{
+					Text: "The ancient door creaks open, revealing a dimly lit corridor filled with mysterious glowing runes. A cold wind rushes past you, carrying whispers of forgotten secrets!",
+				},
+			},
+		}
+
+		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession)
+		result, err := dungeonMaster(ctx, AdventureInput{Action: "I open the mysterious door"})
+		require.NoError(t, err)
+		assert.Contains(t, result, "narrative")
+		assert.Contains(t, result["narrative"], "door")
 	})
 
 	t.Run("LoggingExample", func(t *testing.T) {
@@ -703,7 +758,7 @@ func TestSessionCapabilities(t *testing.T) {
 
 	t.Run("DirectSessionAccess", func(t *testing.T) {
 		// Tool from README
-		advancedTool := func(ctx context.Context, input struct{}) (map[string]any, error) {
+		advancedTool := func(ctx context.Context, _ struct{}) (map[string]any, error) {
 			session := mcpio.GetSession(ctx)
 			if session == nil {
 				return map[string]any{"error": "no session available"}, nil

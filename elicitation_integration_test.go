@@ -46,6 +46,10 @@ func (m *MockSessionCapability) CreateMessage(ctx context.Context, messages []*c
 	return nil, nil
 }
 
+func (m *MockSessionCapability) CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
+	return nil, nil
+}
+
 func (m *MockSessionCapability) ListRoots(ctx context.Context) ([]*capabilities.Root, error) {
 	return nil, nil
 }
@@ -104,7 +108,7 @@ func TestToolWithContextElicitation(t *testing.T) {
 	}
 
 	// Define a tool that uses context-based elicitation
-	setupUserPreferences := func(ctx context.Context, input struct{}) (map[string]any, error) {
+	setupUserPreferences := func(ctx context.Context, _ struct{}) (map[string]any, error) {
 		result, err := ElicitTyped[UserPreferences](ctx, "Please configure your preferences:")
 		if err != nil {
 			return nil, err

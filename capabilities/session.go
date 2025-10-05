@@ -31,6 +31,10 @@ type SessionCapability interface {
 	// Returns nil error and empty result if the client doesn't support sampling.
 	CreateMessage(ctx context.Context, messages []*Message, maxTokens int) (*MessageResult, error)
 
+	// CreateMessageRaw provides direct access to the MCP CreateMessage API with full control over parameters.
+	// Use this when you need to specify model preferences, temperature, system prompts, or other advanced options.
+	CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error)
+
 	// ListRoots queries the client's workspace roots (directories, files, etc.).
 	// Servers can use this to discover what the client has access to.
 	ListRoots(ctx context.Context) ([]*Root, error)
@@ -76,12 +80,20 @@ func NewSessionCapability(session *mcp.ServerSession) SessionCapability {
 	return &sessionCapability{session: session}
 }
 
+func (s *sessionCapability) SupportsElicitation() bool {
+	return s.session.InitializeParams().Capabilities.Elicitation != nil
+}
+
 func (s *sessionCapability) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
 	params := &mcp.ElicitParams{
 		Message:         message,
 		RequestedSchema: requestedSchema,
 	}
 	return s.session.Elicit(ctx, params)
+}
+
+func (s *sessionCapability) SupportsSampling() bool {
+	return s.session.InitializeParams().Capabilities.Sampling != nil
 }
 
 func (s *sessionCapability) CreateMessage(ctx context.Context, messages []*Message, maxTokens int) (*MessageResult, error) {
@@ -117,6 +129,10 @@ func (s *sessionCapability) CreateMessage(ctx context.Context, messages []*Messa
 		Role:    string(result.Role),
 		Content: TextContent{Text: mcpContent.Text},
 	}, nil
+}
+
+func (s *sessionCapability) CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
+	return s.session.CreateMessage(ctx, params)
 }
 
 func (s *sessionCapability) ListRoots(ctx context.Context) ([]*Root, error) {
@@ -184,14 +200,6 @@ func (s *sessionCapability) ClientCapabilities() *ClientCapabilities {
 	}
 
 	return caps
-}
-
-func (s *sessionCapability) SupportsElicitation() bool {
-	return s.session.InitializeParams().Capabilities.Elicitation != nil
-}
-
-func (s *sessionCapability) SupportsSampling() bool {
-	return s.session.InitializeParams().Capabilities.Sampling != nil
 }
 
 func (s *sessionCapability) Wait() error {

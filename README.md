@@ -399,7 +399,7 @@ type UserConfig struct {
     Port        int    `json:"port" jsonschema:"minimum=1024,maximum=65535"`
 }
 
-func setupTool(ctx context.Context, input struct{}) (map[string]any, error) {
+func setupTool(ctx context.Context, _ struct{}) (map[string]any, error) {
     // Session is automatically available via context
     result, err := mcpio.ElicitTyped[UserConfig](ctx, "Enter configuration:")
     if err != nil {
@@ -433,19 +433,51 @@ handler, err := mcpio.NewHandler(
 
 ### Sampling (LLM Integration)
 
-Request the client's LLM to generate responses, enabling AI-powered analysis, suggestions, or processing within your tools.
+[Sampling](https://modelcontextprotocol.io/specification/2025-06-18/client/sampling) allows your MCP server to delegate LLM work to the client. The server doesn't run an LLM itself—instead, it sends prompts to the client's LLM and uses the responses as helpers to build its output. This offloads expensive inference from your server to the client.
+
+**The workflow:** Your tool receives input → builds a prompt → sends it to the client's LLM → uses the LLM's response in your final output.
+
+#### Example: AI Dungeon Master
 
 ```go
-func analyzeTool(ctx context.Context, input struct{ Code string }) (map[string]any, error) {
-    result, err := mcpio.CreateMessage(ctx, []*mcpio.Message{{
+import "github.com/robbyt/mcp-io/capabilities"
+
+type AdventureInput struct {
+    Action string `json:"action" jsonschema:"What the player does"`
+}
+
+func dungeonMaster(ctx context.Context, input AdventureInput) (map[string]any, error) {
+    // Delegate storytelling to the client's LLM
+    prompt := "You are a dungeon master. The player: \"" + input.Action +
+              "\". Narrate what happens next in 2 sentences. Be dramatic!"
+
+    result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
         Role:    "user",
-        Content: "Analyze this code and suggest improvements:\n" + input.Code,
-    }}, 2000)
+        Content: prompt,
+    }}, 300)
     if err != nil {
         return nil, err
     }
 
-    return map[string]any{"analysis": result.Content.Text}, nil
+    // Use the LLM's narrative in our response
+    return map[string]any{"narrative": result.Content.Text}, nil
+}
+```
+
+**Example interaction:**
+```bash
+# Start the server
+cd examples/simple_dungeon_master
+go run main.go
+
+# In another terminal, call the tool
+mcp call dungeon_master --params '{"action":"I open the mysterious door"}' http://localhost:8080/mcp
+```
+
+**Response:**
+```json
+{
+  "narrative": "The ancient door groans open, revealing a chamber of gold coins. Suddenly, the coins coalesce into a massive golden serpent with ruby eyes!"
 }
 ```
 
@@ -497,7 +529,7 @@ Available logging functions:
 For advanced use cases, access the full session capability:
 
 ```go
-func advancedTool(ctx context.Context, input struct{}) (map[string]any, error) {
+func advancedTool(ctx context.Context, _ struct{}) (map[string]any, error) {
     session := mcpio.GetSession(ctx)
     if session == nil {
         return nil, errors.New("no session available")

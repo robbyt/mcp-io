@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/robbyt/mcp-io/capabilities"
 )
 
@@ -41,14 +42,13 @@ func injectSession(ctx context.Context, session capabilities.SessionCapability) 
 //
 // Example:
 //
-//	result, err := mcpio.CreateMessage(ctx, []*mcpio.Message{{
-//	    Role: "user",
-//	    Content: "Analyze this code and suggest improvements: " + code,
+//	result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
+//	    Role:    "user",
+//	    Content: "Analyze this code",
 //	}}, 2000)
 //	if err != nil {
 //	    return nil, err
 //	}
-//
 //	analysis := result.Content.Text
 func CreateMessage(ctx context.Context, messages []*capabilities.Message, maxTokens int) (*capabilities.MessageResult, error) {
 	session := GetSession(ctx)
@@ -61,6 +61,34 @@ func CreateMessage(ctx context.Context, messages []*capabilities.Message, maxTok
 	return session.CreateMessage(ctx, messages, maxTokens)
 }
 
+// CreateMessageRaw provides direct access to the MCP CreateMessage API with full control over parameters.
+// Use this when you need to specify model preferences, temperature, system prompts, or other advanced options.
+// Returns an error if the session is not available or doesn't support sampling.
+//
+// Example:
+//
+//	params := &mcp.CreateMessageParams{
+//	    Messages: []*mcp.SamplingMessage{{
+//	        Role: "user",
+//	        Content: &mcp.TextContent{Text: "Analyze this code"},
+//	    }},
+//	    MaxTokens: 1000,
+//	    ModelPreferences: &mcp.ModelPreferences{
+//	        Hints: []*mcp.ModelHint{{Name: "llama3.1"}},
+//	    },
+//	}
+//	result, err := mcpio.CreateMessageRaw(ctx, params)
+func CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
+	session := GetSession(ctx)
+	if session == nil {
+		return nil, ErrNoSession
+	}
+	if !session.SupportsSampling() {
+		return nil, ErrSamplingNotSupported
+	}
+	return session.CreateMessageRaw(ctx, params)
+}
+
 // ListRoots queries the client's workspace roots (directories, files, etc.).
 // Returns an error if the session is not available.
 //
@@ -69,10 +97,6 @@ func CreateMessage(ctx context.Context, messages []*capabilities.Message, maxTok
 //	roots, err := mcpio.ListRoots(ctx)
 //	if err != nil {
 //	    return nil, err
-//	}
-//
-//	for _, root := range roots {
-//	    fmt.Printf("Root: %s (%s)\n", root.Name, root.URI)
 //	}
 func ListRoots(ctx context.Context) ([]*capabilities.Root, error) {
 	session := GetSession(ctx)
@@ -176,36 +200,9 @@ func GetSessionID(ctx context.Context) string {
 //
 // Example:
 //
-//	mockSession := new(MockSessionCapability)
-//	mockSession.On("Elicit", ...).Return(...)
-//	ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession)
+//	// In tests, inject your session implementation:
+//	ctx := mcpio.InjectSessionForTesting(context.Background(), yourSessionImpl)
 //	result, err := myTool(ctx, input)
 func InjectSessionForTesting(ctx context.Context, session capabilities.SessionCapability) context.Context {
 	return injectSession(ctx, session)
 }
-
-// Re-export capability types for external use
-type (
-	SessionCapability       = capabilities.SessionCapability
-	Message                 = capabilities.Message
-	MessageResult           = capabilities.MessageResult
-	TextContent             = capabilities.TextContent
-	Root                    = capabilities.Root
-	ClientCapabilities      = capabilities.ClientCapabilities
-	ElicitationCapabilities = capabilities.ElicitationCapabilities
-	SamplingCapabilities    = capabilities.SamplingCapabilities
-	RootsCapabilities       = capabilities.RootsCapabilities
-	LogLevel                = capabilities.LogLevel
-)
-
-// Re-export LogLevel constants
-const (
-	LogLevelDebug     = capabilities.LogLevelDebug
-	LogLevelInfo      = capabilities.LogLevelInfo
-	LogLevelNotice    = capabilities.LogLevelNotice
-	LogLevelWarning   = capabilities.LogLevelWarning
-	LogLevelError     = capabilities.LogLevelError
-	LogLevelCritical  = capabilities.LogLevelCritical
-	LogLevelAlert     = capabilities.LogLevelAlert
-	LogLevelEmergency = capabilities.LogLevelEmergency
-)

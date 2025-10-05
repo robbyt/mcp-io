@@ -14,7 +14,7 @@ func TestNewPromptHandler_Validation(t *testing.T) {
 	t.Parallel()
 
 	// Test that NewPromptHandler rejects non-prompt resources
-	toolFunc := func(ctx context.Context, input struct{}) (struct{}, error) {
+	toolFunc := func(ctx context.Context, _ struct{}) (struct{}, error) {
 		return struct{}{}, nil
 	}
 

@@ -33,6 +33,10 @@ func (m *TestMockSession) CreateMessage(ctx context.Context, messages []*capabil
 	return nil, nil
 }
 
+func (m *TestMockSession) CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
+	return nil, nil
+}
+
 func (m *TestMockSession) ListRoots(ctx context.Context) ([]*capabilities.Root, error) {
 	return nil, nil
 }

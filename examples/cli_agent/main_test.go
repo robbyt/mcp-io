@@ -11,6 +11,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -31,23 +32,31 @@ func (m *MockSessionCapability) Elicit(ctx context.Context, message string, requ
 	return args.Get(0).(*mcp.ElicitResult), args.Error(1)
 }
 
-func (m *MockSessionCapability) CreateMessage(ctx context.Context, messages []*mcpio.Message, maxTokens int) (*mcpio.MessageResult, error) {
+func (m *MockSessionCapability) CreateMessage(ctx context.Context, messages []*capabilities.Message, maxTokens int) (*capabilities.MessageResult, error) {
 	args := m.Called(ctx, messages, maxTokens)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*mcpio.MessageResult), args.Error(1)
+	return args.Get(0).(*capabilities.MessageResult), args.Error(1)
 }
 
-func (m *MockSessionCapability) ListRoots(ctx context.Context) ([]*mcpio.Root, error) {
+func (m *MockSessionCapability) CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
+	args := m.Called(ctx, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*mcp.CreateMessageResult), args.Error(1)
+}
+
+func (m *MockSessionCapability) ListRoots(ctx context.Context) ([]*capabilities.Root, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*mcpio.Root), args.Error(1)
+	return args.Get(0).([]*capabilities.Root), args.Error(1)
 }
 
-func (m *MockSessionCapability) Log(ctx context.Context, level mcpio.LogLevel, message string, data map[string]any) error {
+func (m *MockSessionCapability) Log(ctx context.Context, level capabilities.LogLevel, message string, data map[string]any) error {
 	args := m.Called(ctx, level, message, data)
 	return args.Error(0)
 }
@@ -70,12 +79,12 @@ func (m *MockSessionCapability) SessionID() string {
 	return args.String(0)
 }
 
-func (m *MockSessionCapability) ClientCapabilities() *mcpio.ClientCapabilities {
+func (m *MockSessionCapability) ClientCapabilities() *capabilities.ClientCapabilities {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil
 	}
-	return args.Get(0).(*mcpio.ClientCapabilities)
+	return args.Get(0).(*capabilities.ClientCapabilities)
 }
 
 func (m *MockSessionCapability) SupportsElicitation() bool {
@@ -123,9 +132,9 @@ func (s *AgentTestSuite) TestAnalyzeToolWithSampling() {
 		mockSession.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// Mock the sampling response
-		mockSession.On("CreateMessage", mock.Anything, mock.Anything, mock.Anything).Return(&mcpio.MessageResult{
+		mockSession.On("CreateMessage", mock.Anything, mock.Anything, mock.Anything).Return(&capabilities.MessageResult{
 			Role: "assistant",
-			Content: mcpio.TextContent{
+			Content: capabilities.TextContent{
 				Text: "This code contains a potential bug in the error handling. Suggestions: 1. Add proper error checking. 2. Use defer for cleanup.",
 			},
 		}, nil).Once()
@@ -169,9 +178,9 @@ func (s *AgentTestSuite) TestImproveToolWithSampling() {
 		mockSession := new(MockSessionCapability)
 		mockSession.On("SupportsSampling").Return(true)
 
-		mockSession.On("CreateMessage", mock.Anything, mock.Anything, mock.Anything).Return(&mcpio.MessageResult{
+		mockSession.On("CreateMessage", mock.Anything, mock.Anything, mock.Anything).Return(&capabilities.MessageResult{
 			Role: "assistant",
-			Content: mcpio.TextContent{
+			Content: capabilities.TextContent{
 				Text: "func test() error {\n    // Add error handling\n    return nil\n}\n\nChanges: Added error return type and handling",
 			},
 		}, nil).Once()
