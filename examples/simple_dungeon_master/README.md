@@ -8,8 +8,14 @@ Demonstrates:
 - **Stateful conversation management** with persistent memory across multiple tool calls
 - **Interactive gameplay mechanics** using D20 skill checks with roll validation
 - **Context-aware prompting** by including full game history in every LLM request
-- **Automatic context window management** via intelligent summarization when history grows
+- **Context window management** via summarization when history grows
 - **MCP logging integration** for debugging LLM failures
+
+## Architecture
+
+1. **Turn-based gameplay**: D20 skill checks with roll validation and turn history tracking
+2. **LLM narrative generation**: Generates narrative based on player action and full game context
+3. **History summarization**: Condenses older events to manage context window growth
 
 ## Requirements
 
@@ -17,7 +23,7 @@ This example requires an MCP client with **sampling support**.
 
 See [MCP Clients](https://modelcontextprotocol.io/clients) for clients that support the sampling capability.
 
-## Using with oterm
+## Setup
 
 [oterm](https://github.com/ggozad/oterm) is a terminal-based MCP client that supports sampling and can use local LLMs.
 
@@ -46,51 +52,56 @@ Add the MCP server configuration:
 
 Replace `/full/path/to/mcp-io` with your actual project path.
 
-## Playing the Game
+## Tools
 
 The server exposes three tools:
 
-### Available Tools
+- **`dungeon_master`** - Submit actions, receive narrative (may require skill check)
+- **`roll_d20`** - Roll D20 when skill check required
+- **`debug_gameState`** - Inspect turn history, summary, and pending checks (for debugging)
 
-**`dungeon_master`** - Submit player actions and receive generated narrative
-- All player actions must be sent to this tool (e.g., "look around", "open door", "attack goblin")
-- Returns narrative describing what happens
-- May indicate a skill check is required for the next action
+## System Prompt for LLM Clients
 
-**`roll_d20`** - Roll a 20-sided die for skill checks
-- Called when the narrative indicates a skill check is required
-- Roll result is validated against the difficulty threshold
-- Must be called before submitting your next action if a check is pending
+---
 
-**`debug_gameState`** - Inspect internal game state
-- Returns current turn history, summary, pending skill checks, and last roll
-- Useful for debugging or understanding game state
+You are an LLM assistant playing a text adventure game via MCP tools. Follow this workflow:
 
-### How to Play
+**Normal Turn (no pending skill check):**
+1. Call `dungeon_master` with `{"action": "your action here"}`
+2. Show the narrative response to the user
+3. If response has `skillCheckRequired > 0`:
+   - Tell the user a skill check is required: "This requires a skill check! You need to roll {skillCheckRequired} or higher."
+   - Proceed to skill check workflow
 
-All player actions go to the `dungeon_master` tool:
-```
-Use the dungeon_master MCP tool with action: "I look around"
-```
+**Skill Check Workflow:**
+1. Call `roll_d20` with `{}`
+2. Show the user what they rolled: "You rolled a {result}!"
+3. Note the `encryptedData` from the response (don't show this to user)
+4. Call `dungeon_master` with ONLY `{"encryptedData": "..."}` (NO action field)
+5. Show the narrative (which includes success/fail result)
+6. Continue with normal turns
 
-Or with a simple prompt:
-```
-action: look around
-```
+**Key Rules:**
+- ALWAYS show narrative responses to the user immediately
+- NEVER restate the action when providing encryptedData
+- The encryptedData is a continuation token that completes the previous action
+- Each turn advances the game state - avoid duplicate submissions
+- Track the turn number to monitor progress
 
-**Skill Checks**: When the narrative requires a skill check, you must call `roll_d20` before your next action. The game will validate your roll and incorporate the success/failure into the narrative.
+**Example Flow:**
 
-The server maintains a persistent adventure with intelligent memory management:
-- Remembers all previous actions and their consequences
-- Automatically condenses long histories while preserving key events
-- Enforces narrative consistency - the LLM validates actions against established context
-- Prevents contradictions (e.g., can't open a door if you don't have the key)
+User says: "I want to climb the mountain"
 
-## How It Works
+1. You call `dungeon_master` with `{"action": "climb the mountain"}`
+2. `dungeon_master` response: `{narrative: "You approach the steep cliff...", skillCheckRequired: 12, turnNumber: 1}`
+3. You show user: "You approach the steep cliff... This requires a skill check! You need to roll 12 or higher."
+4. You call `roll_d20` with `{}`
+5. `roll_d20` response: `{result: 15, encryptedData: "abc123..."}`
+6. You show user: "You rolled a 15!"
+7. You call `dungeon_master` with `{"encryptedData": "abc123..."}` (no action field)
+8. `dungeon_master` response: `{narrative: "You successfully scale the mountain!", turnNumber: 2}`
+9. You show user: "You successfully scale the mountain!"
 
-1. **Skill Check Validation**: If a previous turn required a skill check, validates the D20 roll before proceeding
-2. **State Management**: Persistent game history with automatic memory management
-3. **LLM Call 1**: Generate narrative based on player action + full historical context
-4. **Skill Check Assignment**: Randomly determines if the next action requires a D20 roll (configurable probability)
-5. **LLM Call 2** (conditional): Intelligently summarize older events when history grows long
-6. **Context Preservation**: Every prompt includes both condensed summary and recent events for continuity
+---
+
+*(End of system prompt - copy the text above for your LLM client)*

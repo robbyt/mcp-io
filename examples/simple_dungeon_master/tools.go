@@ -26,7 +26,7 @@ func (state *GameState) RollDiceTool(ctx context.Context, input dice.RollInput) 
 	// Encrypt result if skill check was pending
 	if pendingCheck > 0 {
 		rollData := map[string]int{"result": roll.Result}
-		encrypted, err := state.crypt.Encrypt(rollData, state.encryptionNonce)
+		encrypted, err := state.crypt.Encrypt(rollData, state.turnCounter)
 		if err != nil {
 			return dice.Roll{}, fmt.Errorf("failed to encrypt roll: %w", err)
 		}
@@ -65,7 +65,7 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 
 		// Decrypt and validate roll
 		var rollData map[string]int
-		if err := state.crypt.Decrypt(encryptedRoll, state.encryptionNonce, &rollData); err != nil {
+		if err := state.crypt.Decrypt(encryptedRoll, state.turnCounter, &rollData); err != nil {
 			return narrative.Response{
 				TurnNumber:   state.turnCounter,
 				ErrorMessage: fmt.Sprintf("Invalid encrypted roll: %v", err),
@@ -93,9 +93,6 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 
 		// Clear the pending check after successful validation
 		state.narrative.ClearPendingSkillCheck()
-
-		// Increment encryption nonce after consuming a roll (prevents replay attacks)
-		state.encryptionNonce++
 
 		//nolint:errcheck
 		mcpio.LogDebug(ctx, "Skill check validated", map[string]any{

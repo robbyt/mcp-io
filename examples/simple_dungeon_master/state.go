@@ -10,13 +10,12 @@ import (
 
 // GameState coordinates game components
 type GameState struct {
-	narrative       *narrative.State                                           // Narrative engine with history and skill check state
-	dice            *dice.State                                                // Dice roller with roll history
-	crypt           *crypt.State                                               // Cryptographic operations for encrypted data validation
-	config          *Config                                                    // Runtime configuration options
-	turnCounter     int                                                        // Counter for turn number (game state progression)
-	encryptionNonce int                                                        // Nonce for encryption/decryption (prevents replay attacks)
-	llmFunc         func(context.Context, string, int, string) (string, error) // LLM function for narrative generation (injectable for testing)
+	narrative   *narrative.State                                           // Narrative engine with history and skill check state
+	dice        *dice.State                                                // Dice roller with roll history
+	crypt       *crypt.State                                               // Cryptographic operations for encrypted data validation
+	config      *Config                                                    // Runtime configuration options
+	turnCounter int                                                        // Counter for turn number (used for encryption nonce and game state progression)
+	llmFunc     func(context.Context, string, int, string) (string, error) // LLM function for narrative generation (injectable for testing)
 }
 
 type Config struct {

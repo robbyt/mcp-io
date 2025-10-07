@@ -35,8 +35,8 @@ func NewState() *State {
 
 // ActionInput represents input describing what the player does during this turn
 type ActionInput struct {
-	Action        string `json:"action"                  jsonschema:"Input from the player describing their desired action for this turn"`
-	EncryptedData string `json:"encryptedData,omitempty" jsonschema:"Optional encrypted data from previous tool responses."`
+	Action        string `json:"action,omitempty"        jsonschema:"New action to take. Omit when providing encryptedData to continue a pending action."`
+	EncryptedData string `json:"encryptedData,omitempty" jsonschema:"Continuation token for pending skill check. When provided, completes the previous action without needing to restate it."`
 }
 
 // Response is the response object returned to the player after calling the dungeon_master tool
@@ -52,6 +52,15 @@ func (s *State) ClearPendingSkillCheck() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pendingSkillCheck = 0
+}
+
+// CompleteTurn clears both pending skill check and encrypted roll state
+// Call this after successfully completing a turn that had a skill check
+func (s *State) CompleteTurn() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pendingSkillCheck = 0
+	s.lastEncryptedRoll = ""
 }
 
 // AddTurn records a completed turn in the history
@@ -89,17 +98,18 @@ func (s *State) BuildTurnPrompt(action string, nextSkillCheck int, rollContext s
 		prompt.WriteString("\n")
 	}
 
-	prompt.WriteString("You are a dungeon master. You narrate adventures based on player actions, and generate small story beats to create an weird and wild adventure.\n")
-	prompt.WriteString("If the player's action conflicts or contradicts with the previous narrative, they should be stylistically told they can't do that.\n")
-	prompt.WriteString("For example, if the tries to open a locked door, but they didn't pick up the key off the ground, they should be told they can't do that because they don't have a key.\n")
-	prompt.WriteString("Or if the player tries to attack a friendly NPC, they should be told they can't do that because the NPC is friendly.\n")
-	prompt.WriteString("If the player attempts to communicate with an NPC that hasn't yet been introduced, or isn't near, explain their error and do NOT allow them to communicate.\n\n")
+	prompt.WriteString("You are a dungeon master narrating a weird and wild adventure. Generate small story beats based on player actions.\n\n")
+
+	prompt.WriteString("Validate consistency:\n")
+	prompt.WriteString("- If the player's action conflicts with previous narrative, tell them they can't do that.\n")
+	prompt.WriteString("- If they try to use items they haven't found, explain they don't have them.\n")
+	prompt.WriteString("- If they try to interact with NPCs not yet introduced, explain the NPC isn't present.\n\n")
 
 	// Add skill check requirement if needed
 	if nextSkillCheck > 0 {
-		prompt.WriteString("IMPORTANT: This action is challenging and requires a skill check.\n")
-		prompt.WriteString("Describe what they're attempting in dramatic terms. The response will automatically include the skill check requirement.\n")
-		prompt.WriteString("Do NOT tell them to roll dice - the tool response handles that. Focus on the narrative drama of their attempt.\n\n")
+		prompt.WriteString("This action is challenging and requires a skill check.\n")
+		prompt.WriteString("Describe what they're attempting in dramatic terms. The response will include the skill check requirement.\n")
+		prompt.WriteString("Focus on the narrative drama - don't mention dice rolling (the tool handles that).\n\n")
 	}
 
 	// Include older summary if available
@@ -123,13 +133,11 @@ func (s *State) BuildTurnPrompt(action string, nextSkillCheck int, rollContext s
 	}
 
 	// Add current action
-	prompt.WriteString("The player performs the following action:\n")
+	prompt.WriteString("Current action:\n")
 	prompt.WriteString("<action>")
 	prompt.WriteString(action)
-	prompt.WriteString("</action>")
-	prompt.WriteString("Does this action conflict with previous narrative?")
-	prompt.WriteString("Is the player attempting to communicate with characters they have not encountered? Does this action use items that have not yet been located? If so, explain why they can't do that.\n\n")
-	prompt.WriteString("Narrate what happens next in 2 sentences. Be dramatic!\n")
+	prompt.WriteString("</action>\n\n")
+	prompt.WriteString("Check if this action conflicts with the established narrative, then narrate what happens next in 2 sentences. Be dramatic!\n")
 
 	return prompt.String()
 }

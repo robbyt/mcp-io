@@ -148,58 +148,31 @@ func TestDecideSkillCheckDifficulty_Probability(t *testing.T) {
 	assert.LessOrEqual(t, checksRequired, 3000, "Should require skill checks roughly 25%% of the time")
 }
 
-// TestDecideSkillCheckDifficulty_ActionKeywords verifies difficulty levels based on action keywords
-func TestDecideSkillCheckDifficulty_ActionKeywords(t *testing.T) {
+// TestDecideSkillCheckDifficulty_RandomRange verifies difficulty is in expected range (10-15)
+func TestDecideSkillCheckDifficulty_RandomRange(t *testing.T) {
 	t.Parallel()
 	diceState := NewState(&Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 0.25})
 
-	tests := []struct {
-		name         string
-		action       string
-		expectedDiff int // Expected difficulty when check is triggered
-	}{
-		{
-			name:         "simple action",
-			action:       "I look around",
-			expectedDiff: 6, // Easy difficulty
-		},
-		{
-			name:         "moderate action",
-			action:       "I attack the dragon",
-			expectedDiff: 12, // Moderate difficulty
-		},
-		{
-			name:         "hard action",
-			action:       "I persuade the guard",
-			expectedDiff: 14, // Hard difficulty
-		},
-		{
-			name:         "default action",
-			action:       "I try something new",
-			expectedDiff: 10, // Default difficulty
-		},
+	foundZero := false
+	foundDifficulties := make(map[int]bool)
+
+	// Run multiple times to test frequency and range
+	for i := range 200 {
+		result := diceState.DecideSkillCheckDifficulty("any action", i)
+		if result == 0 {
+			foundZero = true
+		} else {
+			foundDifficulties[result] = true
+			// Difficulty should be in range 10-15
+			assert.GreaterOrEqual(t, result, 10, "Difficulty should be at least 10")
+			assert.LessOrEqual(t, result, 15, "Difficulty should be at most 15")
+		}
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			foundZero := false
-			foundExpected := false
-
-			// Run multiple times since 75% return 0
-			for i := range 200 {
-				result := diceState.DecideSkillCheckDifficulty(tt.action, i)
-				if result == 0 {
-					foundZero = true
-				} else {
-					foundExpected = true
-					assert.Equal(t, tt.expectedDiff, result, "Difficulty should match expected for action type")
-				}
-			}
-
-			assert.True(t, foundZero, "Should sometimes return 0 (no check needed)")
-			assert.True(t, foundExpected, "Should sometimes return difficulty check")
-		})
-	}
+	assert.True(t, foundZero, "Should sometimes return 0 (no check needed)")
+	assert.NotEmpty(t, foundDifficulties, "Should sometimes return difficulty check")
+	// With 200 iterations and random 10-15, we should see multiple difficulty values
+	assert.GreaterOrEqual(t, len(foundDifficulties), 2, "Should see variety in difficulty values")
 }
 
 func TestHandlePendingSkillCheck(t *testing.T) {

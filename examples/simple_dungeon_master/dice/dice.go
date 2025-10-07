@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
-	"slices"
-	"strings"
 	"sync"
 )
 
@@ -17,7 +15,7 @@ var ErrSkillCheckRequired = errors.New("skill check dice roll is required")
 // Roll represents a D20 dice roll result
 type Roll struct {
 	Result        int    `json:"result"        jsonschema:"The dice roll result (1-20)"`
-	EncryptedData string `json:"encryptedData" jsonschema:"Encrypted roll result. Only include this in your next dungeon_master action if that response also has skillCheckRequired > 0."`
+	EncryptedData string `json:"encryptedData" jsonschema:"Continuation token containing the encrypted roll. Pass this to dungeon_master (without an action) to continue the pending turn."`
 }
 
 // RollInput represents input for the roll_d20 tool
@@ -100,7 +98,7 @@ func (d *State) GetLastRollValue() int {
 
 // DecideSkillCheckDifficulty determines if a skill check is required and returns the minimum roll needed
 // Returns 0 if no skill check is needed
-// Returns 1-20 for the difficulty of the skill check
+// Returns 10-15 for the difficulty of the skill check
 func (d *State) DecideSkillCheckDifficulty(action string, turnCounter int) int {
 	// Check if still in grace period
 	if turnCounter < d.gracePeriodUntil {
@@ -112,39 +110,8 @@ func (d *State) DecideSkillCheckDifficulty(action string, turnCounter int) int {
 		return 0
 	}
 
-	// Determine difficulty based on action keywords
-	baseDifficulty := 10 // Default difficulty
-
-	// Adjust based on action keywords
-	actionLower := strings.ToLower(action)
-	words := strings.Fields(actionLower)
-
-	moderateActions := []string{"attack", "fight", "climb", "jump"}
-	hardActions := []string{"persuade", "deceive", "sneak"}
-	easyActions := []string{"look", "ask", "walk", "open"}
-
-	for _, word := range words {
-		if slices.Contains(moderateActions, word) {
-			baseDifficulty = 12 // Moderate difficulty
-			break
-		} else if slices.Contains(hardActions, word) {
-			baseDifficulty = 14 // Hard difficulty
-			break
-		} else if slices.Contains(easyActions, word) {
-			baseDifficulty = 6 // Easy difficulty
-			break
-		}
-	}
-
-	// Clamp to 1-20
-	if baseDifficulty < 1 {
-		baseDifficulty = 1
-	}
-	if baseDifficulty > 20 {
-		baseDifficulty = 20
-	}
-
-	return baseDifficulty
+	// Random difficulty between 10-15
+	return rand.IntN(6) + 10
 }
 
 // HandlePendingSkillCheck validates and processes a pending skill check

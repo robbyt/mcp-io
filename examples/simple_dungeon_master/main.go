@@ -11,13 +11,18 @@ import (
 )
 
 const (
-	dungeonMasterToolDesc = `Send player actions here to generate game narration. Show the narrative response to the user.
-Example actions: 'look around', 'run away', 'ask the doorman'.
-When the response includes skillCheckRequired > 0, call roll_d20 before your next action.`
+	dungeonMasterToolDesc = `Process player actions and generate narrative.
+
+Usage patterns:
+1. New action: {"action": "yell at the troll"} → Returns narrative. If skillCheckRequired > 0, call roll_d20 next.
+2. Continue pending action: {"encryptedData": "..."} → Completes the previous action with roll result.
+
+Always show the narrative response to the user.`
 
 	rollD20ToolDesc = `Roll a 20-sided dice (D20) for skill checks.
-Call this when dungeon_master returns skillCheckRequired > 0.
-The roll result is encrypted to prevent tampering. Only include encryptedData in your next dungeon_master action if there's a pending skill check.`
+
+Call when dungeon_master returns skillCheckRequired > 0.
+Returns a continuation token (encryptedData) that you pass to dungeon_master WITHOUT an action to complete the pending turn.`
 
 	debugGameStateToolDesc = `Return the current internal game state for debugging purposes.`
 )

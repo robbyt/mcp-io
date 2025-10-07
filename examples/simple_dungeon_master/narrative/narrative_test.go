@@ -280,9 +280,10 @@ func TestBuildTurnPrompt_WithSkillCheck(t *testing.T) {
 	prompt := state.BuildTurnPrompt("climb the wall", 14, "")
 
 	// Should include skill check instructions
-	assert.Contains(t, prompt, "IMPORTANT: This action is challenging and requires a skill check")
+	assert.Contains(t, prompt, "This action is challenging and requires a skill check")
 	assert.Contains(t, prompt, "dramatic terms")
-	assert.Contains(t, prompt, "response will automatically include the skill check requirement")
+	assert.Contains(t, prompt, "response will include the skill check requirement")
+	assert.Contains(t, prompt, "Focus on the narrative drama")
 }
 
 // TestBuildTurnPrompt_WithSummary verifies summary inclusion
