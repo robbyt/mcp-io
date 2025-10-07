@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 
 	mcpio "github.com/robbyt/mcp-io"
@@ -38,6 +39,15 @@ func buildHandler(gameState *GameState) (*mcpio.Handler, error) {
 }
 
 func main() {
+	modelFlag := flag.String("model", "gpt-oss", "LLM model to use for narrative generation")
+	narrativeMaxTokens := flag.Int("narrative-max-tokens", 200, "Max tokens for narrative generation")
+	summarizeMaxTokens := flag.Int("summarize-max-tokens", 1000, "Max tokens for internal summarization")
+	summarizeThreshold := flag.Int("summarize-threshold", 10, "Number of turns before running the summarization")
+	gracePeriodMin := flag.Int("grace-period-min", 1, "Min turns before skill checks begin (random value chosen between min-max)")
+	gracePeriodMax := flag.Int("grace-period-max", 3, "Max turns before skill checks begin")
+	skillCheckFrequency := flag.Float64("skill-check-frequency", 0.25, "Probability of skill check per turn (0.0-1.0)")
+	flag.Parse()
+
 	// Initialize cryptographic state for encrypted data validation
 	cryptState, err := crypt.NewState()
 	if err != nil {
@@ -47,19 +57,20 @@ func main() {
 	gameState := &GameState{
 		narrative: narrative.NewState(),
 		dice: dice.NewState(&dice.Config{
-			GracePeriodMin:      1,
-			GracePeriodMax:      3,
-			SkillCheckFrequency: 0.25,
+			GracePeriodMin:      *gracePeriodMin,
+			GracePeriodMax:      *gracePeriodMax,
+			SkillCheckFrequency: *skillCheckFrequency,
 		}),
 		crypt:   cryptState,
 		llmFunc: createLLMMessage,
 		config: &Config{
-			narrativeMaxTokens:     200,
-			summarizeMaxTokens:     1000,
-			summarizationThreshold: 10,
-			preferredModel:         "gpt-oss",
+			narrativeMaxTokens:     *narrativeMaxTokens,
+			summarizeMaxTokens:     *summarizeMaxTokens,
+			summarizationThreshold: *summarizeThreshold,
+			preferredModel:         *modelFlag,
 		},
 	}
+
 	handler, err := buildHandler(gameState)
 	if err != nil {
 		log.Fatalf("Failed to create handler: %v", err)
