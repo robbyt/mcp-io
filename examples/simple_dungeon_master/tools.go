@@ -17,7 +17,10 @@ func (state *GameState) RollDiceTool(ctx context.Context, input dice.RollInput) 
 	// If skill check is pending, check for re-rolling (anti-cheat)
 	if pendingCheck > 0 {
 		if state.narrative.GetLastEncryptedRoll() != "" {
-			return dice.Roll{}, fmt.Errorf("already rolled for this skill check: cannot re-roll")
+			encryptedRoll := state.narrative.GetLastEncryptedRoll()
+			return dice.Roll{
+				EncryptedData: encryptedRoll,
+			}, fmt.Errorf("you already rolled for this skill check (cannot re-roll). Use the encryptedData from this response with the dungeon_master tool to continue")
 		}
 	}
 
