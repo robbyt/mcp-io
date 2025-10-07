@@ -1,7 +1,6 @@
 package dice
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -28,7 +27,6 @@ func TestNewState(t *testing.T) {
 
 	state := NewState(&Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 0.25})
 	require.NotNil(t, state)
-	assert.Equal(t, 0, state.GetLastRollValue(), "New state should have no last roll")
 
 	// Verify we can roll immediately
 	roll := state.Roll()
@@ -197,189 +195,6 @@ func TestDecideSkillCheckDifficulty_ScalingDifficulty(t *testing.T) {
 	assert.True(t, foundDifficulty, "Should sometimes return difficulty check")
 }
 
-func TestHandlePendingSkillCheck(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name              string
-		difficulty        int
-		lastRoll          int
-		expectError       bool
-		expectRollContext bool
-		expectSuccess     bool // if rollContext expected, was it success?
-	}{
-		{
-			name:              "no skill check required",
-			difficulty:        0,
-			lastRoll:          10,
-			expectError:       false,
-			expectRollContext: false,
-		},
-		{
-			name:              "skill check required but no roll",
-			difficulty:        12,
-			lastRoll:          0,
-			expectError:       true,
-			expectRollContext: false,
-		},
-		{
-			name:              "roll succeeds exact match",
-			difficulty:        10,
-			lastRoll:          10,
-			expectError:       false,
-			expectRollContext: true,
-			expectSuccess:     true,
-		},
-		{
-			name:              "roll succeeds above requirement",
-			difficulty:        10,
-			lastRoll:          15,
-			expectError:       false,
-			expectRollContext: true,
-			expectSuccess:     true,
-		},
-		{
-			name:              "roll fails below requirement",
-			difficulty:        15,
-			lastRoll:          10,
-			expectError:       false,
-			expectRollContext: true,
-			expectSuccess:     false,
-		},
-		{
-			name:              "maximum values success",
-			difficulty:        20,
-			lastRoll:          20,
-			expectError:       false,
-			expectRollContext: true,
-			expectSuccess:     true,
-		},
-		{
-			name:              "minimum values success",
-			difficulty:        1,
-			lastRoll:          1,
-			expectError:       false,
-			expectRollContext: true,
-			expectSuccess:     true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			diceState := NewState(&Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 0.25})
-
-			// Set up lastRoll in DiceState if needed
-			if tt.lastRoll > 0 {
-				// Manually create and set a roll
-				diceState.mu.Lock()
-				diceState.lastRoll = &Roll{Result: tt.lastRoll}
-				diceState.mu.Unlock()
-			}
-
-			rollContext, err := diceState.HandlePendingSkillCheck(tt.difficulty)
-
-			if tt.expectError {
-				require.Error(t, err)
-				assert.Empty(t, rollContext)
-				assert.ErrorIs(t, err, ErrSkillCheckRequired)
-			} else {
-				assert.NoError(t, err)
-
-				if tt.expectRollContext {
-					assert.NotEmpty(t, rollContext)
-					assert.Contains(t, rollContext, fmt.Sprintf("rolled %d", tt.lastRoll))
-					assert.Contains(t, rollContext, fmt.Sprintf("required %d", tt.difficulty))
-
-					if tt.expectSuccess {
-						assert.Contains(t, rollContext, "SUCCEEDED")
-					} else {
-						assert.Contains(t, rollContext, "FAILED")
-					}
-
-					// Verify roll was consumed
-					assert.Equal(t, 0, diceState.GetLastRollValue(), "Roll should be consumed after use")
-				} else {
-					assert.Empty(t, rollContext)
-				}
-			}
-		})
-	}
-}
-
-// TestHandlePendingSkillCheck_NoConsumptionWhenZero verifies roll is not consumed when no check required
-func TestHandlePendingSkillCheck_NoConsumptionWhenZero(t *testing.T) {
-	t.Parallel()
-	state := NewState(&Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 0.25})
-
-	// Create a roll
-	roll := state.Roll()
-	require.NotNil(t, roll.Result)
-	rollValue := roll.Result
-
-	// Verify roll is tracked
-	assert.Equal(t, rollValue, state.GetLastRollValue())
-
-	// Call with difficulty=0 (no check)
-	context, err := state.HandlePendingSkillCheck(0)
-	require.NoError(t, err)
-	assert.Empty(t, context)
-
-	// Verify roll was NOT consumed
-	assert.Equal(t, rollValue, state.GetLastRollValue(), "Roll should not be consumed when no check required")
-
-	// Now consume it with an actual check
-	context, err = state.HandlePendingSkillCheck(1)
-	require.NoError(t, err)
-	assert.NotEmpty(t, context)
-
-	// Verify roll was consumed
-	assert.Equal(t, 0, state.GetLastRollValue(), "Roll should be consumed after actual check")
-}
-
-// TestHandlePendingSkillCheck_Concurrent verifies thread-safe skill check handling
-func TestHandlePendingSkillCheck_Concurrent(t *testing.T) {
-	t.Parallel()
-	state := NewState(&Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 0.25})
-
-	// Create a single roll
-	roll := state.Roll()
-	require.NotNil(t, roll.Result)
-
-	var wg sync.WaitGroup
-	successCount := 0
-	errorCount := 0
-	var mu sync.Mutex
-
-	// Launch multiple goroutines trying to consume the same roll
-	for range 10 {
-		wg.Go(func() {
-			_, err := state.HandlePendingSkillCheck(10)
-			mu.Lock()
-			defer mu.Unlock()
-			if err != nil {
-				errorCount++
-			} else {
-				successCount++
-			}
-		})
-	}
-
-	wg.Wait()
-
-	// Only one should succeed, rest should fail
-	assert.Equal(t, 1, successCount, "Exactly one goroutine should successfully consume the roll")
-	assert.Equal(t, 9, errorCount, "Other goroutines should get an error")
-
-	// Verify roll was consumed
-	assert.Equal(t, 0, state.GetLastRollValue(), "Roll should be consumed")
-
-	// Create new roll and verify it works
-	newRoll := state.Roll()
-	context, err := state.HandlePendingSkillCheck(newRoll.Result)
-	require.NoError(t, err)
-	assert.NotEmpty(t, context)
-}
-
 // TestStateRoll verifies State.Roll() produces valid rolls and updates history
 func TestStateRoll(t *testing.T) {
 	t.Parallel()
@@ -394,6 +209,83 @@ func TestStateRoll(t *testing.T) {
 
 	// Verify history was updated
 	assert.Len(t, state.history, 10)
-	assert.NotNil(t, state.lastRoll)
-	assert.Equal(t, state.history[9].Result, state.lastRoll.Result)
+}
+
+// TestRollTurn_Idempotent verifies that multiple calls to RollTurn with the same turn return the same roll
+func TestRollTurn_Idempotent(t *testing.T) {
+	t.Parallel()
+	state := NewState(&Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 0.25})
+
+	turnNumber := 5
+
+	// Roll for turn 5 multiple times
+	roll1 := state.RollTurn(turnNumber)
+	roll2 := state.RollTurn(turnNumber)
+	roll3 := state.RollTurn(turnNumber)
+
+	// All should return the exact same result
+	assert.Equal(t, roll1.Result, roll2.Result, "Second roll should match first roll")
+	assert.Equal(t, roll1.Result, roll3.Result, "Third roll should match first roll")
+
+	// Verify rolls are valid
+	assert.GreaterOrEqual(t, roll1.Result, 1)
+	assert.LessOrEqual(t, roll1.Result, 20)
+}
+
+// TestRollTurn_DifferentTurns verifies that different turns get different rolls
+func TestRollTurn_DifferentTurns(t *testing.T) {
+	t.Parallel()
+	state := NewState(&Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 0.25})
+
+	// Roll for multiple turns
+	rolls := make(map[int]int)
+	for turn := 0; turn < 10; turn++ {
+		roll := state.RollTurn(turn)
+		rolls[turn] = roll.Result
+		assert.GreaterOrEqual(t, roll.Result, 1)
+		assert.LessOrEqual(t, roll.Result, 20)
+	}
+
+	// Verify rolls are tracked per turn
+	assert.Len(t, rolls, 10, "Should have 10 different turn rolls")
+
+	// Verify idempotency - re-rolling same turns returns same values
+	for turn := 0; turn < 10; turn++ {
+		roll := state.RollTurn(turn)
+		assert.Equal(t, rolls[turn], roll.Result, "Re-rolling turn %d should return same value", turn)
+	}
+}
+
+// TestRollTurn_Concurrent verifies thread-safe turn-based rolling
+func TestRollTurn_Concurrent(t *testing.T) {
+	t.Parallel()
+	state := NewState(&Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 0.25})
+
+	const goroutines = 100
+	turnNumber := 42
+
+	var wg sync.WaitGroup
+	results := make([]int, goroutines)
+
+	// Launch concurrent rollers for the same turn
+	for i := range goroutines {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			roll := state.RollTurn(turnNumber)
+			results[idx] = roll.Result
+		}(i)
+	}
+
+	wg.Wait()
+
+	// All goroutines should get the same result (idempotent)
+	firstResult := results[0]
+	for i, result := range results {
+		assert.Equal(t, firstResult, result, "Goroutine %d got different result", i)
+	}
+
+	// Verify result is valid
+	assert.GreaterOrEqual(t, firstResult, 1)
+	assert.LessOrEqual(t, firstResult, 20)
 }

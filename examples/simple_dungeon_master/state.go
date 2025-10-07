@@ -30,7 +30,6 @@ type GameStateResponse struct {
 	Narrative          []string `json:"narrative"          jsonschema:"Recent actions and narrative history"`
 	Summary            string   `json:"summary"            jsonschema:"Summary of older narrative history"`
 	SkillCheckRequired int      `json:"skillCheckRequired" jsonschema:"Pending skill check requirement (0 = none, 1-20 = required roll)"`
-	LastRoll           int      `json:"lastRoll"           jsonschema:"Most recent dice roll"`
 }
 
 // GameStateTool returns the current game state, for use as an MCP tool to peak inside the internal game state
@@ -39,6 +38,5 @@ func (state *GameState) GameStateTool(_ context.Context, _ struct{}) (GameStateR
 		Narrative:          state.narrative.GetEntries(),
 		Summary:            state.narrative.GetSummary(),
 		SkillCheckRequired: state.narrative.GetPendingSkillCheck(),
-		LastRoll:           state.dice.GetLastRollValue(),
 	}, nil
 }

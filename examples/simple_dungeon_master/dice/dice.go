@@ -2,7 +2,6 @@ package dice
 
 import (
 	"errors"
-	"fmt"
 	"math/rand/v2"
 	"sync"
 )
@@ -32,7 +31,7 @@ type State struct {
 
 	history         []*Roll
 	maxRollsStorage int
-	lastRoll        *Roll // Last unconsumed roll (nil if consumed or no roll yet)
+	rollsByTurn     map[int]*Roll // Rolls indexed by turn number (idempotent per turn)
 
 	// Skill check configuration
 	skillCheckFrequency float64 // Probability of skill check per action (0.0-1.0)
@@ -62,6 +61,7 @@ func NewState(c *Config) *State {
 	return &State{
 		history:             diceHist,
 		maxRollsStorage:     rollHistorySize,
+		rollsByTurn:         make(map[int]*Roll),
 		skillCheckFrequency: skillCheckFrequency,
 		gracePeriodMin:      gracePeriodMin,
 		gracePeriodMax:      gracePeriodMax,
@@ -76,7 +76,6 @@ func (d *State) Roll() Roll {
 
 	roll := NewRoll()
 	d.history = append(d.history, roll)
-	d.lastRoll = roll // Track for skill check consumption
 
 	if len(d.history) > d.maxRollsStorage {
 		d.history = d.history[len(d.history)-d.maxRollsStorage:] // Keep last N rolls
@@ -85,15 +84,27 @@ func (d *State) Roll() Roll {
 	return *roll
 }
 
-// GetLastRollValue returns the value of the unconsumed roll, or 0 if no roll is available
-func (d *State) GetLastRollValue() int {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
+// RollTurn performs a dice roll for a specific turn number
+// If a roll already exists for this turn, returns it (idempotent)
+func (d *State) RollTurn(turn int) Roll {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-	if d.lastRoll == nil {
-		return 0
+	// Return existing roll for this turn if available (idempotent behavior)
+	if roll, exists := d.rollsByTurn[turn]; exists {
+		return *roll
 	}
-	return d.lastRoll.Result
+
+	// Generate new roll for this turn
+	roll := NewRoll()
+	d.history = append(d.history, roll)
+	d.rollsByTurn[turn] = roll
+
+	if len(d.history) > d.maxRollsStorage {
+		d.history = d.history[len(d.history)-d.maxRollsStorage:] // Keep last N rolls
+	}
+
+	return *roll
 }
 
 // DecideSkillCheckDifficulty determines if a skill check is required and returns the minimum roll needed
@@ -121,35 +132,4 @@ func (d *State) DecideSkillCheckDifficulty(action string, turnCounter int) int {
 	difficulty := baseDifficulty + (turnsAfterGrace / turnsPerLevel)
 
 	return min(difficulty, maxDifficulty)
-}
-
-// HandlePendingSkillCheck validates and processes a pending skill check
-// Returns rollContext for LLM prompt, or error if roll is missing
-// Consumes the roll to prevent reuse (anti-cheat)
-func (d *State) HandlePendingSkillCheck(difficulty int) (rollContext string, err error) {
-	if difficulty == 0 {
-		return "", nil
-	}
-
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	// Check if user has rolled
-	if d.lastRoll == nil {
-		return "", fmt.Errorf("%w: need %d or higher - use the %s tool to roll", ErrSkillCheckRequired, difficulty, ToolName)
-	}
-
-	// Get roll value and consume it immediately
-	rollValue := d.lastRoll.Result
-	d.lastRoll = nil // Consume roll to prevent reuse
-
-	// Determine pass/fail
-	passed := rollValue >= difficulty
-
-	// return prompt context for the LLM
-	if passed {
-		return fmt.Sprintf("\nThe player rolled %d (required %d or higher) - they SUCCEEDED!\n", rollValue, difficulty), nil
-	}
-
-	return fmt.Sprintf("\nThe player rolled %d (required %d or higher) - they FAILED!\n", rollValue, difficulty), nil
 }

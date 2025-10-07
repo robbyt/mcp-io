@@ -10,12 +10,13 @@ import (
 )
 
 // RollDiceTool simulates rolling a 20-sided dice and stores it in history
+// Uses turn-based roll (idempotent - multiple calls return the same roll for this turn)
 func (state *GameState) RollDiceTool(ctx context.Context, input dice.RollInput) (dice.Roll, error) {
 	mcpio.LogDebug(ctx, "RollDiceTool called", map[string]any{"input": input}) //nolint:errcheck
 	pendingCheck := state.narrative.GetPendingSkillCheck()
 
-	// Perform the roll
-	roll := state.dice.Roll()
+	// Perform turn-based roll (idempotent for this turn)
+	roll := state.dice.RollTurn(state.turnCounter)
 
 	// Encrypt result if skill check was pending
 	if pendingCheck > 0 {
