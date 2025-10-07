@@ -21,7 +21,6 @@ type State struct {
 	turns             []*Turn // Turn history
 	summary           string  // Condensed older history
 	pendingSkillCheck int     // Pending skill check from previous turn (0 = none, 1-20 = required roll)
-	lastEncryptedRoll string  // Encrypted roll from last roll (empty = no roll yet, prevents re-rolling)
 }
 
 // NewState creates a new narrative State instance
@@ -54,13 +53,12 @@ func (s *State) ClearPendingSkillCheck() {
 	s.pendingSkillCheck = 0
 }
 
-// CompleteTurn clears both pending skill check and encrypted roll state
+// CompleteTurn clears both pending skill check state
 // Call this after successfully completing a turn that had a skill check
 func (s *State) CompleteTurn() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pendingSkillCheck = 0
-	s.lastEncryptedRoll = ""
 }
 
 // AddTurn records a completed turn in the history
@@ -217,25 +215,4 @@ func (s *State) GetPendingSkillCheck() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.pendingSkillCheck
-}
-
-// GetLastEncryptedRoll returns the encrypted roll from the last roll (empty = no roll yet)
-func (s *State) GetLastEncryptedRoll() string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.lastEncryptedRoll
-}
-
-// SetLastEncryptedRoll stores the encrypted roll (prevents re-rolling)
-func (s *State) SetLastEncryptedRoll(encrypted string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.lastEncryptedRoll = encrypted
-}
-
-// ClearLastEncryptedRoll resets the encrypted roll after consumption
-func (s *State) ClearLastEncryptedRoll() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.lastEncryptedRoll = ""
 }

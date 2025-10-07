@@ -185,33 +185,6 @@ func (s *DungeonMasterTestSuite) TestBinaryBuild() {
 	s.T().Log("Binary built successfully at", binaryPath)
 }
 
-func (s *DungeonMasterTestSuite) TestReRollPrevention() {
-	ctx := s.T().Context()
-
-	s.triggerSkillCheck(ctx, "test action")
-
-	// Roll dice (first roll - should succeed)
-	res, err := s.session.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "roll_d20",
-		Arguments: map[string]any{},
-	})
-	s.NotNil(res)
-	s.Require().NoError(err)
-
-	// Attempt to re-roll (should fail - anti-cheat)
-	result, err := s.session.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "roll_d20",
-		Arguments: map[string]any{},
-	})
-	s.NotNil(result)
-	s.Require().NoError(err)
-	s.Require().True(result.IsError)
-	content := result.Content[0].(*mcp.TextContent)
-	s.Contains(content.Text, "already rolled")
-
-	s.mockLLM.AssertExpectations(s.T())
-}
-
 func (s *DungeonMasterTestSuite) TestFakeEncryptedRollRejection() {
 	ctx := s.T().Context()
 
@@ -492,37 +465,6 @@ func (s *DungeonMasterTestSuite) TestDuplicateActionSubmission() {
 
 	// This test documents current behavior: duplicates ARE processed
 	// Future enhancement: add duplicate detection to prevent this
-
-	s.mockLLM.AssertExpectations(s.T())
-}
-
-func (s *DungeonMasterTestSuite) TestAutoConsumeStoredRoll() {
-	ctx := s.T().Context()
-
-	s.triggerSkillCheck(ctx, "test action")
-
-	// Roll dice
-	_, err := s.session.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "roll_d20",
-		Arguments: map[string]any{},
-	})
-	s.Require().NoError(err)
-	// Encrypted roll is now stored in state
-
-	// Submit action WITHOUT encryptedData (should auto-consume from storage)
-	result, err := s.session.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "dungeon_master",
-		Arguments: map[string]any{"action": "second action"},
-	})
-	s.Require().NoError(err)
-	content := result.Content[0].(*mcp.TextContent)
-	var resp narrative.Response
-	s.Require().NoError(json.Unmarshal([]byte(content.Text), &resp))
-
-	// Should succeed using auto-consumed stored roll
-	s.Empty(resp.ErrorMessage, "Should auto-consume stored roll")
-	s.NotEmpty(resp.Narrative)
-	s.Equal(2, resp.TurnNumber, "triggerSkillCheck advances turn to 1, second action advances to 2")
 
 	s.mockLLM.AssertExpectations(s.T())
 }

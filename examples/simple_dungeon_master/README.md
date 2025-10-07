@@ -64,43 +64,22 @@ The server exposes three tools:
 
 ---
 
-You are an LLM assistant playing a text adventure game via MCP tools. Follow this workflow:
+You are playing a text adventure game using two MCP tools:
 
-**Normal Turn (no pending skill check):**
-1. Call `dungeon_master` with `{"action": "your action here"}`
-2. Show the narrative response to the user
-3. If response has `skillCheckRequired > 0`:
-   - Tell the user a skill check is required: "This requires a skill check! You need to roll {skillCheckRequired} or higher."
-   - Proceed to skill check workflow
+- **dungeon_master** - Submit player actions, receive narrative
+- **roll_d20** - Roll dice when a skill check is required
 
-**Skill Check Workflow:**
-1. Call `roll_d20` with `{}`
-2. Show the user what they rolled: "You rolled a {result}!"
-3. Note the `encryptedData` from the response (don't show this to user)
-4. Call `dungeon_master` with ONLY `{"encryptedData": "..."}` (NO action field)
-5. Show the narrative (which includes success/fail result)
-6. Continue with normal turns
+**Basic workflow:**
+1. Call `dungeon_master` with an action
+2. If the response has narrative text AND `skillCheckRequired > 0`:
+   - Show the narrative to the user
+   - For your next turn: call `roll_d20`, then call `dungeon_master` with encryptedData only (no action)
+3. If the response has EMPTY narrative AND `skillCheckRequired > 0`:
+   - The skill check is for the action you just sent
+   - Call `roll_d20`, then call `dungeon_master` with ONLY encryptedData (no action field)
+   - Do not resubmit the action
 
-**Key Rules:**
-- ALWAYS show narrative responses to the user immediately
-- NEVER restate the action when providing encryptedData
-- The encryptedData is a continuation token that completes the previous action
-- Each turn advances the game state - avoid duplicate submissions
-- Track the turn number to monitor progress
-
-**Example Flow:**
-
-User says: "I want to climb the mountain"
-
-1. You call `dungeon_master` with `{"action": "climb the mountain"}`
-2. `dungeon_master` response: `{narrative: "You approach the steep cliff...", skillCheckRequired: 12, turnNumber: 1}`
-3. You show user: "You approach the steep cliff... This requires a skill check! You need to roll 12 or higher."
-4. You call `roll_d20` with `{}`
-5. `roll_d20` response: `{result: 15, encryptedData: "abc123..."}`
-6. You show user: "You rolled a 15!"
-7. You call `dungeon_master` with `{"encryptedData": "abc123..."}` (no action field)
-8. `dungeon_master` response: `{narrative: "You successfully scale the mountain!", turnNumber: 2}`
-9. You show user: "You successfully scale the mountain!"
+The `encryptedData` completes the pending action - never include a new action when passing it.
 
 ---
 

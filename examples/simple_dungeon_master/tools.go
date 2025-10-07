@@ -14,16 +14,6 @@ func (state *GameState) RollDiceTool(ctx context.Context, input dice.RollInput) 
 	mcpio.LogDebug(ctx, "RollDiceTool called", map[string]any{"input": input}) //nolint:errcheck
 	pendingCheck := state.narrative.GetPendingSkillCheck()
 
-	// If skill check is pending, check for re-rolling (anti-cheat)
-	if pendingCheck > 0 {
-		if state.narrative.GetLastEncryptedRoll() != "" {
-			encryptedRoll := state.narrative.GetLastEncryptedRoll()
-			return dice.Roll{
-				EncryptedData: encryptedRoll,
-			}, fmt.Errorf("you already rolled for this skill check (cannot re-roll). Use the encryptedData from this response with the dungeon_master tool to continue")
-		}
-	}
-
 	// Perform the roll
 	roll := state.dice.Roll()
 
@@ -35,8 +25,6 @@ func (state *GameState) RollDiceTool(ctx context.Context, input dice.RollInput) 
 			return dice.Roll{}, fmt.Errorf("failed to encrypt roll: %w", err)
 		}
 
-		// Store encrypted roll to prevent re-rolling
-		state.narrative.SetLastEncryptedRoll(encrypted)
 		roll.EncryptedData = encrypted
 	}
 
@@ -53,11 +41,8 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 	var rollContext string
 
 	if pendingCheck > 0 {
-		// Get encrypted roll from input or storage (auto-consume)
+		// Get encrypted roll from input
 		encryptedRoll := input.EncryptedData
-		if encryptedRoll == "" {
-			encryptedRoll = state.narrative.GetLastEncryptedRoll()
-		}
 
 		// Validate encrypted roll exists
 		if encryptedRoll == "" {
@@ -84,9 +69,6 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 				ErrorMessage: "Invalid roll result: must be 1-20",
 			}, fmt.Errorf("invalid roll result: %d", result)
 		}
-
-		// Clear the encrypted roll (consumed)
-		state.narrative.ClearLastEncryptedRoll()
 
 		// Determine pass/fail
 		passed := result >= pendingCheck
@@ -125,9 +107,8 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 	state.narrative.AddTurn(input.Action, narrativeText, nextSkillCheck, rollContext)
 	state.turnCounter++
 
-	// Clear encrypted roll for next turn if skill check is required
+	// Log if skill check is required for next turn
 	if nextSkillCheck > 0 {
-		state.narrative.ClearLastEncryptedRoll()
 		mcpio.LogDebug(ctx, "New skill check set for next turn", map[string]any{"nextSkillCheck": nextSkillCheck}) //nolint:errcheck
 	}
 

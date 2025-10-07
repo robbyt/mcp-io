@@ -12,20 +12,11 @@ import (
 )
 
 const (
-	dungeonMasterToolDesc = `Process player actions and generate narrative.
+	dungeonMasterToolDesc = `Submit player actions and receive narrative responses.`
 
-Usage patterns:
-1. New action: {"action": "yell at the troll"} → Returns narrative. If skillCheckRequired > 0, call roll_d20 next.
-2. Continue pending action: {"encryptedData": "..."} → Completes the previous action with roll result.
+	rollD20ToolDesc = `Roll a 20-sided dice for skill checks. Returns an encryptedData token.`
 
-Always show the narrative response to the user.`
-
-	rollD20ToolDesc = `Roll a 20-sided dice (D20) for skill checks.
-
-Call when dungeon_master returns skillCheckRequired > 0.
-Returns a continuation token (encryptedData) that you pass to dungeon_master WITHOUT an action to complete the pending turn.`
-
-	debugGameStateToolDesc = `Return the current internal game state for debugging purposes.`
+	debugGameStateToolDesc = `Return the current internal game state for debugging.`
 )
 
 func buildHandler(gameState *GameState) (*mcpio.Handler, error) {
