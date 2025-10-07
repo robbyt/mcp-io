@@ -10,6 +10,12 @@ import (
 	"fmt"
 )
 
+// payload represents encrypted data with turn number for replay protection
+type payload struct {
+	Data json.RawMessage `json:"data"` // Encrypted data
+	Turn int             `json:"turn"` // Turn number for replay protection
+}
+
 // State manages cryptographic operations for skill check validation
 type State struct {
 	secret []byte // Server secret for AES-256 encryption (32 bytes)
@@ -41,12 +47,6 @@ func (s *State) Encrypt(data any, turn int) (string, error) {
 // Decrypt decrypts and validates encrypted data, unmarshaling into the provided result
 func (s *State) Decrypt(encrypted string, expectedTurn int, result any) error {
 	return decrypt(s.secret, encrypted, expectedTurn, result)
-}
-
-// payload represents encrypted data with turn number for replay protection
-type payload struct {
-	Data json.RawMessage `json:"data"` // Encrypted data
-	Turn int             `json:"turn"` // Turn number for replay protection
 }
 
 // encrypt encrypts any data using AES-GCM authenticated encryption
@@ -97,7 +97,7 @@ func encrypt(secret []byte, data any, turn int) (string, error) {
 // decrypt decrypts and validates encrypted data
 func decrypt(secret []byte, encrypted string, expectedTurn int, result any) error {
 	// Decode base64
-	ciphertext, err := base64.StdEncoding.DecodeString(encrypted)
+	cipherText, err := base64.StdEncoding.DecodeString(encrypted)
 	if err != nil {
 		return fmt.Errorf("invalid encryption encoding: %w", err)
 	}
@@ -116,13 +116,13 @@ func decrypt(secret []byte, encrypted string, expectedTurn int, result any) erro
 
 	// Extract nonce
 	nonceSize := gcm.NonceSize()
-	if len(ciphertext) < nonceSize {
+	if len(cipherText) < nonceSize {
 		return errors.New("ciphertext too short")
 	}
-	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
+	nonce, cipherText := cipherText[:nonceSize], cipherText[nonceSize:]
 
 	// Decrypt and verify authentication tag
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	plaintext, err := gcm.Open(nil, nonce, cipherText, nil)
 	if err != nil {
 		return errors.New("decryption failed: invalid or tampered data")
 	}

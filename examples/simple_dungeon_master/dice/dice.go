@@ -98,7 +98,7 @@ func (d *State) GetLastRollValue() int {
 
 // DecideSkillCheckDifficulty determines if a skill check is required and returns the minimum roll needed
 // Returns 0 if no skill check is needed
-// Returns 10-15 for the difficulty of the skill check
+// Returns scaling difficulty (5-18) that increases with turn progression
 func (d *State) DecideSkillCheckDifficulty(action string, turnCounter int) int {
 	// Check if still in grace period
 	if turnCounter < d.gracePeriodUntil {
@@ -110,8 +110,17 @@ func (d *State) DecideSkillCheckDifficulty(action string, turnCounter int) int {
 		return 0
 	}
 
-	// Random difficulty between 10-15
-	return rand.IntN(6) + 10
+	// Calculate scaling difficulty based on turns after grace period
+	const (
+		baseDifficulty = 5  // Starting difficulty after grace period
+		maxDifficulty  = 18 // Cap difficulty (leave room for criticals)
+		turnsPerLevel  = 2  // +1 difficulty every 2 turns
+	)
+
+	turnsAfterGrace := turnCounter - d.gracePeriodUntil
+	difficulty := baseDifficulty + (turnsAfterGrace / turnsPerLevel)
+
+	return min(difficulty, maxDifficulty)
 }
 
 // HandlePendingSkillCheck validates and processes a pending skill check

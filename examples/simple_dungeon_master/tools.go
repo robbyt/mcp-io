@@ -11,6 +11,7 @@ import (
 
 // RollDiceTool simulates rolling a 20-sided dice and stores it in history
 func (state *GameState) RollDiceTool(ctx context.Context, input dice.RollInput) (dice.Roll, error) {
+	mcpio.LogDebug(ctx, "RollDiceTool called", map[string]any{"input": input}) //nolint:errcheck
 	pendingCheck := state.narrative.GetPendingSkillCheck()
 
 	// If skill check is pending, check for re-rolling (anti-cheat)
@@ -43,6 +44,7 @@ func (state *GameState) RollDiceTool(ctx context.Context, input dice.RollInput) 
 
 // NarrativeActionTool coordinates narrative generation across dice and narrative packages
 func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative.ActionInput) (narrative.Response, error) {
+	mcpio.LogDebug(ctx, "NarrativeActionTool called", map[string]any{"input": input}) //nolint:errcheck
 	// PHASE 1: Validate pending skill check from previous turn (if any)
 	pendingCheck := state.narrative.GetPendingSkillCheck()
 	var rollContext string

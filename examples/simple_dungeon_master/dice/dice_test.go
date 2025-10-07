@@ -148,31 +148,53 @@ func TestDecideSkillCheckDifficulty_Probability(t *testing.T) {
 	assert.LessOrEqual(t, checksRequired, 3000, "Should require skill checks roughly 25%% of the time")
 }
 
-// TestDecideSkillCheckDifficulty_RandomRange verifies difficulty is in expected range (10-15)
-func TestDecideSkillCheckDifficulty_RandomRange(t *testing.T) {
+// TestDecideSkillCheckDifficulty_ScalingDifficulty verifies difficulty scales with turn progression
+func TestDecideSkillCheckDifficulty_ScalingDifficulty(t *testing.T) {
 	t.Parallel()
-	diceState := NewState(&Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 0.25})
+	diceState := NewState(&Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 1.0}) // Always require check
 
+	// Early turns (0-1): difficulty should be 5
+	for i := 0; i <= 1; i++ {
+		result := diceState.DecideSkillCheckDifficulty("action", i)
+		assert.Equal(t, 5, result, "Turn %d should have difficulty 5", i)
+	}
+
+	// Turns 2-3: difficulty should be 6
+	for i := 2; i <= 3; i++ {
+		result := diceState.DecideSkillCheckDifficulty("action", i)
+		assert.Equal(t, 6, result, "Turn %d should have difficulty 6", i)
+	}
+
+	// Mid turns (~10): difficulty should be ~10
+	result := diceState.DecideSkillCheckDifficulty("action", 10)
+	assert.Equal(t, 10, result, "Turn 10 should have difficulty 10")
+
+	// Turn 20: difficulty should be 15
+	result = diceState.DecideSkillCheckDifficulty("action", 20)
+	assert.Equal(t, 15, result, "Turn 20 should have difficulty 15")
+
+	// Late turns (30+): difficulty should be capped at 18
+	for i := 30; i <= 50; i++ {
+		result := diceState.DecideSkillCheckDifficulty("action", i)
+		assert.Equal(t, 18, result, "Turn %d should be capped at difficulty 18", i)
+	}
+
+	// Test with frequency < 1.0 to verify 0s are still returned
+	diceState = NewState(&Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 0.25})
 	foundZero := false
-	foundDifficulties := make(map[int]bool)
+	foundDifficulty := false
 
-	// Run multiple times to test frequency and range
-	for i := range 200 {
-		result := diceState.DecideSkillCheckDifficulty("any action", i)
+	for i := range 100 {
+		result := diceState.DecideSkillCheckDifficulty("action", i)
 		if result == 0 {
 			foundZero = true
 		} else {
-			foundDifficulties[result] = true
-			// Difficulty should be in range 10-15
-			assert.GreaterOrEqual(t, result, 10, "Difficulty should be at least 10")
-			assert.LessOrEqual(t, result, 15, "Difficulty should be at most 15")
+			foundDifficulty = true
 		}
 	}
 
 	assert.True(t, foundZero, "Should sometimes return 0 (no check needed)")
-	assert.NotEmpty(t, foundDifficulties, "Should sometimes return difficulty check")
-	// With 200 iterations and random 10-15, we should see multiple difficulty values
-	assert.GreaterOrEqual(t, len(foundDifficulties), 2, "Should see variety in difficulty values")
+	assert.True(t, foundDifficulty, "Should sometimes return difficulty check")
 }
 
 func TestHandlePendingSkillCheck(t *testing.T) {
