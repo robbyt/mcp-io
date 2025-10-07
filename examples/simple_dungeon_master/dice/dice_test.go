@@ -79,23 +79,6 @@ func TestRoll_Distribution(t *testing.T) {
 	}
 }
 
-// TestRoll_HistoryOverflow verifies roll history doesn't grow unbounded
-func TestRoll_HistoryOverflow(t *testing.T) {
-	t.Parallel()
-	state := NewState(&Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 0.25})
-
-	// Roll more than maxRollsStorage (1000)
-	for range 1500 {
-		state.Roll()
-	}
-
-	// Verify state is still functional
-	roll := state.Roll()
-	require.NotNil(t, roll.Result)
-	assert.GreaterOrEqual(t, roll.Result, 1)
-	assert.LessOrEqual(t, roll.Result, 20)
-}
-
 // TestRoll_Concurrent verifies thread-safe roll operations
 func TestRoll_Concurrent(t *testing.T) {
 	t.Parallel()
@@ -195,7 +178,7 @@ func TestDecideSkillCheckDifficulty_ScalingDifficulty(t *testing.T) {
 	assert.True(t, foundDifficulty, "Should sometimes return difficulty check")
 }
 
-// TestStateRoll verifies State.Roll() produces valid rolls and updates history
+// TestStateRoll verifies State.Roll() produces valid rolls
 func TestStateRoll(t *testing.T) {
 	t.Parallel()
 	state := NewState(&Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 0.25})
@@ -206,9 +189,6 @@ func TestStateRoll(t *testing.T) {
 		assert.GreaterOrEqual(t, roll.Result, 1)
 		assert.LessOrEqual(t, roll.Result, 20)
 	}
-
-	// Verify history was updated
-	assert.Len(t, state.history, 10)
 }
 
 // TestRollTurn_Idempotent verifies that multiple calls to RollTurn with the same turn return the same roll

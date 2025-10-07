@@ -25,13 +25,11 @@ func NewRoll() *Roll {
 	return &Roll{Result: roll}
 }
 
-// State represents a dice, including a history of rolls
+// State represents a dice manager with turn-based roll tracking
 type State struct {
 	mu sync.RWMutex
 
-	history         []*Roll
-	maxRollsStorage int
-	rollsByTurn     map[int]*Roll // Rolls indexed by turn number (idempotent per turn)
+	rollsByTurn map[int]*Roll // Rolls indexed by turn number (idempotent per turn)
 
 	// Skill check configuration
 	skillCheckFrequency float64 // Probability of skill check per action (0.0-1.0)
@@ -42,9 +40,6 @@ type State struct {
 
 // NewState creates a new Dice instance with skill check configuration
 func NewState(c *Config) *State {
-	rollHistorySize := 1000
-	diceHist := make([]*Roll, 0, rollHistorySize)
-
 	// Validate and clamp grace period values
 	gracePeriodMin := max(0, c.GracePeriodMin)
 	gracePeriodMax := c.GracePeriodMax
@@ -59,8 +54,6 @@ func NewState(c *Config) *State {
 	skillCheckFrequency := max(0.0, min(1.0, c.SkillCheckFrequency))
 
 	return &State{
-		history:             diceHist,
-		maxRollsStorage:     rollHistorySize,
 		rollsByTurn:         make(map[int]*Roll),
 		skillCheckFrequency: skillCheckFrequency,
 		gracePeriodMin:      gracePeriodMin,
@@ -69,18 +62,12 @@ func NewState(c *Config) *State {
 	}
 }
 
-// Roll performs a dice roll and stores it in history
+// Roll performs a dice roll
 func (d *State) Roll() Roll {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	roll := NewRoll()
-	d.history = append(d.history, roll)
-
-	if len(d.history) > d.maxRollsStorage {
-		d.history = d.history[len(d.history)-d.maxRollsStorage:] // Keep last N rolls
-	}
-
 	return *roll
 }
 
@@ -97,12 +84,7 @@ func (d *State) RollTurn(turn int) Roll {
 
 	// Generate new roll for this turn
 	roll := NewRoll()
-	d.history = append(d.history, roll)
 	d.rollsByTurn[turn] = roll
-
-	if len(d.history) > d.maxRollsStorage {
-		d.history = d.history[len(d.history)-d.maxRollsStorage:] // Keep last N rolls
-	}
 
 	return *roll
 }
