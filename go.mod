@@ -1,6 +1,6 @@
 module github.com/robbyt/mcp-io
 
-go 1.25.1
+go 1.25.2
 
 require (
 	github.com/google/jsonschema-go v0.3.0
