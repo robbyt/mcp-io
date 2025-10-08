@@ -89,10 +89,10 @@ func (d *State) RollTurn(turn int) Roll {
 	return *roll
 }
 
-// DecideSkillCheckDifficulty determines if a skill check is required and returns the minimum roll needed
+// DecideNextSkillCheckDifficulty determines if a skill check is required and returns the minimum roll needed
 // Returns 0 if no skill check is needed
 // Returns scaling difficulty (5-18) that increases with turn progression
-func (d *State) DecideSkillCheckDifficulty(action string, turnCounter int) int {
+func (d *State) DecideNextSkillCheckDifficulty(turnCounter int) int {
 	// Check if still in grace period
 	if turnCounter < d.gracePeriodUntil {
 		return 0

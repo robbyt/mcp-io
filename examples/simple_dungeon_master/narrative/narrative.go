@@ -8,10 +8,8 @@ import (
 
 // Turn represents a single turn in the adventure
 type Turn struct {
-	Action      string // Player's action
-	Narrative   string // Generated narrative
-	SkillCheck  int    // Skill check set for NEXT turn (0 = none, 1-20 = required)
-	RollContext string // Roll result context (if any)
+	Narrative string        // Generated narrative
+	Config    *PromptConfig // Configuration used to generate this turn's narrative
 }
 
 // State manages narrative history and skill check state
@@ -34,8 +32,9 @@ func NewState() *State {
 
 // ActionInput represents input describing what the player does during this turn
 type ActionInput struct {
-	Action        string `json:"action,omitempty"        jsonschema:"New action to take. Omit when providing encryptedData to continue a pending action."`
-	EncryptedData string `json:"encryptedData,omitempty" jsonschema:"Continuation token for pending skill check. When provided, completes the previous action without needing to restate it."`
+	Action            string `json:"action,omitempty"            jsonschema:"Next action to take. Omit when providing encryptedData to continue a pending action."`
+	PreviousNarrative string `json:"previousNarrative,omitempty" jsonschema:"Optional brief summary (1-2 sentences) of the previous turn. Where is the player now? What just happened?"`
+	EncryptedData     string `json:"encryptedData,omitempty"     jsonschema:"Continuation token for pending skill check. When provided, completes the previous action without needing to restate it."`
 }
 
 // Response is the response object returned to the player after calling the dungeon_master tool
@@ -62,80 +61,140 @@ func (s *State) CompleteTurn() {
 }
 
 // AddTurn records a completed turn in the history
-func (s *State) AddTurn(action, narrative string, skillCheck int, rollContext string) *Turn {
+func (s *State) AddTurn(narrative string, config PromptConfig) *Turn {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	turn := &Turn{
-		Action:      action,
-		Narrative:   narrative,
-		SkillCheck:  skillCheck,
-		RollContext: rollContext,
+		Narrative: narrative,
+		Config:    &config,
 	}
 
 	s.turns = append(s.turns, turn)
 
 	// Store skill check requirement for validation in NEXT turn
-	if skillCheck > 0 {
-		s.pendingSkillCheck = skillCheck
+	if config.NextSkillCheck > 0 {
+		s.pendingSkillCheck = config.NextSkillCheck
 	}
 
 	return turn
 }
 
-// BuildTurnPrompt creates a context-aware prompt for the LLM including game history
-func (s *State) BuildTurnPrompt(action string, nextSkillCheck int, rollContext string) string {
+// BuildTurnPrompt creates a simple draft narrative prompt based on the current game state.
+// This generates an initial narrative without heavy validation - use BuildReviewPrompt for consistency checks.
+func (s *State) BuildTurnPrompt(config PromptConfig) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	var prompt strings.Builder
 
-	// Add roll context if present (from previous turn's skill check)
-	if rollContext != "" {
-		prompt.WriteString(rollContext)
-		prompt.WriteString("\n")
+	// Add previous context if provided (client-side summary for continuity)
+	// Note: This is supplementary - the canonical server history below takes precedence
+	if config.InputPreviousNarrative != "" {
+		prompt.WriteString("Client's brief summary of what they displayed to the player last turn:")
+		prompt.WriteString("\n<clientSummary>\n")
+		prompt.WriteString(config.InputPreviousNarrative)
+		prompt.WriteString("\n</clientSummary>\n\n")
+	} else {
+		prompt.WriteString("You are a dungeon master narrating a weird and wild adventure. Generate small story beats based on player actions.\n\n")
 	}
 
-	prompt.WriteString("You are a dungeon master narrating a weird and wild adventure. Generate small story beats based on player actions.\n\n")
-
-	prompt.WriteString("Validate consistency:\n")
-	prompt.WriteString("- If the player's action conflicts with previous narrative, tell them they can't do that.\n")
-	prompt.WriteString("- If they try to use items they haven't found, explain they don't have them.\n")
-	prompt.WriteString("- If they try to interact with NPCs not yet introduced, explain the NPC isn't present.\n\n")
-
-	// Add skill check requirement if needed
-	if nextSkillCheck > 0 {
-		prompt.WriteString("This action is challenging and requires a skill check.\n")
-		prompt.WriteString("Describe what they're attempting in dramatic terms. The response will include the skill check requirement.\n")
-		prompt.WriteString("Focus on the narrative drama - don't mention dice rolling (the tool handles that).\n\n")
-	}
-
-	// Include older summary if available
+	// Include server's canonical game history for authoritative context
+	// This is the source of truth - the server's record of all validated events
 	if s.summary != "" {
-		prompt.WriteString("Previous events:\n")
-		prompt.WriteString("<summary>\n")
+		prompt.WriteString("Canonical summary of recent events (server's authoritative history):")
+		prompt.WriteString("\n<summary>\n")
 		prompt.WriteString(s.summary)
-		prompt.WriteString("</summary>\n")
+		prompt.WriteString("\n</summary>\n")
 	}
 
-	// Include recent turn history
 	if len(s.turns) > 0 {
-		prompt.WriteString("Recent events:\n")
+		prompt.WriteString("Recent turns:")
+		prompt.WriteString("\n<Turns>\n")
 		for _, turn := range s.turns {
-			prompt.WriteString("<event>\n")
-			prompt.WriteString(fmt.Sprintf("Player Action: %s\nNarrative Response: %s", turn.Action, turn.Narrative))
-			prompt.WriteString("</event>\n")
-			prompt.WriteString("\n")
+			prompt.WriteString(fmt.Sprintf("- %s → %s\n", turn.Config.InputAction, turn.Narrative))
 		}
-		prompt.WriteString("\n")
+		prompt.WriteString("\n</Turns>\n")
 	}
 
-	// Add current action
-	prompt.WriteString("Current action:\n")
-	prompt.WriteString("<action>")
-	prompt.WriteString(action)
-	prompt.WriteString("</action>\n\n")
-	prompt.WriteString("Check if this action conflicts with the established narrative, then narrate what happens next in 2 sentences. Be dramatic!\n")
+	// Add roll result if there was a pending check (outcome of the skill check from previous turn)
+	// This tells the LLM whether the player succeeded or failed their dice roll
+	if config.PendingCheck {
+		prompt.WriteString(fmt.Sprintf("The player rolled %d", config.PendingCheckResult))
+		if config.PassedCheck {
+			prompt.WriteString(" - SUCCEEDED!\n")
+			prompt.WriteString("Describe how the player overcomes the challenge successfully.\n\n")
+		} else {
+			prompt.WriteString(" - FAILED!\n")
+			prompt.WriteString("Describe how the player fails the challenge and what the consequences are.\n\n")
+		}
+	}
+
+	// Current action
+	prompt.WriteString("Player action: ")
+	prompt.WriteString(config.InputAction)
+	prompt.WriteString("\n\n")
+
+	// Skill check notice
+	if config.NextSkillCheck > 0 {
+		prompt.WriteString("This action requires a skill check - describe the challenge dramatically.\n\n")
+	}
+
+	// Simple instruction
+	prompt.WriteString("Narrate what happens to the player next in a few sentences. Be dramatic. Include sensory details, surroundings, and any NPCs or items involved. Keep it concise and engaging.\n")
+
+	// Anti-echo guidance: explicitly request the LLM avoid repeating prior narrative text.
+	prompt.WriteString("Do NOT repeat previous narrative passages verbatim; instead, continue the scene with new details and consequences of the player's action.\n")
+
+	return prompt.String()
+}
+
+// BuildReviewPrompt creates a reflection/validation prompt to review draft narrative for consistency.
+// Takes the draft narrative and checks it against game history and rules.
+func (s *State) BuildReviewPrompt(config PromptConfig, draftNarrative string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var prompt strings.Builder
+
+	prompt.WriteString("Review this draft narrative for consistency:\n\n")
+	prompt.WriteString("\n<draftNarrative>\n")
+	prompt.WriteString(draftNarrative)
+	prompt.WriteString("\n</draftNarrative>\n")
+
+	// Include history context
+	if s.summary != "" {
+		prompt.WriteString("Summary of the story so far: ")
+		prompt.WriteString("\n<summary>\n")
+		prompt.WriteString(s.summary)
+		prompt.WriteString("\n</summary>\n")
+	}
+
+	if len(s.turns) > 0 {
+		prompt.WriteString("Recent turns:")
+		prompt.WriteString("\n<Turns>\n")
+		for _, turn := range s.turns {
+			prompt.WriteString(fmt.Sprintf("- %s → %s\n", turn.Config.InputAction, turn.Narrative))
+		}
+		prompt.WriteString("\n</Turns>\n")
+	}
+
+	prompt.WriteString("Validation rules:\n")
+	prompt.WriteString("- The narrative must follow the established story.\n")
+	prompt.WriteString("- The player must only use items they have, or have interacted with previously.\n")
+	prompt.WriteString("- The player can only interact with NPCs that have been introduced.\n")
+	prompt.WriteString("- If a skill check was required, the outcome must reflect whether the player succeeded or failed based on the provided roll result.\n")
+	prompt.WriteString("- Keep the narrative concise and focused on the player's action and its immediate consequences.\n\n")
+	prompt.WriteString("Your task: Validate the draft against the rules above. If the draft has errors, fix them. If the draft is correct, enhance it with one additional vivid sensory detail or consequence.\n\n")
+	prompt.WriteString("IMPORTANT: Do NOT return the draft verbatim - always improve or enhance it slightly.\n\n")
+	prompt.WriteString("Output format: Return only the final narrative text - no prefixes, no explanations, no meta-commentary.\n\n")
+	prompt.WriteString("Example input and output, with the location adjusted to fit the summary:\n")
+	prompt.WriteString("Summary:\n")
+	prompt.WriteString("The player is in a chamber, holding a golden key.\n")
+	prompt.WriteString("Input draft:\n")
+	prompt.WriteString("You look around the cave. The walls are smooth.\n")
+	prompt.WriteString("Enhanced output:\n")
+	prompt.WriteString("You look around the chamber, golden key in hand. The walls are smooth to the touch.\n")
 
 	return prompt.String()
 }
@@ -158,7 +217,7 @@ func (s *State) BuildSummaryPrompt() string {
 
 	var entries []string
 	for _, turn := range toSummarize {
-		entries = append(entries, fmt.Sprintf("Action: %s\nNarrative: %s", turn.Action, turn.Narrative))
+		entries = append(entries, fmt.Sprintf("Action: %s\nNarrative: %s", turn.Config.InputAction, turn.Narrative))
 	}
 
 	prompt := "Summarize these adventure events in a few sentences, focus on important events such as collecting inventory, entering new locations, interacting with NPCs or battling enemies:\n\n"
@@ -198,7 +257,7 @@ func (s *State) GetEntries() []string {
 
 	entries := make([]string, len(s.turns))
 	for i, turn := range s.turns {
-		entries[i] = fmt.Sprintf("Action: %s\nNarrative: %s", turn.Action, turn.Narrative)
+		entries[i] = fmt.Sprintf("Action: %s\nNarrative: %s", turn.Config.InputAction, turn.Narrative)
 	}
 	return entries
 }

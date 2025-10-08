@@ -117,7 +117,7 @@ func TestDecideSkillCheckDifficulty_Probability(t *testing.T) {
 	totalCalls := 10000
 
 	for i := range totalCalls {
-		result := diceState.DecideSkillCheckDifficulty("test action", i)
+		result := diceState.DecideNextSkillCheckDifficulty(i)
 		if result > 0 {
 			checksRequired++
 		}
@@ -136,27 +136,27 @@ func TestDecideSkillCheckDifficulty_ScalingDifficulty(t *testing.T) {
 
 	// Early turns (0-1): difficulty should be 5
 	for i := 0; i <= 1; i++ {
-		result := diceState.DecideSkillCheckDifficulty("action", i)
+		result := diceState.DecideNextSkillCheckDifficulty(i)
 		assert.Equal(t, 5, result, "Turn %d should have difficulty 5", i)
 	}
 
 	// Turns 2-3: difficulty should be 6
 	for i := 2; i <= 3; i++ {
-		result := diceState.DecideSkillCheckDifficulty("action", i)
+		result := diceState.DecideNextSkillCheckDifficulty(i)
 		assert.Equal(t, 6, result, "Turn %d should have difficulty 6", i)
 	}
 
 	// Mid turns (~10): difficulty should be ~10
-	result := diceState.DecideSkillCheckDifficulty("action", 10)
+	result := diceState.DecideNextSkillCheckDifficulty(10)
 	assert.Equal(t, 10, result, "Turn 10 should have difficulty 10")
 
 	// Turn 20: difficulty should be 15
-	result = diceState.DecideSkillCheckDifficulty("action", 20)
+	result = diceState.DecideNextSkillCheckDifficulty(20)
 	assert.Equal(t, 15, result, "Turn 20 should have difficulty 15")
 
 	// Late turns (30+): difficulty should be capped at 18
 	for i := 30; i <= 50; i++ {
-		result := diceState.DecideSkillCheckDifficulty("action", i)
+		result := diceState.DecideNextSkillCheckDifficulty(i)
 		assert.Equal(t, 18, result, "Turn %d should be capped at difficulty 18", i)
 	}
 
@@ -166,7 +166,7 @@ func TestDecideSkillCheckDifficulty_ScalingDifficulty(t *testing.T) {
 	foundDifficulty := false
 
 	for i := range 100 {
-		result := diceState.DecideSkillCheckDifficulty("action", i)
+		result := diceState.DecideNextSkillCheckDifficulty(i)
 		if result == 0 {
 			foundZero = true
 		} else {

@@ -37,9 +37,12 @@ func (state *GameState) RollDiceTool(ctx context.Context, input dice.RollInput) 
 // NarrativeActionTool coordinates narrative generation across dice and narrative packages
 func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative.ActionInput) (narrative.Response, error) {
 	mcpio.LogDebug(ctx, "NarrativeActionTool called", map[string]any{"input": input}) //nolint:errcheck
+
 	// PHASE 1: Validate pending skill check from previous turn (if any)
 	pendingCheck := state.narrative.GetPendingSkillCheck()
-	var rollContext string
+	var pendingCheckResult int
+	var passedSkillCheck bool
+	var nextSkillCheck int
 
 	if pendingCheck > 0 {
 		// Get encrypted roll from input
@@ -59,53 +62,75 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 		if err := state.crypt.Decrypt(encryptedRoll, state.turnCounter, &rollData); err != nil {
 			return narrative.Response{
 				TurnNumber:   state.turnCounter,
-				ErrorMessage: fmt.Sprintf("Invalid encrypted roll: %v", err),
+				ErrorMessage: fmt.Sprintf("Unable to decrypt encryptedData: %v", err),
 			}, err
 		}
 
-		result := rollData["result"]
-		if result < 1 || result > 20 {
+		pendingCheckResult = rollData["result"]
+		if pendingCheckResult < 1 || pendingCheckResult > 20 {
 			return narrative.Response{
 				TurnNumber:   state.turnCounter,
 				ErrorMessage: "Invalid roll result: must be 1-20",
-			}, fmt.Errorf("invalid roll result: %d", result)
+			}, fmt.Errorf("invalid roll result: %d", pendingCheckResult)
 		}
 
 		// Determine pass/fail
-		passed := result >= pendingCheck
-		if passed {
-			rollContext = fmt.Sprintf("\nThe player rolled %d (required %d or higher) - they SUCCEEDED!\n", result, pendingCheck)
-		} else {
-			rollContext = fmt.Sprintf("\nThe player rolled %d (required %d or higher) - they FAILED!\n", result, pendingCheck)
-		}
+		passedSkillCheck = pendingCheckResult >= pendingCheck
 
 		// Clear the pending check after successful validation
 		state.narrative.ClearPendingSkillCheck()
 
 		//nolint:errcheck
 		mcpio.LogDebug(ctx, "Skill check validated", map[string]any{
-			"result":       result,
-			"pendingCheck": pendingCheck,
-			"passed":       passed,
+			"result": pendingCheckResult,
+			"passed": passedSkillCheck,
 		})
 	}
 
-	// PHASE 2: Decide if next turn requires a skill check
-	nextSkillCheck := state.dice.DecideSkillCheckDifficulty(input.Action, state.turnCounter)
+	// Determine if a new skill check is needed for next turn (regardless of whether there was a pending check)
+	if nextSkillCheck == 0 {
+		nextSkillCheck = state.dice.DecideNextSkillCheckDifficulty(state.turnCounter)
+	}
 
-	// PHASE 3: Build prompt and generate narrative
-	prompt := state.narrative.BuildTurnPrompt(input.Action, nextSkillCheck, rollContext)
-	narrativeText, err := state.llmFunc(ctx, prompt, state.config.narrativeMaxTokens, state.config.preferredModel)
+	// PHASE 2: Build prompt config and generate draft narrative
+	promptConfig := narrative.PromptConfig{
+		TurnNumber:             state.turnCounter,
+		InputAction:            input.Action,
+		InputPreviousNarrative: input.PreviousNarrative,
+		PendingCheck:           pendingCheck > 0,
+		PendingCheckResult:     pendingCheckResult,
+		PassedCheck:            passedSkillCheck,
+		NextSkillCheck:         nextSkillCheck,
+	}
+
+	// Generate draft narrative
+	draftPrompt := state.narrative.BuildTurnPrompt(promptConfig)
+	draftNarrative, err := state.llmFunc(ctx, draftPrompt, state.config.narrativeMaxTokens, state.config.preferredModel)
 	if err != nil {
-		mcpio.LogError(ctx, "LLM error", map[string]any{"error": err.Error()}) //nolint:errcheck
+		mcpio.LogError(ctx, "LLM error generating draft", map[string]any{"error": err.Error()}) //nolint:errcheck
 		return narrative.Response{
 			TurnNumber:   state.turnCounter,
 			ErrorMessage: fmt.Sprintf("LLM error: %v", err),
 		}, err
 	}
 
+	// Review and validate draft narrative
+	var narrativeText string
+	if state.turnCounter == 0 {
+		narrativeText = draftNarrative
+		mcpio.LogDebug(ctx, "Skipping narrative review for turn 0", nil) //nolint:errcheck
+	} else {
+		reviewPrompt := state.narrative.BuildReviewPrompt(promptConfig, draftNarrative)
+		narrativeText, err = state.llmFunc(ctx, reviewPrompt, state.config.narrativeMaxTokens, state.config.preferredModel)
+		if err != nil {
+			mcpio.LogError(ctx, "LLM error during review", map[string]any{"error": err.Error()}) //nolint:errcheck
+			// Fall back to draft if review fails
+			narrativeText = draftNarrative
+		}
+	}
+
 	// Record the turn and increment counter
-	state.narrative.AddTurn(input.Action, narrativeText, nextSkillCheck, rollContext)
+	state.narrative.AddTurn(narrativeText, promptConfig)
 	state.turnCounter++
 
 	// Log if skill check is required for next turn
@@ -113,7 +138,7 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 		mcpio.LogDebug(ctx, "New skill check set for next turn", map[string]any{"nextSkillCheck": nextSkillCheck}) //nolint:errcheck
 	}
 
-	// PHASE 4: Summarize if history is growing too long
+	// PHASE 3: Summarize if history is growing too long
 	if state.narrative.ShouldSummarize(state.config.summarizationThreshold) {
 		summaryPrompt := state.narrative.BuildSummaryPrompt()
 		summaryText, err := state.llmFunc(ctx, summaryPrompt, state.config.summarizeMaxTokens, state.config.preferredModel)

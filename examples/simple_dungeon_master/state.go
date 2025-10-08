@@ -27,16 +27,18 @@ type Config struct {
 
 // GameStateResponse is the response type for the get_state tool (without mutex)
 type GameStateResponse struct {
-	Narrative          []string `json:"narrative"          jsonschema:"Recent actions and narrative history"`
-	Summary            string   `json:"summary"            jsonschema:"Summary of older narrative history"`
-	SkillCheckRequired int      `json:"skillCheckRequired" jsonschema:"Pending skill check requirement (0 = none, 1-20 = required roll)"`
+	CurrentTurnNumber  int               `json:"currentTurnNumber"  jsonschema:"Current turn number in the game"`
+	TurnHistory        []*narrative.Turn `json:"turnHistory"        jsonschema:"Complete history of past turns with narrative and skill check outcomes"`
+	Summary            string            `json:"summary"            jsonschema:"Summary of older narrative history"`
+	SkillCheckRequired int               `json:"skillCheckRequired" jsonschema:"Pending skill check requirement (0 = none, 1-20 = required roll)"`
 }
 
 // GameStateTool returns the current game state, for use as an MCP tool to peak inside the internal game state
 func (state *GameState) GameStateTool(_ context.Context, _ struct{}) (GameStateResponse, error) {
 	return GameStateResponse{
-		Narrative:          state.narrative.GetEntries(),
+		CurrentTurnNumber:  state.turnCounter,
 		Summary:            state.narrative.GetSummary(),
 		SkillCheckRequired: state.narrative.GetPendingSkillCheck(),
+		TurnHistory:        state.narrative.GetTurns(),
 	}, nil
 }
