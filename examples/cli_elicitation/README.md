@@ -8,7 +8,7 @@ An in-memory database MCP server that demonstrates elicitation - the ability for
 
 **Mixed Tool Types**: Demonstrates both standard tools (read_record, list_records) and elicitation-enhanced tools (create_record, update_record, delete_record).
 
-**Typed Schemas**: Uses `ElicitTypedResult[T]()` for automatic JSON schema generation from Go structs for structured data input.
+**Typed Schemas**: Uses `ElicitTyped[T]()` for automatic JSON schema generation from Go structs for structured data input.
 
 **Confirmation Patterns**: Shows different confirmation patterns:
 - **create_record**: Elicits structured data using typed schemas
@@ -117,7 +117,8 @@ When implementing MCP clients that support elicitation, clients should:
 **Best Practices**:
 - Define reusable input types (like `CreateRecordInput`, `ReportConfig`) to avoid duplicating struct definitions
 - Use helper functions for common validation patterns to reduce code duplication
-- Prefer `ElicitTypedResult[T]()` over `ElicitTyped[T]()` for cleaner error handling
+- Use `ElicitTyped[T](ctx, message)` for type-safe elicitation with automatic schema generation
+- Session is automatically available via context - no capability parameter needed
 - **Important for stdio transport**: Never use `fmt.Printf` or `fmt.Println` in stdio servers - use `log.Printf` (stderr) instead to avoid corrupting the JSON-RPC protocol on stdout
 
 
@@ -180,7 +181,7 @@ type CreateRecordInput struct {
 }
 
 // Elicit structured record data using the defined type
-result, err := mcpio.ElicitTypedResult[CreateRecordInput](ctx, capability,
+result, err := mcpio.ElicitTyped[CreateRecordInput](ctx,
     "To create a new database record, please provide the following information:")
 if err != nil {
     return nil, err
@@ -217,7 +218,7 @@ func validateConfirmation(result *mcpio.ElicitationResult, expectedValue string)
 }
 
 // Require typing record ID to confirm deletion
-result, err := mcpio.ElicitSimple(ctx, capability,
+result, err := mcpio.ElicitSimple(ctx,
     fmt.Sprintf("Delete record '%s'? This cannot be undone.", recordID),
     "confirm", fmt.Sprintf("Type '%s' to confirm deletion", recordID))
 if err != nil {

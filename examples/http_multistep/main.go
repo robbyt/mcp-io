@@ -34,9 +34,9 @@ type DeploymentConfig struct {
 }
 
 // configureSystem demonstrates a comprehensive multi-step elicitation workflow
-func configureSystem(ctx context.Context, capability mcpio.ElicitationCapability, input struct{}) (map[string]any, error) {
+func configureSystem(ctx context.Context, _ struct{}) (map[string]any, error) {
 	// Step 1: Elicit basic system configuration
-	basicResult, err := mcpio.ElicitTypedResult[BasicConfig](ctx, capability,
+	basicResult, err := mcpio.ElicitTyped[BasicConfig](ctx,
 		"Step 1/3: Configure basic system settings")
 	if err != nil {
 		return nil, fmt.Errorf("failed to elicit basic configuration: %w", err)
@@ -64,7 +64,7 @@ func configureSystem(ctx context.Context, capability mcpio.ElicitationCapability
 	// Step 2: Conditionally elicit advanced configuration for staging/production
 	var advancedConfig *AdvancedConfig
 	if basicConfig.Environment == "staging" || basicConfig.Environment == "production" {
-		advancedResult, err := mcpio.ElicitTypedResult[AdvancedConfig](ctx, capability,
+		advancedResult, err := mcpio.ElicitTyped[AdvancedConfig](ctx,
 			fmt.Sprintf("Step 2/3: Configure advanced settings for %s environment", basicConfig.Environment))
 		if err != nil {
 			return nil, fmt.Errorf("failed to elicit advanced configuration: %w", err)
@@ -89,7 +89,7 @@ func configureSystem(ctx context.Context, capability mcpio.ElicitationCapability
 	// Step 3: Conditionally elicit deployment configuration for production
 	var deploymentConfig *DeploymentConfig
 	if basicConfig.Environment == "production" {
-		deployResult, err := mcpio.ElicitTypedResult[DeploymentConfig](ctx, capability,
+		deployResult, err := mcpio.ElicitTyped[DeploymentConfig](ctx,
 			"Step 3/3: Configure production deployment settings")
 		if err != nil {
 			return nil, fmt.Errorf("failed to elicit deployment configuration: %w", err)
@@ -123,7 +123,7 @@ func configureSystem(ctx context.Context, capability mcpio.ElicitationCapability
 
 	// Step 4: Final confirmation with summary
 	summary := generateConfigSummary(basicConfig, advancedConfig, deploymentConfig)
-	confirmResult, err := mcpio.ElicitSimple(ctx, capability,
+	confirmResult, err := mcpio.ElicitSimple(ctx,
 		fmt.Sprintf("Configuration Summary:\n%s\n\nProceed with this configuration?", summary),
 		"confirm", "Type 'yes' to confirm or 'no' to cancel")
 	if err != nil {
@@ -211,7 +211,7 @@ func main() {
 		mcpio.WithVersion("1.0.0"),
 
 		// Multi-step elicitation tool
-		mcpio.WithSessionTool("configure_system", "Multi-step system configuration with conditional elicitation", configureSystem),
+		mcpio.WithTool("configure_system", "Multi-step system configuration with conditional elicitation", configureSystem),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create handler: %v", err)

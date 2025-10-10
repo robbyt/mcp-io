@@ -61,7 +61,7 @@ build:
 
 ## build-examples: Build all example applications
 .PHONY: build-examples
-build-examples: build-http-server build-cli-tool build-cli-prompt build-cli-resource build-cli-combined build-cli-elicitation
+build-examples: build-http-server build-cli-tool build-cli-prompt build-cli-resource build-cli-combined build-cli-elicitation build-simple-dungeon-master
 
 ## build-http-server: Build the HTTP server example
 .PHONY: build-http-server
@@ -98,6 +98,12 @@ build-cli-combined:
 build-cli-elicitation:
 	@mkdir -p bin/
 	go build -o bin/cli-elicitation ./examples/cli_elicitation/
+
+## build-simple-dungeon-master: Build the simple dungeon master example
+.PHONY: build-simple-dungeon-master
+build-simple-dungeon-master:
+	@mkdir -p bin/
+	go build -o bin/simple-dungeon-master ./examples/simple_dungeon_master/
 
 ## clean: Clean up build artifacts and caches
 .PHONY: clean

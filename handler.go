@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/capabilities"
 )
 
 // Resource registration function types
@@ -138,6 +138,7 @@ func (h *Handler) ServeStdio(ctx context.Context, stdin io.Reader, stdout io.Wri
 // generic maps or predefined types.
 //
 // The returned lambda function acts as an adapter that:
+//   - Injects the session into the context
 //   - Calls the user's tool function with the deserialized input
 //   - Handles error classification (tool errors vs protocol errors)
 //   - Returns the typed output for SDK serialization
@@ -149,6 +150,10 @@ func (h *Handler) ServeStdio(ctx context.Context, stdin io.Reader, stdout io.Wri
 //   - MCP ToolHandlerFor lambda that bridges user code to SDK interface
 func createTypedHandler[TIn, TOut any](fn ToolFunc[TIn, TOut]) mcp.ToolHandlerFor[TIn, TOut] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, input TIn) (*mcp.CallToolResult, TOut, error) {
+		// Inject session into context so the user function can access it
+		session := capabilities.NewSessionCapability(req.Session)
+		ctx = injectSession(ctx, session)
+
 		// Execute the user-provided tool function
 		output, err := fn(ctx, input)
 		if err != nil {
@@ -166,104 +171,5 @@ func createTypedHandler[TIn, TOut any](fn ToolFunc[TIn, TOut]) mcp.ToolHandlerFo
 
 		// Success: return structured output (SDK handles serialization)
 		return nil, output, nil
-	}
-}
-
-// createSessionAwareToolHandler converts a session-aware tool function into an MCP ToolHandlerFor.
-// This variant provides access to the ServerSession for elicitation capabilities.
-func createSessionAwareToolHandler[TIn, TOut any](fn SessionAwareToolFunc[TIn, TOut]) mcp.ToolHandlerFor[TIn, TOut] {
-	return func(ctx context.Context, req *mcp.CallToolRequest, input TIn) (*mcp.CallToolResult, TOut, error) {
-		// Extract the session from the request and create elicitation capability
-		capability := GetElicitationCapability(req.Session)
-
-		// Execute the user-provided tool function with elicitation capability
-		output, err := fn(ctx, capability, input)
-		if err != nil {
-			// Check if it's a tool error (user-facing error)
-			var toolErr *ToolError
-			if errors.As(err, &toolErr) {
-				// Tool errors are returned as regular errors - the SDK will handle them
-				var zero TOut
-				return nil, zero, err
-			}
-			// Protocol error (system-level error) - return as Go error
-			var zero TOut
-			return nil, zero, err
-		}
-
-		// Success: return structured output (SDK handles serialization)
-		return nil, output, nil
-	}
-}
-
-// createSessionAwarePromptHandler wraps a session-aware prompt function to match MCP PromptHandler signature
-func createSessionAwarePromptHandler(fn SessionAwarePromptFunc) mcp.PromptHandler {
-	return func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-		// Extract the session from the request and create elicitation capability
-		capability := GetElicitationCapability(req.Session)
-
-		// Convert request parameters from map[string]string to map[string]any
-		args := make(map[string]any)
-		if req.Params.Arguments != nil {
-			for k, v := range req.Params.Arguments {
-				args[k] = v
-			}
-		}
-
-		// Execute the user-provided prompt function with elicitation capability
-		result, err := fn(ctx, capability, args)
-		if err != nil {
-			return nil, err
-		}
-
-		// Convert PromptResult to MCP format
-		mcpMessages := make([]*mcp.PromptMessage, len(result.Messages))
-		for i, msg := range result.Messages {
-			mcpMessages[i] = &mcp.PromptMessage{
-				Role:    mcp.Role(msg.Role),
-				Content: &mcp.TextContent{Text: msg.Content},
-			}
-		}
-
-		return &mcp.GetPromptResult{
-			Description: result.Description,
-			Messages:    mcpMessages,
-		}, nil
-	}
-}
-
-// createSessionAwareResourceHandler wraps a session-aware resource function to match MCP ResourceHandler signature
-func createSessionAwareResourceHandler(fn SessionAwareResourceFunc) mcp.ResourceHandler {
-	return func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-		// Extract the session from the request and create elicitation capability
-		capability := GetElicitationCapability(req.Session)
-
-		// Execute the user-provided resource function with elicitation capability
-		content, err := fn(ctx, capability, req.Params.URI)
-		if err != nil {
-			return nil, err
-		}
-
-		// Convert ResourceContent to MCP format
-		mcpContent := &mcp.ResourceContents{
-			URI:      req.Params.URI,
-			MIMEType: content.MIMEType,
-		}
-
-		// Set content - ResourceContent has Content []byte field
-		if len(content.Content) > 0 {
-			// If it's text-like MIME type, set as text
-			if strings.HasPrefix(content.MIMEType, "text/") ||
-				content.MIMEType == "application/json" ||
-				content.MIMEType == "application/xml" {
-				mcpContent.Text = string(content.Content)
-			} else {
-				mcpContent.Blob = content.Content
-			}
-		}
-
-		return &mcp.ReadResourceResult{
-			Contents: []*mcp.ResourceContents{mcpContent},
-		}, nil
 	}
 }

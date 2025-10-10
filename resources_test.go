@@ -12,7 +12,7 @@ func TestNewResourceHandler_Validation(t *testing.T) {
 	t.Parallel()
 
 	// Test that NewResourceHandler rejects non-resource types
-	toolFunc := func(ctx context.Context, input struct{}) (struct{}, error) {
+	toolFunc := func(ctx context.Context, _ struct{}) (struct{}, error) {
 		return struct{}{}, nil
 	}
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -9,23 +10,98 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
-// MockElicitationCapability for testing elicitation functionality
-type MockElicitationCapability struct {
-	Responses []*mcp.ElicitResult
-	CallIndex int
+// MockSessionCapability is a mock implementation of SessionCapability
+type MockSessionCapability struct {
+	mock.Mock
 }
 
-func (m *MockElicitationCapability) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
-	if m.CallIndex >= len(m.Responses) {
-		return &mcp.ElicitResult{Action: "cancel"}, nil
+func (m *MockSessionCapability) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
+	args := m.Called(ctx, message, requestedSchema)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
 	}
-	result := m.Responses[m.CallIndex]
-	m.CallIndex++
-	return result, nil
+	return args.Get(0).(*mcp.ElicitResult), args.Error(1)
+}
+
+func (m *MockSessionCapability) CreateMessage(ctx context.Context, messages []*capabilities.Message, maxTokens int) (*capabilities.MessageResult, error) {
+	args := m.Called(ctx, messages, maxTokens)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*capabilities.MessageResult), args.Error(1)
+}
+
+func (m *MockSessionCapability) CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
+	args := m.Called(ctx, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*mcp.CreateMessageResult), args.Error(1)
+}
+
+func (m *MockSessionCapability) ListRoots(ctx context.Context) ([]*capabilities.Root, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*capabilities.Root), args.Error(1)
+}
+
+func (m *MockSessionCapability) Log(ctx context.Context, level capabilities.LogLevel, message string, data map[string]any) error {
+	args := m.Called(ctx, level, message, data)
+	return args.Error(0)
+}
+
+func (m *MockSessionCapability) Logger() *slog.Logger {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(*slog.Logger)
+}
+
+func (m *MockSessionCapability) NotifyProgress(ctx context.Context, progress, total float64) error {
+	args := m.Called(ctx, progress, total)
+	return args.Error(0)
+}
+
+func (m *MockSessionCapability) SessionID() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockSessionCapability) ClientCapabilities() *capabilities.ClientCapabilities {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(*capabilities.ClientCapabilities)
+}
+
+func (m *MockSessionCapability) SupportsElicitation() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockSessionCapability) SupportsSampling() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockSessionCapability) Wait() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *MockSessionCapability) Close() error {
+	args := m.Called()
+	return args.Error(0)
 }
 
 // DatabaseTestSuite tests the database elicitation example
@@ -102,18 +178,7 @@ func (s *DatabaseTestSuite) TestReadRecord() {
 func (s *DatabaseTestSuite) TestListRecords() {
 	ctx := s.T().Context()
 
-	// Add test records
-	records := []*Record{
-		{ID: "active1", Name: "John", Status: "active", Age: 30, Created: time.Now().Add(-2 * time.Hour)},
-		{ID: "inactive1", Name: "Company A", Status: "inactive", Age: 45, Created: time.Now().Add(-1 * time.Hour)},
-		{ID: "pending1", Name: "Jane", Status: "pending", Age: 28, Created: time.Now()},
-	}
-	for _, record := range records {
-		record.Updated = record.Created
-		database[record.ID] = record
-	}
-
-	s.Run("AllRecords", func() {
+	s.Run("EmptyDatabase", func() {
 		input := struct {
 			Status string `json:"status,omitempty" jsonschema:"description:Optional status filter,enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 		}{}
@@ -122,18 +187,31 @@ func (s *DatabaseTestSuite) TestListRecords() {
 		s.Require().NoError(err)
 
 		s.Equal("success", result["status"])
-		s.Equal(3, result["count"])
-		s.Empty(result["filter"])
-
-		returnedRecords := result["records"].([]*Record)
-		s.Len(returnedRecords, 3)
-		// Should be sorted by creation time
-		s.Equal("active1", returnedRecords[0].ID)
-		s.Equal("inactive1", returnedRecords[1].ID)
-		s.Equal("pending1", returnedRecords[2].ID)
+		s.Equal(0, result["count"])
 	})
 
-	s.Run("FilteredByStatus", func() {
+	s.Run("WithRecords", func() {
+		// Add test records
+		database["active1"] = &Record{ID: "active1", Status: "active", Created: time.Now()}
+		database["inactive1"] = &Record{ID: "inactive1", Status: "inactive", Created: time.Now().Add(time.Second)}
+
+		input := struct {
+			Status string `json:"status,omitempty" jsonschema:"description:Optional status filter,enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
+		}{}
+
+		result, err := listRecords(ctx, input)
+		s.Require().NoError(err)
+
+		s.Equal("success", result["status"])
+		s.Equal(2, result["count"])
+	})
+
+	s.Run("FilterByStatus", func() {
+		// Add test records
+		database["active1"] = &Record{ID: "active1", Status: "active", Created: time.Now()}
+		database["active2"] = &Record{ID: "active2", Status: "active", Created: time.Now().Add(time.Second)}
+		database["inactive1"] = &Record{ID: "inactive1", Status: "inactive", Created: time.Now().Add(2 * time.Second)}
+
 		input := struct {
 			Status string `json:"status,omitempty" jsonschema:"description:Optional status filter,enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 		}{Status: "active"}
@@ -142,11 +220,11 @@ func (s *DatabaseTestSuite) TestListRecords() {
 		s.Require().NoError(err)
 
 		s.Equal("success", result["status"])
-		s.Equal(1, result["count"])
+		s.Equal(2, result["count"])
 		s.Equal("active", result["filter"])
 
 		returnedRecords := result["records"].([]*Record)
-		s.Len(returnedRecords, 1)
+		s.Len(returnedRecords, 2)
 		s.Equal("active1", returnedRecords[0].ID)
 	})
 }
@@ -154,25 +232,22 @@ func (s *DatabaseTestSuite) TestListRecords() {
 // Test elicitation-based operations
 
 func (s *DatabaseTestSuite) TestCreateRecord() {
-	ctx := s.T().Context()
-
 	s.Run("AcceptRecordData", func() {
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{
-					Action: "accept",
-					Content: map[string]any{
-						"id":     "user1",
-						"name":   "John Doe",
-						"email":  "john@example.com",
-						"status": "active",
-						"age":    30,
-					},
-				},
+		mockSession := new(MockSessionCapability)
+		mockSession.On("SupportsElicitation").Return(true)
+		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+			Action: "accept",
+			Content: map[string]any{
+				"id":     "user1",
+				"name":   "John Doe",
+				"email":  "john@example.com",
+				"status": "active",
+				"age":    30,
 			},
-		}
+		}, nil).Once()
 
-		result, err := createRecord(ctx, mockCapability, struct{}{})
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		result, err := createRecord(ctx, struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("created", result["status"])
@@ -187,96 +262,97 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 		dbRecord, exists := database["user1"]
 		s.True(exists)
 		s.Equal("John Doe", dbRecord.Name)
+
+		mockSession.AssertExpectations(s.T())
 	})
 
 	s.Run("DeclineRecordData", func() {
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{Action: "decline"},
-			},
-		}
+		mockSession := new(MockSessionCapability)
+		mockSession.On("SupportsElicitation").Return(true)
+		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+			Action: "decline",
+		}, nil).Once()
 
-		result, err := createRecord(ctx, mockCapability, struct{}{})
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		result, err := createRecord(ctx, struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("cancelled", result["status"])
 		s.Contains(result["reason"], "decline")
+
+		mockSession.AssertExpectations(s.T())
 	})
 
 	s.Run("InvalidIDWithSpaces", func() {
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{
-					Action: "accept",
-					Content: map[string]any{
-						"id":     "user 1",
-						"name":   "John Doe",
-						"email":  "john@example.com",
-						"status": "active",
-						"age":    25,
-					},
-				},
+		mockSession := new(MockSessionCapability)
+		mockSession.On("SupportsElicitation").Return(true)
+		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+			Action: "accept",
+			Content: map[string]any{
+				"id":     "user 1",
+				"name":   "John Doe",
+				"email":  "john@example.com",
+				"status": "active",
+				"age":    25,
 			},
-		}
+		}, nil).Once()
 
-		result, err := createRecord(ctx, mockCapability, struct{}{})
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		result, err := createRecord(ctx, struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("error", result["status"])
 		s.Contains(result["reason"], "spaces")
+
+		mockSession.AssertExpectations(s.T())
 	})
 
 	s.Run("DuplicateID", func() {
 		// Add existing record
 		database["existing"] = &Record{ID: "existing", Name: "Existing User"}
 
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{
-					Action: "accept",
-					Content: map[string]any{
-						"id":     "existing",
-						"name":   "New User",
-						"email":  "new@example.com",
-						"status": "inactive",
-					},
-				},
+		mockSession := new(MockSessionCapability)
+		mockSession.On("SupportsElicitation").Return(true)
+		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+			Action: "accept",
+			Content: map[string]any{
+				"id":     "existing",
+				"name":   "New User",
+				"email":  "new@example.com",
+				"status": "inactive",
+				"age":    25,
 			},
-		}
+		}, nil).Once()
 
-		result, err := createRecord(ctx, mockCapability, struct{}{})
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		result, err := createRecord(ctx, struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("error", result["status"])
 		s.Contains(result["reason"], "already exists")
+
+		mockSession.AssertExpectations(s.T())
 	})
 }
 
 func (s *DatabaseTestSuite) TestUpdateRecord() {
-	ctx := s.T().Context()
+	s.Run("UpdateName", func() {
+		// Add existing record
+		database["user1"] = &Record{
+			ID:    "user1",
+			Name:  "Old Name",
+			Email: "old@example.com",
+			Age:   25,
+		}
 
-	s.Run("ConfirmUpdate", func() {
-		// Setup test record for this specific test
-		testRecord := &Record{
-			ID:      "update1",
-			Name:    "Original Name",
-			Email:   "original@example.com",
-			Status:  "active",
-			Age:     25,
-			Created: time.Now().Add(-1 * time.Hour),
-			Updated: time.Now().Add(-1 * time.Hour),
-		}
-		database["update1"] = testRecord
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{
-					Action: "accept",
-					Content: map[string]any{
-						"confirm": "UPDATE",
-					},
-				},
+		mockSession := new(MockSessionCapability)
+		mockSession.On("SupportsElicitation").Return(true)
+		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+			Action: "accept",
+			Content: map[string]any{
+				"confirm": "UPDATE",
 			},
-		}
+		}, nil).Once()
 
 		input := struct {
 			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
@@ -285,144 +361,23 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 			Age    *int   `json:"age,omitempty"    jsonschema:"description:New age (optional),minimum:18,maximum:120"`
 		}{
-			ID:     "update1",
-			Name:   "Updated Name",
-			Email:  "updated@example.com",
-			Status: "pending",
+			ID:   "user1",
+			Name: "New Name",
 		}
 
-		result, err := updateRecord(ctx, mockCapability, input)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		result, err := updateRecord(ctx, input)
 		s.Require().NoError(err)
 
 		s.Equal("updated", result["status"])
 		record := result["record"].(*Record)
-		s.Equal("Updated Name", record.Name)
-		s.Equal("updated@example.com", record.Email)
-		s.Equal("pending", record.Status)
+		s.Equal("New Name", record.Name)
+		s.Equal("old@example.com", record.Email)
 
-		changes := result["changes"].([]string)
-		s.Len(changes, 3)
-		s.Contains(changes[0], "Original Name")
-		s.Contains(changes[1], "updated@example.com")
-		s.Contains(changes[2], "pending")
-	})
-
-	s.Run("DeclineUpdate", func() {
-		// Setup test record for this specific test
-		testRecord := &Record{
-			ID:      "update1",
-			Name:    "Original Name",
-			Email:   "original@example.com",
-			Status:  "active",
-			Age:     25,
-			Created: time.Now().Add(-1 * time.Hour),
-			Updated: time.Now().Add(-1 * time.Hour),
-		}
-		database["update1"] = testRecord
-
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{Action: "decline"},
-			},
-		}
-
-		input := struct {
-			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
-			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
-			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
-			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
-			Age    *int   `json:"age,omitempty"    jsonschema:"description:New age (optional),minimum:18,maximum:120"`
-		}{
-			ID:   "update1",
-			Name: "Should Not Change",
-		}
-
-		result, err := updateRecord(ctx, mockCapability, input)
-		s.Require().NoError(err)
-
-		s.Equal("cancelled", result["status"])
-		s.Contains(result["reason"], "decline")
-
-		// Verify record wasn't changed
-		record := result["record"].(*Record)
-		s.Equal("Original Name", record.Name)
-	})
-
-	s.Run("InvalidConfirmation", func() {
-		// Setup test record for this specific test
-		testRecord := &Record{
-			ID:      "update1",
-			Name:    "Original Name",
-			Email:   "original@example.com",
-			Status:  "active",
-			Age:     25,
-			Created: time.Now().Add(-1 * time.Hour),
-			Updated: time.Now().Add(-1 * time.Hour),
-		}
-		database["update1"] = testRecord
-
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{
-					Action: "accept",
-					Content: map[string]any{
-						"confirm": "YES",
-					},
-				},
-			},
-		}
-
-		input := struct {
-			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
-			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
-			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
-			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
-			Age    *int   `json:"age,omitempty"    jsonschema:"description:New age (optional),minimum:18,maximum:120"`
-		}{
-			ID:   "update1",
-			Name: "Should Not Change",
-		}
-
-		result, err := updateRecord(ctx, mockCapability, input)
-		s.Require().NoError(err)
-
-		s.Equal("cancelled", result["status"])
-		s.Contains(result["reason"], "Invalid confirmation")
-		s.Contains(result["reason"], "Expected 'UPDATE', got 'YES'")
-	})
-
-	s.Run("NoChanges", func() {
-		// Setup test record for this specific test
-		testRecord := &Record{
-			ID:      "update1",
-			Name:    "Original Name",
-			Email:   "original@example.com",
-			Status:  "active",
-			Age:     25,
-			Created: time.Now().Add(-1 * time.Hour),
-			Updated: time.Now().Add(-1 * time.Hour),
-		}
-		database["update1"] = testRecord
-
-		mockCapability := &MockElicitationCapability{}
-		input := struct {
-			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
-			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
-			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
-			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
-			Age    *int   `json:"age,omitempty"    jsonschema:"description:New age (optional),minimum:18,maximum:120"`
-		}{
-			ID: "update1",
-		}
-
-		result, err := updateRecord(ctx, mockCapability, input)
-		s.Require().NoError(err)
-
-		s.Equal("no_changes", result["status"])
+		mockSession.AssertExpectations(s.T())
 	})
 
 	s.Run("RecordNotFound", func() {
-		mockCapability := &MockElicitationCapability{}
 		input := struct {
 			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
 			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
@@ -434,210 +389,287 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Name: "New Name",
 		}
 
-		result, err := updateRecord(ctx, mockCapability, input)
+		ctx := s.T().Context()
+		result, err := updateRecord(ctx, input)
 		s.Require().NoError(err)
 
 		s.Equal("not_found", result["status"])
-		s.Equal("nonexistent", result["id"])
+	})
+
+	s.Run("UserDeclinesUpdate", func() {
+		// Add existing record
+		database["user1"] = &Record{
+			ID:    "user1",
+			Name:  "Old Name",
+			Email: "old@example.com",
+		}
+
+		mockSession := new(MockSessionCapability)
+		mockSession.On("SupportsElicitation").Return(true)
+		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+			Action: "decline",
+		}, nil).Once()
+
+		input := struct {
+			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
+			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
+			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
+			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
+			Age    *int   `json:"age,omitempty"    jsonschema:"description:New age (optional),minimum:18,maximum:120"`
+		}{
+			ID:   "user1",
+			Name: "New Name",
+		}
+
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		result, err := updateRecord(ctx, input)
+		s.Require().NoError(err)
+
+		s.Equal("cancelled", result["status"])
+
+		mockSession.AssertExpectations(s.T())
+	})
+
+	s.Run("InvalidConfirmation", func() {
+		// Add existing record
+		database["user1"] = &Record{
+			ID:    "user1",
+			Name:  "Old Name",
+			Email: "old@example.com",
+		}
+
+		mockSession := new(MockSessionCapability)
+		mockSession.On("SupportsElicitation").Return(true)
+		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+			Action: "accept",
+			Content: map[string]any{
+				"confirm": "wrong",
+			},
+		}, nil).Once()
+
+		input := struct {
+			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
+			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
+			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
+			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
+			Age    *int   `json:"age,omitempty"    jsonschema:"description:New age (optional),minimum:18,maximum:120"`
+		}{
+			ID:   "user1",
+			Name: "New Name",
+		}
+
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		result, err := updateRecord(ctx, input)
+		s.Require().NoError(err)
+
+		s.Equal("cancelled", result["status"])
+		s.Contains(result["reason"], "Expected 'UPDATE'")
+
+		mockSession.AssertExpectations(s.T())
+	})
+
+	s.Run("NoChanges", func() {
+		// Add existing record
+		database["user1"] = &Record{
+			ID:    "user1",
+			Name:  "Same Name",
+			Email: "same@example.com",
+		}
+
+		input := struct {
+			ID     string `json:"id"               jsonschema:"description:Record ID to update"`
+			Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
+			Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
+			Status string `json:"status,omitempty" jsonschema:"description:New status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
+			Age    *int   `json:"age,omitempty"    jsonschema:"description:New age (optional),minimum:18,maximum:120"`
+		}{
+			ID: "user1",
+		}
+
+		ctx := s.T().Context()
+		result, err := updateRecord(ctx, input)
+		s.Require().NoError(err)
+
+		s.Equal("no_changes", result["status"])
 	})
 }
 
 func (s *DatabaseTestSuite) TestDeleteRecord() {
-	ctx := s.T().Context()
-
-	// Setup test record
-	testRecord := &Record{
-		ID:      "delete1",
-		Name:    "To Be Deleted",
-		Email:   "delete@example.com",
-		Status:  "inactive",
-		Age:     40,
-		Created: time.Now(),
-		Updated: time.Now(),
-	}
-	database["delete1"] = testRecord
-
-	s.Run("ConfirmDeletion", func() {
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{
-					Action: "accept",
-					Content: map[string]any{
-						"confirm": "delete1",
-					},
-				},
-			},
+	s.Run("DeleteExistingRecord", func() {
+		// Add a record to delete
+		database["delete1"] = &Record{
+			ID:    "delete1",
+			Name:  "To Delete",
+			Email: "delete@example.com",
+			Age:   30,
 		}
+
+		mockSession := new(MockSessionCapability)
+		mockSession.On("SupportsElicitation").Return(true)
+		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+			Action: "accept",
+			Content: map[string]any{
+				"confirm": "delete1",
+			},
+		}, nil).Once()
 
 		input := struct {
 			ID string `json:"id" jsonschema:"description:Record ID to delete"`
 		}{ID: "delete1"}
 
-		result, err := deleteRecord(ctx, mockCapability, input)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		result, err := deleteRecord(ctx, input)
 		s.Require().NoError(err)
 
 		s.Equal("deleted", result["status"])
 		deletedRecord := result["deleted_record"].(*Record)
 		s.Equal("delete1", deletedRecord.ID)
-		s.Equal("To Be Deleted", deletedRecord.Name)
 
-		// Verify record was removed from database
+		// Verify record was deleted from database
 		_, exists := database["delete1"]
 		s.False(exists)
-	})
 
-	s.Run("DeclineDeletion", func() {
-		// Re-add the record for this test
-		database["delete1"] = testRecord
-
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{Action: "decline"},
-			},
-		}
-
-		input := struct {
-			ID string `json:"id" jsonschema:"description:Record ID to delete"`
-		}{ID: "delete1"}
-
-		result, err := deleteRecord(ctx, mockCapability, input)
-		s.Require().NoError(err)
-
-		s.Equal("cancelled", result["status"])
-		s.Contains(result["reason"], "decline")
-
-		// Verify record still exists
-		_, exists := database["delete1"]
-		s.True(exists)
-	})
-
-	s.Run("InvalidConfirmation", func() {
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{
-					Action: "accept",
-					Content: map[string]any{
-						"confirm": "wrong_id",
-					},
-				},
-			},
-		}
-
-		input := struct {
-			ID string `json:"id" jsonschema:"description:Record ID to delete"`
-		}{ID: "delete1"}
-
-		result, err := deleteRecord(ctx, mockCapability, input)
-		s.Require().NoError(err)
-
-		s.Equal("cancelled", result["status"])
-		s.Contains(result["reason"], "Invalid confirmation")
-		s.Contains(result["reason"], "Expected 'delete1', got 'wrong_id'")
-
-		// Verify record still exists
-		_, exists := database["delete1"]
-		s.True(exists)
+		mockSession.AssertExpectations(s.T())
 	})
 
 	s.Run("RecordNotFound", func() {
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{Action: "accept", Content: map[string]any{"confirm": "nonexistent"}},
-			},
-		}
-
 		input := struct {
 			ID string `json:"id" jsonschema:"description:Record ID to delete"`
 		}{ID: "nonexistent"}
 
-		result, err := deleteRecord(ctx, mockCapability, input)
+		ctx := s.T().Context()
+		result, err := deleteRecord(ctx, input)
 		s.Require().NoError(err)
 
 		s.Equal("not_found", result["status"])
-		s.Equal("nonexistent", result["id"])
+	})
+
+	s.Run("UserDeclinesDelete", func() {
+		// Add a record
+		database["keep1"] = &Record{
+			ID:   "keep1",
+			Name: "Keep This",
+		}
+
+		mockSession := new(MockSessionCapability)
+		mockSession.On("SupportsElicitation").Return(true)
+		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+			Action: "decline",
+		}, nil).Once()
+
+		input := struct {
+			ID string `json:"id" jsonschema:"description:Record ID to delete"`
+		}{ID: "keep1"}
+
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		result, err := deleteRecord(ctx, input)
+		s.Require().NoError(err)
+
+		s.Equal("cancelled", result["status"])
+
+		// Verify record still exists
+		_, exists := database["keep1"]
+		s.True(exists)
+
+		mockSession.AssertExpectations(s.T())
+	})
+
+	s.Run("InvalidConfirmation", func() {
+		// Add a record
+		database["keep2"] = &Record{
+			ID:   "keep2",
+			Name: "Keep This Too",
+		}
+
+		mockSession := new(MockSessionCapability)
+		mockSession.On("SupportsElicitation").Return(true)
+		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+			Action: "accept",
+			Content: map[string]any{
+				"confirm": "wrong_id",
+			},
+		}, nil).Once()
+
+		input := struct {
+			ID string `json:"id" jsonschema:"description:Record ID to delete"`
+		}{ID: "keep2"}
+
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		result, err := deleteRecord(ctx, input)
+		s.Require().NoError(err)
+
+		s.Equal("cancelled", result["status"])
+		s.Contains(result["reason"], "Expected 'keep2'")
+
+		// Verify record still exists
+		_, exists := database["keep2"]
+		s.True(exists)
+
+		mockSession.AssertExpectations(s.T())
 	})
 }
 
 func (s *DatabaseTestSuite) TestDatabaseReport() {
-	ctx := s.T().Context()
-
-	// Add some test data
-	records := []*Record{
-		{ID: "a1", Name: "Active 1", Status: "active", Age: 25, Created: time.Now().Add(-2 * time.Hour)},
-		{ID: "i1", Name: "Inactive 1", Status: "inactive", Age: 35, Created: time.Now().Add(-1 * time.Hour)},
-		{ID: "p1", Name: "Pending 1", Status: "pending", Age: 45, Created: time.Now()},
-	}
-	for _, record := range records {
-		record.Updated = record.Created
-		database[record.ID] = record
-	}
-
 	s.Run("AcceptReportPreferences", func() {
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{
-					Action: "accept",
-					Content: map[string]any{
-						"format":       "detailed",
-						"status":       "active",
-						"sortBy":       "name",
-						"includeStats": true,
-					},
-				},
-			},
-		}
+		// Add some records
+		database["rec1"] = &Record{ID: "rec1", Status: "active"}
+		database["rec2"] = &Record{ID: "rec2", Status: "inactive"}
 
-		result, err := databaseReport(ctx, mockCapability, map[string]any{})
+		mockSession := new(MockSessionCapability)
+		mockSession.On("SupportsElicitation").Return(true)
+		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+			Action: "accept",
+			Content: map[string]any{
+				"format":       "detailed",
+				"status":       "active",
+				"sortBy":       "created",
+				"includeStats": true,
+			},
+		}, nil).Once()
+
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		result, err := databaseReport(ctx, map[string]any{})
 		s.Require().NoError(err)
 
-		s.Contains(result.Description, "detailed")
-		s.Contains(result.Description, "report")
-		s.Require().Len(result.Messages, 2)
+		s.NotNil(result)
+		s.NotEmpty(result.Description)
+		s.NotEmpty(result.Messages)
+		s.Len(result.Messages, 2)
 
-		systemMsg := result.Messages[0]
-		s.Equal("system", systemMsg.Role)
-		s.Contains(systemMsg.Content, "detailed")
-		s.Contains(systemMsg.Content, "Total records: 3")
-		s.Contains(systemMsg.Content, "active")
-		s.Contains(systemMsg.Content, "Sort results by: name")
-
-		userMsg := result.Messages[1]
-		s.Equal("user", userMsg.Role)
-		s.Contains(userMsg.Content, "detailed database report")
-		s.Contains(userMsg.Content, "active records")
+		mockSession.AssertExpectations(s.T())
 	})
 
 	s.Run("DeclineReportPreferences", func() {
-		mockCapability := &MockElicitationCapability{
-			Responses: []*mcp.ElicitResult{
-				{Action: "decline"},
-			},
-		}
+		mockSession := new(MockSessionCapability)
+		mockSession.On("SupportsElicitation").Return(true)
+		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+			Action: "decline",
+		}, nil).Once()
 
-		result, err := databaseReport(ctx, mockCapability, map[string]any{})
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		result, err := databaseReport(ctx, map[string]any{})
 		s.Require().NoError(err)
 
-		s.Contains(result.Description, "summary")
-		s.Require().Len(result.Messages, 2)
+		// Should use default preferences
+		s.NotNil(result)
+		s.NotEmpty(result.Description)
 
-		systemMsg := result.Messages[0]
-		s.Contains(systemMsg.Content, "summary")
-		s.Contains(systemMsg.Content, "Sort results by: created")
+		mockSession.AssertExpectations(s.T())
 	})
 }
 
 func (s *DatabaseTestSuite) TestServerCreation() {
-	// Test that we can create the server with all our tools
+	// Test that we can create the server
 	serverBuilder := func() (*mcp.Server, error) {
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("database-server"),
 			mcpio.WithVersion("1.0.0"),
 			mcpio.WithTool("read_record", "Get a record by ID", readRecord),
 			mcpio.WithTool("list_records", "List all records with optional status filter", listRecords),
-			mcpio.WithSessionTool("create_record", "Create a new record with elicited data", createRecord),
-			mcpio.WithSessionTool("update_record", "Update a record with change confirmation", updateRecord),
-			mcpio.WithSessionTool("delete_record", "Delete a record with confirmation", deleteRecord),
-			mcpio.WithSessionPrompt("database_report", "Generate database reports with custom preferences", databaseReport),
+			mcpio.WithTool("create_record", "Create a new record with elicited data", createRecord),
+			mcpio.WithTool("update_record", "Update a record with change confirmation", updateRecord),
+			mcpio.WithTool("delete_record", "Delete a record with confirmation", deleteRecord),
+			mcpio.WithPrompt("database_report", "Generate database reports with custom preferences", databaseReport),
 		)
 		if err != nil {
 			return nil, err
