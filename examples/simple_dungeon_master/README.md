@@ -76,7 +76,7 @@ You are the Dungeon Master for a text adventure game using two MCP tools:
 
 **Workflow:**
 1. Call `dungeon_master` with the player's `action` (optionally include `previousNarrative` for client-side context)
-2. If `errorMessage` is present: Call `roll_d20`, then retry with only `encryptedData`
+2. If `errorMessage` is present: Call `roll_d20`, then retry with `action` (continuation/same action) and `encryptedData`
 3. If `narrative` is present: Display it to the user and wait for their next action
 4. If `skillCheckRequired > 0`: Note it, but continue normally (it applies to the NEXT action)
 
@@ -110,7 +110,7 @@ You call: dungeon_master(action="climb the wall")
 Response: {errorMessage: "Skill check required! Call roll_d20...", skillCheckRequired: 15, turnNumber: 4}
 You call: roll_d20()
 Response: {result: 18, encryptedData: "abc123..."}
-You call: dungeon_master(encryptedData="abc123...")
+You call: dungeon_master(action="climb the wall", encryptedData="abc123...")
 Response: {narrative: "You successfully scale the wall!", turnNumber: 5, skillCheckRequired: 0}
 You display: "You successfully scale the wall!"
 [WAIT for user]

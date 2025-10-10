@@ -32,9 +32,9 @@ func NewState() *State {
 
 // ActionInput represents input describing what the player does during this turn
 type ActionInput struct {
-	Action            string `json:"action,omitempty"            jsonschema:"Next action to take. Omit when providing encryptedData to continue a pending action."`
+	Action            string `json:"action,omitempty"            jsonschema:"Next action to take. When continuing after a skill check, provide the same or continuation action along with encryptedData."`
 	PreviousNarrative string `json:"previousNarrative,omitempty" jsonschema:"Optional brief summary (1-2 sentences) of the previous turn. Where is the player now? What just happened?"`
-	EncryptedData     string `json:"encryptedData,omitempty"     jsonschema:"Continuation token for pending skill check. When provided, completes the previous action without needing to restate it."`
+	EncryptedData     string `json:"encryptedData,omitempty"     jsonschema:"Continuation token for pending skill check. Provide along with the action field when completing a skill check."`
 }
 
 // Response is the response object returned to the player after calling the dungeon_master tool
