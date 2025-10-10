@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"sync"
 
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/crypt"
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/dice"
@@ -10,12 +11,15 @@ import (
 
 // GameState coordinates game components
 type GameState struct {
-	narrative   *narrative.State                                           // Narrative engine with history and skill check state
-	dice        *dice.State                                                // Dice roller with roll history
-	crypt       *crypt.State                                               // Cryptographic operations for encrypted data validation
-	config      *Config                                                    // Runtime configuration options
-	turnCounter int                                                        // Counter for turn number (used for encryption nonce and game state progression)
-	llmFunc     func(context.Context, string, int, string) (string, error) // LLM function for narrative generation (injectable for testing)
+	narrative *narrative.State // Narrative engine with history and skill check state
+	dice      *dice.State      // Dice roller with roll history
+	crypt     *crypt.State     // Cryptographic operations for encrypted data validation
+	config    *Config          // Runtime configuration options
+
+	turnCounterMutex sync.RWMutex // Mutex for turnCounter only
+	turnCounter      int          // Counter for turn number (used for encryption nonce and game state progression)
+
+	llmFunc func(context.Context, string, int, string) (string, error) // LLM function for narrative generation (injectable for testing)
 }
 
 type Config struct {
@@ -36,9 +40,23 @@ type GameStateResponse struct {
 // GameStateTool returns the current game state, for use as an MCP tool to peak inside the internal game state
 func (state *GameState) GameStateTool(_ context.Context, _ struct{}) (GameStateResponse, error) {
 	return GameStateResponse{
-		CurrentTurnNumber:  state.turnCounter,
+		CurrentTurnNumber:  state.getTurnCounter(),
 		Summary:            state.narrative.GetSummary(),
 		SkillCheckRequired: state.narrative.GetPendingSkillCheck(),
 		TurnHistory:        state.narrative.GetTurns(),
 	}, nil
+}
+
+// getTurnCounter returns the current turn counter in a thread-safe manner
+func (state *GameState) getTurnCounter() int {
+	state.turnCounterMutex.RLock()
+	defer state.turnCounterMutex.RUnlock()
+	return state.turnCounter
+}
+
+// incrementTurnCounter increments the turn counter in a thread-safe manner
+func (state *GameState) incrementTurnCounter() {
+	state.turnCounterMutex.Lock()
+	defer state.turnCounterMutex.Unlock()
+	state.turnCounter++
 }

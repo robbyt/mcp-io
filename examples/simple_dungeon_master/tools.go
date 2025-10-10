@@ -16,12 +16,13 @@ func (state *GameState) RollDiceTool(ctx context.Context, input dice.RollInput) 
 	pendingCheck := state.narrative.GetPendingSkillCheck()
 
 	// Perform turn-based roll (idempotent for this turn)
-	roll := state.dice.RollTurn(state.turnCounter)
+	turnCounter := state.getTurnCounter()
+	roll := state.dice.RollTurn(turnCounter)
 
 	// Encrypt result if skill check was pending
 	if pendingCheck > 0 {
 		rollData := map[string]int{"result": roll.Result}
-		encrypted, err := state.crypt.Encrypt(rollData, state.turnCounter)
+		encrypted, err := state.crypt.Encrypt(rollData, turnCounter)
 		if err != nil {
 			return dice.Roll{}, fmt.Errorf("failed to encrypt roll: %w", err)
 		}
@@ -38,6 +39,9 @@ func (state *GameState) RollDiceTool(ctx context.Context, input dice.RollInput) 
 func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative.ActionInput) (narrative.Response, error) {
 	mcpio.LogDebug(ctx, "NarrativeActionTool called", map[string]any{"input": input}) //nolint:errcheck
 
+	// Get current turn counter for this action
+	turnCounter := state.getTurnCounter()
+
 	// PHASE 1: Validate pending skill check from previous turn (if any)
 	pendingCheck := state.narrative.GetPendingSkillCheck()
 	var pendingCheckResult int
@@ -51,7 +55,7 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 		// Validate encrypted roll exists
 		if encryptedRoll == "" {
 			return narrative.Response{
-				TurnNumber:         state.turnCounter,
+				TurnNumber:         turnCounter,
 				ErrorMessage:       fmt.Sprintf("Skill check required! Call the %s tool to get an encrypted roll, then include it in your next action.", dice.ToolName),
 				SkillCheckRequired: pendingCheck,
 			}, nil
@@ -59,9 +63,9 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 
 		// Decrypt and validate roll
 		var rollData map[string]int
-		if err := state.crypt.Decrypt(encryptedRoll, state.turnCounter, &rollData); err != nil {
+		if err := state.crypt.Decrypt(encryptedRoll, turnCounter, &rollData); err != nil {
 			return narrative.Response{
-				TurnNumber:   state.turnCounter,
+				TurnNumber:   turnCounter,
 				ErrorMessage: fmt.Sprintf("Unable to decrypt encryptedData: %v", err),
 			}, err
 		}
@@ -69,7 +73,7 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 		pendingCheckResult = rollData["result"]
 		if pendingCheckResult < 1 || pendingCheckResult > 20 {
 			return narrative.Response{
-				TurnNumber:   state.turnCounter,
+				TurnNumber:   turnCounter,
 				ErrorMessage: "Invalid roll result: must be 1-20",
 			}, fmt.Errorf("invalid roll result: %d", pendingCheckResult)
 		}
@@ -89,12 +93,12 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 
 	// Determine if a new skill check is needed for next turn (regardless of whether there was a pending check)
 	if nextSkillCheck == 0 {
-		nextSkillCheck = state.dice.DecideNextSkillCheckDifficulty(state.turnCounter)
+		nextSkillCheck = state.dice.DecideNextSkillCheckDifficulty(turnCounter)
 	}
 
 	// PHASE 2: Build prompt config and generate draft narrative
 	promptConfig := narrative.PromptConfig{
-		TurnNumber:             state.turnCounter,
+		TurnNumber:             turnCounter,
 		InputAction:            input.Action,
 		InputPreviousNarrative: input.PreviousNarrative,
 		PendingCheck:           pendingCheck > 0,
@@ -109,14 +113,14 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 	if err != nil {
 		mcpio.LogError(ctx, "LLM error generating draft", map[string]any{"error": err.Error()}) //nolint:errcheck
 		return narrative.Response{
-			TurnNumber:   state.turnCounter,
+			TurnNumber:   turnCounter,
 			ErrorMessage: fmt.Sprintf("LLM error: %v", err),
 		}, err
 	}
 
 	// Review and validate draft narrative
 	var narrativeText string
-	if state.turnCounter == 0 {
+	if turnCounter == 0 {
 		narrativeText = draftNarrative
 		mcpio.LogDebug(ctx, "Skipping narrative review for turn 0", nil) //nolint:errcheck
 	} else {
@@ -131,7 +135,7 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 
 	// Record the turn and increment counter
 	state.narrative.AddTurn(narrativeText, promptConfig)
-	state.turnCounter++
+	state.incrementTurnCounter()
 
 	// Log if skill check is required for next turn
 	if nextSkillCheck > 0 {
@@ -152,7 +156,7 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 
 	return narrative.Response{
 		Narrative:          narrativeText,
-		TurnNumber:         state.turnCounter,
+		TurnNumber:         state.getTurnCounter(),
 		SkillCheckRequired: nextSkillCheck,
 	}, nil
 }
