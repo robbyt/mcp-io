@@ -8,6 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/robbyt/mcp-io/capabilities"
+	"github.com/robbyt/mcp-io/schema"
 )
 
 // PromptFunc is the function signature for user-defined prompt handlers.
@@ -122,4 +123,41 @@ func createTypedPromptHandler[TArgs any](fn TypedPromptFunc[TArgs]) mcp.PromptHa
 			Description: result.Description,
 		}, nil
 	}
+}
+
+// schemaToPromptArguments converts a JSON schema to MCP prompt arguments
+func schemaToPromptArguments(s any) ([]*mcp.PromptArgument, error) {
+	if s == nil {
+		return nil, ErrNilValue
+	}
+
+	// Convert to *jsonschema.Schema to access Properties and Required fields
+	jsonSchemaObj, err := schema.ConvertToJSONSchema(s)
+	if err != nil {
+		return nil, err
+	}
+
+	if jsonSchemaObj.Properties == nil {
+		return nil, ErrNoSchemaProperties
+	}
+
+	var args []*mcp.PromptArgument
+	requiredMap := make(map[string]bool)
+
+	// Create a map of required fields
+	for _, field := range jsonSchemaObj.Required {
+		requiredMap[field] = true
+	}
+
+	// Convert schema properties to prompt arguments
+	for name, propSchema := range jsonSchemaObj.Properties {
+		arg := &mcp.PromptArgument{
+			Name:        name,
+			Description: propSchema.Description,
+			Required:    requiredMap[name],
+		}
+		args = append(args, arg)
+	}
+
+	return args, nil
 }
