@@ -57,7 +57,7 @@ func toUpper(ctx context.Context, input TextInput) (TextOutput, error) {
 
 func main() {
 	// Create an MCP handler with functional options
-	handler, err := mcpio.NewToolHandler(
+	handler, err := mcpio.NewHandler(
 		mcpio.WithName("example-server"),
 		mcpio.WithVersion("1.0.0"),
 		mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
@@ -158,7 +158,7 @@ mcp tools --format pretty http://localhost:8080/mcp
 The library uses a functional options pattern for clean, composable configuration:
 
 ```go
-handler, err := mcpio.NewToolHandler(
+handler, err := mcpio.NewHandler(
     mcpio.WithName("my-server"),
     mcpio.WithVersion("1.0.0"),
     mcpio.WithTool("tool1", "Description", toolFunc1),
@@ -178,7 +178,7 @@ A single handler supports multiple transport types. Here are complete examples f
 
 ```go
 // Create handler
-handler, err := mcpio.NewToolHandler(
+handler, err := mcpio.NewHandler(
     mcpio.WithName("my-server"),
     mcpio.WithVersion("1.0.0"),
     mcpio.WithTool("to_upper", "Convert text", toUpper),
@@ -197,7 +197,7 @@ log.Fatal(http.ListenAndServe(":8080", nil))
 
 ```go
 // Create handler
-handler, err := mcpio.NewToolHandler(
+handler, err := mcpio.NewHandler(
     mcpio.WithName("my-server"),
     mcpio.WithVersion("1.0.0"),
     mcpio.WithTool("to_upper", "Convert text", toUpper),
@@ -216,7 +216,7 @@ log.Fatal(http.ListenAndServe(":8080", nil))
 
 ```go
 // Create handler
-handler, err := mcpio.NewToolHandler(
+handler, err := mcpio.NewHandler(
     mcpio.WithName("my-server"),
     mcpio.WithVersion("1.0.0"),
     mcpio.WithTool("to_upper", "Convert text", toUpper),
@@ -275,7 +275,7 @@ func calculate(ctx context.Context, input CalculateInput) (CalculateOutput, erro
 }
 
 // Add the tool with error handling
-handler, err := mcpio.NewToolHandler(
+handler, err := mcpio.NewHandler(
     mcpio.WithName("calculator"),
     mcpio.WithTool("calculate", "Perform arithmetic operations", calculate),
 )
@@ -334,7 +334,7 @@ inputSchema := schema.NewObject(
     requiredFields,    // List of required field names
 )
 
-handler, err := mcpio.NewToolHandler(
+handler, err := mcpio.NewHandler(
     mcpio.WithName("json-processor"),
     mcpio.WithRawTool("validate_json", "Validate and format any JSON input", inputSchema, validateJSON),
 )
@@ -354,7 +354,7 @@ type MyInput struct {
 }
 
 // Schema is automatically generated when you register the tool
-handler, err := mcpio.NewToolHandler(
+handler, err := mcpio.NewHandler(
     mcpio.WithTool("my_tool", "Process user data", myToolFunc),
 )
 ```
@@ -623,7 +623,7 @@ mcp.AddTool(server, &mcp.Tool{Name: "greet"}, handler)    // Can panic on bad ty
 
 ### mcp-io (error handling)
 ```go
-handler, err := mcpio.NewToolHandler(
+handler, err := mcpio.NewHandler(
     mcpio.WithName(""), // Returns error instead of panic
     mcpio.WithTool("greet", "Say hello", greetFunc),
 )
