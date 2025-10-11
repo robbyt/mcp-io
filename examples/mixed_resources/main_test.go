@@ -17,11 +17,11 @@ type CliCombinedTestSuite struct {
 }
 
 func (s *CliCombinedTestSuite) SetupSuite() {
-	// Get project root - we're in examples/cli_combined
+	// Get project root - we're in examples/mixed_resources
 	_, b, _, _ := runtime.Caller(0)
 	exampleDir := filepath.Dir(b)
 	s.ProjectRoot = filepath.Join(exampleDir, "..", "..")
-	s.ExampleName = "cli_combined"
+	s.ExampleName = "mixed_resources"
 
 	// Call parent SetupSuite
 	s.ExampleTestSuite.SetupSuite()

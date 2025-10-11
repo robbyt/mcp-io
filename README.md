@@ -172,12 +172,10 @@ if err != nil {
 
 ### Transport Options
 
-A single handler supports multiple transport types. Here are complete examples for each:
-
-#### HTTP Transport
+A single handler supports multiple transport types:
 
 ```go
-// Create handler
+// Create handler once
 handler, err := mcpio.NewHandler(
     mcpio.WithName("my-server"),
     mcpio.WithVersion("1.0.0"),
@@ -187,45 +185,17 @@ if err != nil {
     log.Fatal(err)
 }
 
-// Start HTTP server
+// Choose your transport:
+
+// HTTP - for standard HTTP clients
 http.Handle("/mcp", handler)
-log.Printf("HTTP server listening on :8080/mcp")
 log.Fatal(http.ListenAndServe(":8080", nil))
-```
 
-#### SSE Transport
-
-```go
-// Create handler
-handler, err := mcpio.NewHandler(
-    mcpio.WithName("my-server"),
-    mcpio.WithVersion("1.0.0"),
-    mcpio.WithTool("to_upper", "Convert text", toUpper),
-)
-if err != nil {
-    log.Fatal(err)
-}
-
-// Start SSE server for browser clients
+// SSE - for browser clients with server-sent events
 http.Handle("/mcp-sse", http.HandlerFunc(handler.ServeSSE))
-log.Printf("SSE server listening on :8080/mcp-sse")
 log.Fatal(http.ListenAndServe(":8080", nil))
-```
 
-#### Stdio Transport
-
-```go
-// Create handler
-handler, err := mcpio.NewHandler(
-    mcpio.WithName("my-server"),
-    mcpio.WithVersion("1.0.0"),
-    mcpio.WithTool("to_upper", "Convert text", toUpper),
-)
-if err != nil {
-    log.Fatal(err)
-}
-
-// Start stdio transport for CLI tools
+// Stdio - for CLI tools and process communication
 if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
     log.Fatal(err)
 }
