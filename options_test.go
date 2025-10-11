@@ -1,6 +1,7 @@
 package mcpio
 
 import (
+	"context"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -9,99 +10,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWithName(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		inputName string
-		wantErr   error
-	}{
-		{
-			name:      "valid name",
-			inputName: "test-server",
-			wantErr:   nil,
-		},
-		{
-			name:      "empty name should return error",
-			inputName: "",
-			wantErr:   ErrEmptyValue,
-		},
-		{
-			name:      "whitespace only name should be valid",
-			inputName: "  ",
-			wantErr:   nil,
-		},
-		{
-			name:      "special characters in name",
-			inputName: "test-server_v1.0",
-			wantErr:   nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &handlerConfig{}
-			option := WithName(tt.inputName)
-			err := option(cfg)
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.inputName, cfg.name)
-			}
-		})
-	}
+// Test helper types
+type testInput struct {
+	Value string `json:"value"`
 }
 
-func TestWithVersion(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name         string
-		inputVersion string
-		wantErr      error
-	}{
-		{
-			name:         "valid version",
-			inputVersion: "1.0.0",
-			wantErr:      nil,
-		},
-		{
-			name:         "empty version should return error",
-			inputVersion: "",
-			wantErr:      ErrEmptyValue,
-		},
-		{
-			name:         "semantic version",
-			inputVersion: "2.1.3-beta.1",
-			wantErr:      nil,
-		},
-		{
-			name:         "simple version string",
-			inputVersion: "latest",
-			wantErr:      nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &handlerConfig{}
-			option := WithVersion(tt.inputVersion)
-			err := option(cfg)
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.inputVersion, cfg.version)
-			}
-		})
-	}
+type testOutput struct {
+	Result string `json:"result"`
 }
 
-func TestWithServer(t *testing.T) {
+// Test helper functions
+func testToolFunc(ctx context.Context, input testInput) (testOutput, error) {
+	return testOutput{Result: input.Value + "_processed"}, nil
+}
+
+func testRawToolFunc(ctx context.Context, input []byte) ([]byte, error) {
+	return input, nil
+}
+
+func TestBasicOptions(t *testing.T) {
 	t.Parallel()
 
 	validServer := mcp.NewServer(&mcp.Implementation{
@@ -109,37 +36,127 @@ func TestWithServer(t *testing.T) {
 		Version: "1.0.0",
 	}, nil)
 
-	tests := []struct {
-		name    string
-		server  *mcp.Server
-		wantErr error
-	}{
-		{
-			name:    "valid server",
-			server:  validServer,
-			wantErr: nil,
-		},
-		{
-			name:    "nil server should return error",
-			server:  nil,
-			wantErr: ErrNilValue,
-		},
-	}
+	t.Run("WithName", func(t *testing.T) {
+		tests := []struct {
+			name      string
+			inputName string
+			wantErr   error
+		}{
+			{
+				name:      "valid name",
+				inputName: "test-server",
+				wantErr:   nil,
+			},
+			{
+				name:      "empty name should return error",
+				inputName: "",
+				wantErr:   ErrEmptyValue,
+			},
+			{
+				name:      "whitespace only name should be valid",
+				inputName: "  ",
+				wantErr:   nil,
+			},
+			{
+				name:      "special characters in name",
+				inputName: "test-server_v1.0",
+				wantErr:   nil,
+			},
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &handlerConfig{}
-			option := WithServer(tt.server)
-			err := option(cfg)
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				cfg := &handlerConfig{}
+				option := WithName(tt.inputName)
+				err := option(cfg)
 
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.server, cfg.server)
-			}
-		})
-	}
+				if tt.wantErr != nil {
+					require.ErrorIs(t, err, tt.wantErr)
+				} else {
+					require.NoError(t, err)
+					assert.Equal(t, tt.inputName, cfg.name)
+				}
+			})
+		}
+	})
+
+	t.Run("WithVersion", func(t *testing.T) {
+		tests := []struct {
+			name         string
+			inputVersion string
+			wantErr      error
+		}{
+			{
+				name:         "valid version",
+				inputVersion: "1.0.0",
+				wantErr:      nil,
+			},
+			{
+				name:         "empty version should return error",
+				inputVersion: "",
+				wantErr:      ErrEmptyValue,
+			},
+			{
+				name:         "semantic version",
+				inputVersion: "2.1.3-beta.1",
+				wantErr:      nil,
+			},
+			{
+				name:         "simple version string",
+				inputVersion: "latest",
+				wantErr:      nil,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				cfg := &handlerConfig{}
+				option := WithVersion(tt.inputVersion)
+				err := option(cfg)
+
+				if tt.wantErr != nil {
+					require.ErrorIs(t, err, tt.wantErr)
+				} else {
+					require.NoError(t, err)
+					assert.Equal(t, tt.inputVersion, cfg.version)
+				}
+			})
+		}
+	})
+
+	t.Run("WithServer", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			server  *mcp.Server
+			wantErr error
+		}{
+			{
+				name:    "valid server",
+				server:  validServer,
+				wantErr: nil,
+			},
+			{
+				name:    "nil server should return error",
+				server:  nil,
+				wantErr: ErrNilValue,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				cfg := &handlerConfig{}
+				option := WithServer(tt.server)
+				err := option(cfg)
+
+				if tt.wantErr != nil {
+					require.ErrorIs(t, err, tt.wantErr)
+				} else {
+					require.NoError(t, err)
+					assert.Equal(t, tt.server, cfg.server)
+				}
+			})
+		}
+	})
 }
 
 func TestMultipleOptionsApplication(t *testing.T) {
@@ -310,4 +327,213 @@ func TestWithStreamableHTTPOptions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPromptOptions(t *testing.T) {
+	t.Parallel()
+
+	testPromptFunc := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+		return &PromptResult{
+			Messages: []PromptMessage{{Role: "user", Content: "test"}},
+		}, nil
+	}
+
+	t.Run("WithPrompt", func(t *testing.T) {
+		tests := []struct {
+			name          string
+			promptName    string
+			description   string
+			promptFunc    PromptFunc
+			wantErr       error
+			expectPrompts int
+		}{
+			{
+				name:          "valid prompt",
+				promptName:    "test-prompt",
+				description:   "A test prompt",
+				promptFunc:    testPromptFunc,
+				wantErr:       nil,
+				expectPrompts: 1,
+			},
+			{
+				name:          "empty prompt name should return error",
+				promptName:    "",
+				description:   "A test prompt",
+				promptFunc:    testPromptFunc,
+				wantErr:       ErrEmptyValue,
+				expectPrompts: 0,
+			},
+			{
+				name:          "empty description should be valid",
+				promptName:    "test-prompt",
+				description:   "",
+				promptFunc:    testPromptFunc,
+				wantErr:       nil,
+				expectPrompts: 1,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				cfg := &handlerConfig{
+					prompts: make([]promptRegisterFunc, 0),
+				}
+				option := WithPrompt(tt.promptName, tt.description, tt.promptFunc)
+				err := option(cfg)
+
+				if tt.wantErr != nil {
+					require.ErrorIs(t, err, tt.wantErr)
+				} else {
+					require.NoError(t, err)
+				}
+				assert.Len(t, cfg.prompts, tt.expectPrompts)
+			})
+		}
+	})
+
+	t.Run("WithPromptWithArgs", func(t *testing.T) {
+		promptArgs := []*mcp.PromptArgument{
+			{
+				Name:        "name",
+				Description: "The name to use",
+				Required:    true,
+			},
+		}
+
+		tests := []struct {
+			name          string
+			promptName    string
+			description   string
+			args          []*mcp.PromptArgument
+			promptFunc    PromptFunc
+			wantErr       error
+			expectPrompts int
+		}{
+			{
+				name:          "valid prompt with args",
+				promptName:    "test-prompt",
+				description:   "A test prompt",
+				args:          promptArgs,
+				promptFunc:    testPromptFunc,
+				wantErr:       nil,
+				expectPrompts: 1,
+			},
+			{
+				name:          "empty prompt name should return error",
+				promptName:    "",
+				description:   "A test prompt",
+				args:          promptArgs,
+				promptFunc:    testPromptFunc,
+				wantErr:       ErrEmptyValue,
+				expectPrompts: 0,
+			},
+			{
+				name:          "nil args should be valid",
+				promptName:    "test-prompt",
+				description:   "A test prompt",
+				args:          nil,
+				promptFunc:    testPromptFunc,
+				wantErr:       nil,
+				expectPrompts: 1,
+			},
+			{
+				name:          "empty args slice should be valid",
+				promptName:    "test-prompt",
+				description:   "A test prompt",
+				args:          []*mcp.PromptArgument{},
+				promptFunc:    testPromptFunc,
+				wantErr:       nil,
+				expectPrompts: 1,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				cfg := &handlerConfig{
+					prompts: make([]promptRegisterFunc, 0),
+				}
+				option := WithPromptWithArgs(tt.promptName, tt.description, tt.args, tt.promptFunc)
+				err := option(cfg)
+
+				if tt.wantErr != nil {
+					require.ErrorIs(t, err, tt.wantErr)
+				} else {
+					require.NoError(t, err)
+				}
+				assert.Len(t, cfg.prompts, tt.expectPrompts)
+			})
+		}
+
+		// Test that the registration closure works correctly
+		t.Run("registration function executes", func(t *testing.T) {
+			handler, err := NewHandler(
+				WithName("test-server"),
+				WithPromptWithArgs("greeting", "Generate greeting with args", promptArgs, testPromptFunc),
+			)
+			require.NoError(t, err)
+			assert.NotNil(t, handler)
+			assert.NotNil(t, handler.GetServer())
+		})
+	})
+}
+
+func TestResourceOptions(t *testing.T) {
+	t.Parallel()
+
+	resourceFunc := func(ctx context.Context, uri string) (*ResourceContent, error) {
+		return &ResourceContent{Content: []byte("test content"), MIMEType: "text/plain"}, nil
+	}
+
+	templateFunc := func(ctx context.Context, uri string) (*ResourceContent, error) {
+		return &ResourceContent{Content: []byte("template content"), MIMEType: "application/json"}, nil
+	}
+
+	t.Run("WithResource", func(t *testing.T) {
+		// Test valid resource
+		cfg := &handlerConfig{resources: make([]resourceRegisterFunc, 0)}
+		err := WithResource("test://resource", "A test resource", resourceFunc)(cfg)
+		require.NoError(t, err)
+		assert.Len(t, cfg.resources, 1)
+
+		// Test empty URI error
+		err = WithResource("", "A test resource", resourceFunc)(&handlerConfig{})
+		require.ErrorIs(t, err, ErrEmptyValue)
+
+		// Test empty description valid
+		cfg = &handlerConfig{resources: make([]resourceRegisterFunc, 0)}
+		err = WithResource("test://resource", "", resourceFunc)(cfg)
+		require.NoError(t, err)
+		assert.Len(t, cfg.resources, 1)
+
+		// Test complex URI valid
+		cfg = &handlerConfig{resources: make([]resourceRegisterFunc, 0)}
+		err = WithResource("file:///path/to/resource.txt", "A file resource", resourceFunc)(cfg)
+		require.NoError(t, err)
+		assert.Len(t, cfg.resources, 1)
+	})
+
+	t.Run("WithResourceTemplate", func(t *testing.T) {
+		// Valid template test
+		cfg := &handlerConfig{resourceTemplates: make([]resourceTemplateRegisterFunc, 0)}
+		err := WithResourceTemplate("user://{id}", "A user template", templateFunc)(cfg)
+		require.NoError(t, err)
+		assert.Len(t, cfg.resourceTemplates, 1)
+
+		// Empty template error test
+		err = WithResourceTemplate("", "A test template", templateFunc)(&handlerConfig{})
+		require.ErrorIs(t, err, ErrEmptyValue)
+
+		// Empty description valid test
+		cfg = &handlerConfig{resourceTemplates: make([]resourceTemplateRegisterFunc, 0)}
+		err = WithResourceTemplate("config://{section}", "", templateFunc)(cfg)
+		require.NoError(t, err)
+		assert.Len(t, cfg.resourceTemplates, 1)
+
+		// Multiple placeholders valid test with more detailed checks
+		cfg = &handlerConfig{resourceTemplates: make([]resourceTemplateRegisterFunc, 0)}
+		complexTemplate := "api://v1/users/{userId}/posts/{postId}"
+		err = WithResourceTemplate(complexTemplate, "Complex template", templateFunc)(cfg)
+		require.NoError(t, err)
+		assert.Len(t, cfg.resourceTemplates, 1)
+	})
 }
