@@ -26,7 +26,7 @@ func resourceReader(ctx context.Context, uri string) (*mcpio.ResourceContent, er
 }
 
 func main() {
-	handler, err := mcpio.NewResourceHandler(
+	handler, err := mcpio.NewHandler(
 		mcpio.WithName("resource-server"),
 		mcpio.WithResourceTemplate("res://kv/{key}", "A simple key-value store", resourceReader),
 	)

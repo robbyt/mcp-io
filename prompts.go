@@ -39,26 +39,6 @@ type PromptMessage struct {
 	Content string `json:"content"`
 }
 
-// NewPromptHandler creates a new MCP handler that only supports prompts.
-// For mixed resource types, use NewHandler instead.
-func NewPromptHandler(opts ...Option) (*Handler, error) {
-	cfg := &handlerConfig{
-		name:    "mcp-server",
-		version: "1.0.0",
-		prompts: make([]promptRegisterFunc, 0),
-	}
-
-	// Apply options - they will validate handler type compatibility
-	for _, opt := range opts {
-		if err := opt(cfg); err != nil {
-			return nil, fmt.Errorf("failed to apply option: %w", err)
-		}
-	}
-
-	// Delegate to the unified constructor
-	return NewHandler(opts...)
-}
-
 // createPromptHandler wraps a user function to match MCP PromptHandler signature
 func createPromptHandler(fn PromptFunc) mcp.PromptHandler {
 	return func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {

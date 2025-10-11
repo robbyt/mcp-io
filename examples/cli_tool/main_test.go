@@ -36,7 +36,7 @@ func (s *CliToolTestSuite) TestFunctionality() {
 
 	// Create server using the same logic as main()
 	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("text-processor"),
 			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpperCase),
 			mcpio.WithTool("to_lower", "Convert text to lowercase", toLowerCase),
@@ -129,7 +129,7 @@ func (s *CliToolTestSuite) TestErrorHandling() {
 	ctx := s.T().Context()
 
 	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("text-processor"),
 			mcpio.WithTool("count", "Count words, characters, or lines", countText),
 		)
@@ -166,7 +166,7 @@ func (s *CliToolTestSuite) TestListing() {
 	ctx := s.T().Context()
 
 	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("text-processor"),
 			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpperCase),
 			mcpio.WithTool("to_lower", "Convert text to lowercase", toLowerCase),

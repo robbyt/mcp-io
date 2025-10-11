@@ -36,7 +36,7 @@ func (s *HttpServerTestSuite) TestTools() {
 
 	// Create server using the same logic as main()
 	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("example-calculator"),
 			mcpio.WithVersion("1.0.0"),
 			mcpio.WithTool("calculate", "Perform arithmetic operations", calculator),
@@ -121,7 +121,7 @@ func (s *HttpServerTestSuite) TestToolListing() {
 	ctx := s.T().Context()
 
 	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("example-calculator"),
 			mcpio.WithVersion("1.0.0"),
 			mcpio.WithTool("calculate", "Perform arithmetic operations", calculator),
@@ -162,7 +162,7 @@ func (s *HttpServerTestSuite) TestErrorHandling() {
 	ctx := s.T().Context()
 
 	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("example-calculator"),
 			mcpio.WithTool("calculate", "Perform arithmetic operations", calculator),
 		)

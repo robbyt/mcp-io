@@ -46,26 +46,6 @@ type ToolFunc[TIn, TOut any] func(context.Context, TIn) (TOut, error)
 // Schema must be provided explicitly when using WithRawTool.
 type RawToolFunc func(context.Context, []byte) ([]byte, error)
 
-// NewToolHandler creates a new MCP handler that only supports tools.
-// For mixed resource types, use NewHandler instead.
-func NewToolHandler(opts ...Option) (*Handler, error) {
-	cfg := &handlerConfig{
-		name:    "mcp-server",
-		version: "1.0.0",
-		tools:   make([]toolRegisterFunc, 0),
-	}
-
-	// Apply options - they will validate handler type compatibility
-	for _, opt := range opts {
-		if err := opt(cfg); err != nil {
-			return nil, fmt.Errorf("failed to apply option: %w", err)
-		}
-	}
-
-	// Delegate to the unified constructor
-	return NewHandler(opts...)
-}
-
 // createRawToolHandler wraps a raw function to match the MCP ToolHandler signature
 func createRawToolHandler(fn RawToolFunc) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {

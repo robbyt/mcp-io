@@ -252,7 +252,7 @@ func TestToolOptionsIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewToolHandler(
+			_, err := NewHandler(
 				WithName("test-server"),
 				WithToolWithSchema(tt.toolName, "Test tool", tt.toolFunc, tt.schemas),
 			)
@@ -280,7 +280,7 @@ func TestBackwardsCompatibility(t *testing.T) {
 		return TestOutput{Result: "processed: " + input.Message}, nil
 	}
 
-	handler, err := NewToolHandler(
+	handler, err := NewHandler(
 		WithName("test-server"),
 		WithTool("echo", "Echo tool", testFunc),
 	)

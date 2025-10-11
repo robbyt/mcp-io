@@ -125,7 +125,7 @@ func main() {
 		}, nil
 	}
 
-	handler, err := mcpio.NewToolHandler(
+	handler, err := mcpio.NewHandler(
 		mcpio.WithName("schema-flexibility-demo"),
 		mcpio.WithVersion("1.0.0"),
 

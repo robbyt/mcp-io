@@ -29,10 +29,6 @@ func WithToolWithSchema[TIn, TOut any](name, description string, fn ToolFunc[TIn
 			return fmt.Errorf("tool name cannot be empty: %w", ErrEmptyValue)
 		}
 
-		if cfg.tools == nil {
-			return ErrIncompatibleHandler
-		}
-
 		// Create registration function that uses the generic AddTool
 		registerFunc := func(server *mcp.Server) error {
 			tool := &mcp.Tool{
@@ -95,10 +91,6 @@ func WithRawTool(name, description string, inputSchema any, fn RawToolFunc) Opti
 		// Check for typed nil pointers
 		if schema, ok := inputSchema.(*jsonschema.Schema); ok && schema == nil {
 			return fmt.Errorf("input schema cannot be nil: %w", ErrNilValue)
-		}
-
-		if cfg.tools == nil {
-			return ErrIncompatibleHandler
 		}
 
 		// Create registration function that uses the low-level AddTool

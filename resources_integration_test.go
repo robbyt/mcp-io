@@ -40,7 +40,7 @@ func (s *ResourcesIntegrationTestSuite) TestResourceHandlerIntegration() {
 		}
 
 		// Create the server with the same resource as cli-resource
-		server, err := mcpio.NewResourceHandler(
+		server, err := mcpio.NewHandler(
 			mcpio.WithName("resource-server"),
 			mcpio.WithResourceTemplate("res://kv/{key}", "A simple key-value store", func(ctx context.Context, uri string) (*mcpio.ResourceContent, error) {
 				key := strings.TrimPrefix(uri, "res://kv/")

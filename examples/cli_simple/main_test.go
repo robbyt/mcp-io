@@ -36,7 +36,7 @@ func (s *CliSimpleTestSuite) TestToUpper() {
 
 	// Create server using the same logic as main()
 	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("simple-text-processor"),
 			mcpio.WithVersion("1.0.0"),
 			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
@@ -82,7 +82,7 @@ func (s *CliSimpleTestSuite) TestToolListing() {
 	ctx := s.T().Context()
 
 	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("simple-text-processor"),
 			mcpio.WithVersion("1.0.0"),
 			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
@@ -109,7 +109,7 @@ func (s *CliSimpleTestSuite) TestErrorHandling() {
 	ctx := s.T().Context()
 
 	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("simple-text-processor"),
 			mcpio.WithVersion("1.0.0"),
 			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),

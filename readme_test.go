@@ -142,7 +142,7 @@ func createRawToolHandler() (*mcpio.Handler, error) {
 		[]string{"data"},
 	)
 
-	return mcpio.NewToolHandler(
+	return mcpio.NewHandler(
 		mcpio.WithName("raw-processor"),
 		mcpio.WithRawTool("process_raw", "Process raw JSON data", inputSchema, processJSON),
 	)
@@ -163,7 +163,7 @@ func createSchemaGenerationHandler() (*mcpio.Handler, error) {
 		return MyOutput{Greeting: fmt.Sprintf("Hello %s, age %d!", input.Name, input.Age)}, nil
 	}
 
-	return mcpio.NewToolHandler(
+	return mcpio.NewHandler(
 		mcpio.WithName("schema-example"),
 		mcpio.WithTool("greet", "Greet user with name and age", greetFunc),
 	)
@@ -174,7 +174,7 @@ func TestReadmeExamples(t *testing.T) {
 	t.Parallel()
 	t.Run("QuickStart", func(t *testing.T) {
 		// Test exact Quick Start example from README
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("example-server"),
 			mcpio.WithVersion("1.0.0"),
 			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
@@ -193,7 +193,7 @@ func TestReadmeExamples(t *testing.T) {
 
 	t.Run("FunctionalOptionsAPI", func(t *testing.T) {
 		// Test multi-tool example from README Functional Options section
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("my-server"),
 			mcpio.WithVersion("1.0.0"),
 			mcpio.WithTool("to_upper", "Convert text", toUpper),
@@ -206,7 +206,7 @@ func TestReadmeExamples(t *testing.T) {
 
 	t.Run("CalculatorExample", func(t *testing.T) {
 		// Test calculator example from README Type-Safe Tools section
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("calculator"),
 			mcpio.WithTool("calculate", "Perform arithmetic operations", calculate),
 		)
@@ -235,7 +235,7 @@ func TestReadmeExamples(t *testing.T) {
 		// Test examples from the new Schema Flexibility section
 
 		// Traditional struct-based example
-		handler1, err := mcpio.NewToolHandler(
+		handler1, err := mcpio.NewHandler(
 			mcpio.WithName("traditional-example"),
 			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
 		)
@@ -265,7 +265,7 @@ func TestReadmeExamples(t *testing.T) {
 			return map[string]any{"result": result}, nil
 		}
 
-		handler2, err := mcpio.NewToolHandler(
+		handler2, err := mcpio.NewHandler(
 			mcpio.WithName("calculator-example"),
 			mcpio.WithToolWithSchema("calculator", "Arithmetic calculator", calcFunc, &mcpio.ToolSchemas{
 				InputSchema: `{
@@ -297,7 +297,7 @@ func TestReadmeExamples(t *testing.T) {
 			return output, nil
 		}
 
-		handler3, err := mcpio.NewToolHandler(
+		handler3, err := mcpio.NewHandler(
 			mcpio.WithName("fast-processor-example"),
 			mcpio.WithToolWithSchema("fast_processor", "High-performance processing", processorFunc, &mcpio.ToolSchemas{
 				InputSchema:  json.RawMessage(`{"type":"object","additionalProperties":true}`),
@@ -336,7 +336,7 @@ func TestReadmeExamples(t *testing.T) {
 			"required": []string{"message"},
 		}
 
-		handler4, err := mcpio.NewToolHandler(
+		handler4, err := mcpio.NewHandler(
 			mcpio.WithName("echo-example"),
 			mcpio.WithToolWithSchema("echo", "Echo with repetition", echoFunc, &mcpio.ToolSchemas{
 				InputSchema: dynamicSchema,
@@ -359,12 +359,12 @@ func TestReadmeExamples(t *testing.T) {
 
 	t.Run("ErrorHandling", func(t *testing.T) {
 		// Test configuration error - empty name
-		_, err := mcpio.NewToolHandler(mcpio.WithName(""))
+		_, err := mcpio.NewHandler(mcpio.WithName(""))
 		require.Error(t, err)
 		require.ErrorIs(t, err, mcpio.ErrEmptyValue)
 
 		// Test configuration error - empty version
-		_, err = mcpio.NewToolHandler(mcpio.WithVersion(""))
+		_, err = mcpio.NewHandler(mcpio.WithVersion(""))
 		require.Error(t, err)
 		require.ErrorIs(t, err, mcpio.ErrEmptyValue)
 
@@ -432,7 +432,7 @@ func TestDynamicSchemaCreation(t *testing.T) {
 // Test Transport Options (from README Transport Options section)
 func TestTransportOptions(t *testing.T) {
 	t.Parallel()
-	handler, err := mcpio.NewToolHandler(
+	handler, err := mcpio.NewHandler(
 		mcpio.WithName("transport-test"),
 		mcpio.WithVersion("1.0.0"),
 		mcpio.WithTool("to_upper", "Convert text", toUpper),
@@ -548,7 +548,7 @@ func TestErrorTypes(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				_, err := mcpio.NewToolHandler(tt.opts...)
+				_, err := mcpio.NewHandler(tt.opts...)
 				require.Error(t, err)
 				assert.ErrorIs(t, err, tt.expected)
 			})
@@ -693,7 +693,7 @@ func TestSessionCapabilities(t *testing.T) {
 		}
 
 		// Test handler creation
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("dungeon-master"),
 			mcpio.WithVersion("1.0.0"),
 			mcpio.WithTool("dungeon_master", "Narrate adventures using AI", dungeonMaster),

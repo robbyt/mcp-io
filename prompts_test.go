@@ -10,23 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewPromptHandler_Validation(t *testing.T) {
-	t.Parallel()
-
-	// Test that NewPromptHandler rejects non-prompt resources
-	toolFunc := func(ctx context.Context, _ struct{}) (struct{}, error) {
-		return struct{}{}, nil
-	}
-
-	_, err := NewPromptHandler(
-		WithName("invalid"),
-		WithTool("test", "test tool", toolFunc),
-	)
-
-	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrIncompatibleHandler)
-}
-
 // Test types for typed prompt tests
 type DocumentPromptArgs struct {
 	DocumentType string `json:"documentType" jsonschema:"description:Type of document to generate"`
@@ -51,7 +34,7 @@ func TestWithTypedPrompt_Basic(t *testing.T) {
 		}, nil
 	}
 
-	handler, err := NewPromptHandler(
+	handler, err := NewHandler(
 		WithName("document-generator"),
 		WithTypedPrompt("document_writer", "Generate document prompts", promptFunc),
 	)
@@ -67,7 +50,7 @@ func TestWithTypedPrompt_EmptyName(t *testing.T) {
 		return &PromptResult{Messages: []PromptMessage{{Role: "user", Content: args.Message}}}, nil
 	}
 
-	_, err := NewPromptHandler(
+	_, err := NewHandler(
 		WithName("test"),
 		WithTypedPrompt("", "Empty name test", promptFunc),
 	)
@@ -89,7 +72,7 @@ func TestWithTypedPrompt_SchemaGeneration(t *testing.T) {
 	}
 
 	// Test that schema generation works without errors
-	handler, err := NewPromptHandler(
+	handler, err := NewHandler(
 		WithName("schema-test"),
 		WithTypedPrompt("document_test", "Test schema generation", promptFunc),
 	)
@@ -457,7 +440,7 @@ func TestWithPrompt_Integration(t *testing.T) {
 	}
 
 	// Test that WithPrompt correctly wires createPromptHandler
-	handler, err := NewPromptHandler(
+	handler, err := NewHandler(
 		WithName("integration-test"),
 		WithPrompt("greeting", "Simple greeting prompt", promptFunc),
 	)

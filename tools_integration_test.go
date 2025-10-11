@@ -64,14 +64,14 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 		}()
 
 		// Actually, let's use our library directly for testing
-		// since we know the CLI tools use mcpio.NewToolHandler
+		// since we know the CLI tools use mcpio.NewHandler
 		testImpl := &mcp.Implementation{
 			Name:    "test-client",
 			Version: "1.0.0",
 		}
 
 		// Create the server with the same tools as cli-tool
-		server, err := mcpio.NewToolHandler(
+		server, err := mcpio.NewHandler(
 			mcpio.WithName("text-processor"),
 			mcpio.WithTool("to_upper", "Convert text to uppercase", func(ctx context.Context, input struct {
 				Text string `json:"text"`
@@ -125,7 +125,7 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 		}
 
 		// Create server with count tool
-		server, err := mcpio.NewToolHandler(
+		server, err := mcpio.NewHandler(
 			mcpio.WithName("text-processor"),
 			mcpio.WithTool("count", "Count words or characters in text", func(ctx context.Context, input struct {
 				Text string `json:"text"`
@@ -183,7 +183,7 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 			Version: "1.0.0",
 		}
 
-		server, err := mcpio.NewToolHandler(
+		server, err := mcpio.NewHandler(
 			mcpio.WithName("text-processor"),
 			mcpio.WithTool("count", "Count words or characters in text", func(ctx context.Context, input struct {
 				Text string `json:"text"`

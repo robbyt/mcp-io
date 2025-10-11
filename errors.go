@@ -134,8 +134,3 @@ var (
 	ErrSamplingNotSupported    = errors.New("client does not support sampling")
 	ErrElicitationNotSupported = errors.New("client does not support elicitation")
 )
-
-// Handler option type compatibility errors
-var (
-	ErrIncompatibleHandler = errors.New("option not compatible with this handler type")
-)

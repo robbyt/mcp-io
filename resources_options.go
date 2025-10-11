@@ -13,10 +13,6 @@ func WithResource(uri, description string, fn ResourceFunc) Option {
 			return fmt.Errorf("resource URI cannot be empty: %w", ErrEmptyValue)
 		}
 
-		if cfg.resources == nil {
-			return ErrIncompatibleHandler
-		}
-
 		registerFunc := func(server *mcp.Server) error {
 			resource := &mcp.Resource{
 				URI:         uri,
@@ -38,10 +34,6 @@ func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Opti
 	return func(cfg *handlerConfig) error {
 		if uriTemplate == "" {
 			return fmt.Errorf("resource template cannot be empty: %w", ErrEmptyValue)
-		}
-
-		if cfg.resourceTemplates == nil {
-			return ErrIncompatibleHandler
 		}
 
 		registerFunc := func(server *mcp.Server) error {

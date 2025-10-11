@@ -2,7 +2,6 @@ package mcpio
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -17,27 +16,6 @@ type ResourceFunc func(context.Context, string) (*ResourceContent, error)
 type ResourceContent struct {
 	Content  []byte `json:"content"`
 	MIMEType string `json:"mimeType,omitempty"`
-}
-
-// NewResourceHandler creates a new MCP handler that only supports resources and resource templates.
-// For mixed resource types, use NewHandler instead.
-func NewResourceHandler(opts ...Option) (*Handler, error) {
-	cfg := &handlerConfig{
-		name:              "mcp-server",
-		version:           "1.0.0",
-		resources:         make([]resourceRegisterFunc, 0),
-		resourceTemplates: make([]resourceTemplateRegisterFunc, 0),
-	}
-
-	// Apply options - they will validate handler type compatibility
-	for _, opt := range opts {
-		if err := opt(cfg); err != nil {
-			return nil, fmt.Errorf("failed to apply option: %w", err)
-		}
-	}
-
-	// Delegate to the unified constructor
-	return NewHandler(opts...)
 }
 
 // createResourceHandler wraps a user function to match MCP ResourceHandler signature
