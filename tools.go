@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/capabilities"
 )
 
 // ToolSchemas allows overriding auto-generated schemas for tools.
@@ -68,6 +69,10 @@ func NewToolHandler(opts ...Option) (*Handler, error) {
 // createRawToolHandler wraps a raw function to match the MCP ToolHandler signature
 func createRawToolHandler(fn RawToolFunc) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		// Inject session into context so the user function can access it
+		session := capabilities.NewSessionCapability(req.Session)
+		ctx = injectSession(ctx, session)
+
 		// Marshal input arguments to JSON bytes
 		inputJSON, err := json.Marshal(req.Params.Arguments)
 		if err != nil {
@@ -87,7 +92,7 @@ func createRawToolHandler(fn RawToolFunc) mcp.ToolHandler {
 			if errors.As(err, &toolErr) {
 				return &mcp.CallToolResult{
 					Content: []mcp.Content{
-						&mcp.TextContent{Text: toolErr.Message},
+						&mcp.TextContent{Text: toolErr.Error()},
 					},
 					IsError: true,
 				}, nil

@@ -237,4 +237,110 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 			s.Contains(textContent.Text, "unsupported count type:")
 		}
 	})
+
+	s.Run("RawToolErrorCodePreservation", func() {
+		ctx := s.Ctx
+
+		clientTransport, serverTransport := mcp.NewInMemoryTransports()
+
+		testImpl := &mcp.Implementation{
+			Name:    "test-client",
+			Version: "1.0.0",
+		}
+
+		// Create server with raw tool that returns errors with codes
+		server, err := mcpio.NewHandler(
+			mcpio.WithName("error-test"),
+			mcpio.WithRawTool("validate", "Test error code preservation",
+				`{"type":"object","properties":{"input":{"type":"string"}}}`,
+				func(ctx context.Context, input []byte) ([]byte, error) {
+					// Return an error with code
+					return nil, mcpio.NewToolErrorWithCode("validation failed", mcpio.ErrorCodeValidation)
+				},
+			),
+		)
+		s.Require().NoError(err)
+
+		go func() {
+			if runErr := server.GetServer().Run(ctx, serverTransport); runErr != nil {
+				s.T().Logf("server run error: %v", runErr)
+			}
+		}()
+
+		client := mcp.NewClient(testImpl, nil)
+		session, err := client.Connect(ctx, clientTransport, nil)
+		s.Require().NoError(err)
+		defer func() {
+			if err := session.Close(); err != nil {
+				s.T().Logf("error closing session: %v", err)
+			}
+		}()
+
+		result, err := session.CallTool(ctx, &mcp.CallToolParams{
+			Name:      "validate",
+			Arguments: map[string]any{"input": "test"},
+		})
+		s.Require().NoError(err)
+
+		// Verify error code is preserved in the error message
+		s.True(result.IsError, "result should be marked as error")
+		s.Require().Len(result.Content, 1, "result should have exactly one content item")
+		s.Require().IsType(&mcp.TextContent{}, result.Content[0], "content should be TextContent")
+		textContent := result.Content[0].(*mcp.TextContent)
+		s.Contains(textContent.Text, "[VALIDATION_ERROR]", "error message should include error code")
+		s.Contains(textContent.Text, "validation failed", "error message should include original message")
+	})
+
+	s.Run("RawToolErrorWithoutCode", func() {
+		ctx := s.Ctx
+
+		clientTransport, serverTransport := mcp.NewInMemoryTransports()
+
+		testImpl := &mcp.Implementation{
+			Name:    "test-client",
+			Version: "1.0.0",
+		}
+
+		// Create server with raw tool that returns errors without codes
+		server, err := mcpio.NewHandler(
+			mcpio.WithName("error-test"),
+			mcpio.WithRawTool("process", "Test error without code",
+				`{"type":"object","properties":{"input":{"type":"string"}}}`,
+				func(ctx context.Context, input []byte) ([]byte, error) {
+					// Return an error without code
+					return nil, mcpio.NewToolError("processing failed")
+				},
+			),
+		)
+		s.Require().NoError(err)
+
+		go func() {
+			if runErr := server.GetServer().Run(ctx, serverTransport); runErr != nil {
+				s.T().Logf("server run error: %v", runErr)
+			}
+		}()
+
+		client := mcp.NewClient(testImpl, nil)
+		session, err := client.Connect(ctx, clientTransport, nil)
+		s.Require().NoError(err)
+		defer func() {
+			if err := session.Close(); err != nil {
+				s.T().Logf("error closing session: %v", err)
+			}
+		}()
+
+		result, err := session.CallTool(ctx, &mcp.CallToolParams{
+			Name:      "process",
+			Arguments: map[string]any{"input": "test"},
+		})
+		s.Require().NoError(err)
+
+		// Verify error message appears without code prefix
+		s.True(result.IsError, "result should be marked as error")
+		s.Require().Len(result.Content, 1, "result should have exactly one content item")
+		s.Require().IsType(&mcp.TextContent{}, result.Content[0], "content should be TextContent")
+		textContent := result.Content[0].(*mcp.TextContent)
+		s.Equal("processing failed", textContent.Text, "error message should match exactly")
+		s.NotContains(textContent.Text, "[", "error message should not have code prefix")
+	})
 }

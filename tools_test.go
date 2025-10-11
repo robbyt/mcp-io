@@ -410,9 +410,8 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 		textContent, ok := result.Content[0].(*mcp.TextContent)
 		assert.True(t, ok)
-		// NOTE: Currently the implementation uses toolErr.Message instead of toolErr.Error()
-		// This means error codes are not included in the error message
-		assert.Equal(t, "invalid input format", textContent.Text)
+		// Error codes should be included with [CODE] prefix
+		assert.Equal(t, "[VALIDATION_ERROR] invalid input format", textContent.Text)
 	})
 
 	t.Run("raw function returns protocol error", func(t *testing.T) {

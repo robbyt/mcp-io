@@ -281,3 +281,195 @@ func TestSamplingInTool(t *testing.T) {
 	assert.True(t, output.SamplingUsed)
 	assert.Contains(t, output.Analysis, "Code analysis")
 }
+
+// Test that session is actually injected for typed tools (PR #1 bug fix)
+func TestTypedToolSessionInjection(t *testing.T) {
+	t.Parallel()
+
+	type Input struct {
+		Text string `json:"text"`
+	}
+	type Output struct {
+		SessionID string `json:"sessionId"`
+	}
+
+	handler, err := NewHandler(
+		WithName("session-test"),
+		WithTool("typed_tool", "Test session injection", func(ctx context.Context, input Input) (Output, error) {
+			session := GetSession(ctx)
+			require.NotNil(t, session, "Session should be injected for typed tools")
+			return Output{SessionID: session.SessionID()}, nil
+		}),
+	)
+	require.NoError(t, err)
+
+	// Create in-memory transport
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	ctx := context.Background()
+
+	go func() {
+		_ = handler.GetServer().Run(ctx, serverTransport) //nolint:errcheck
+	}()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "1.0.0"}, nil)
+	session, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer func() { _ = session.Close() }() //nolint:errcheck
+
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "typed_tool",
+		Arguments: map[string]any{"text": "test"},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+// Test that session is injected for raw tools (PR #1 bug fix)
+func TestRawToolSessionInjection(t *testing.T) {
+	t.Parallel()
+
+	handler, err := NewHandler(
+		WithName("session-test"),
+		WithRawTool("raw_tool", "Test session injection",
+			`{"type":"object"}`,
+			func(ctx context.Context, input []byte) ([]byte, error) {
+				session := GetSession(ctx)
+				require.NotNil(t, session, "Session should be injected for raw tools")
+				return []byte(`{"session_id":"` + session.SessionID() + `"}`), nil
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	ctx := context.Background()
+
+	go func() {
+		_ = handler.GetServer().Run(ctx, serverTransport) //nolint:errcheck
+	}()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "1.0.0"}, nil)
+	session, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer func() { _ = session.Close() }() //nolint:errcheck
+
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "raw_tool",
+		Arguments: map[string]any{},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+// Test that session is injected for prompts (PR #1 bug fix)
+func TestPromptSessionInjection(t *testing.T) {
+	t.Parallel()
+
+	handler, err := NewHandler(
+		WithName("session-test"),
+		WithPrompt("test_prompt", "Test session injection",
+			func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+				session := GetSession(ctx)
+				require.NotNil(t, session, "Session should be injected for prompts")
+				return &PromptResult{
+					Messages: []PromptMessage{{Role: "user", Content: "Session: " + session.SessionID()}},
+				}, nil
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	ctx := context.Background()
+
+	go func() {
+		_ = handler.GetServer().Run(ctx, serverTransport) //nolint:errcheck
+	}()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "1.0.0"}, nil)
+	session, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer func() { _ = session.Close() }() //nolint:errcheck
+
+	result, err := session.GetPrompt(ctx, &mcp.GetPromptParams{Name: "test_prompt"})
+	require.NoError(t, err)
+	require.Len(t, result.Messages, 1)
+}
+
+// Test that session is injected for typed prompts (PR #1 bug fix)
+func TestTypedPromptSessionInjection(t *testing.T) {
+	t.Parallel()
+
+	type PromptArgs struct {
+		Topic string `json:"topic"`
+	}
+
+	handler, err := NewHandler(
+		WithName("session-test"),
+		WithTypedPrompt("typed_prompt", "Test session injection",
+			func(ctx context.Context, args PromptArgs) (*PromptResult, error) {
+				session := GetSession(ctx)
+				require.NotNil(t, session, "Session should be injected for typed prompts")
+				return &PromptResult{
+					Messages: []PromptMessage{{Role: "user", Content: "Session: " + session.SessionID()}},
+				}, nil
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	ctx := context.Background()
+
+	go func() {
+		_ = handler.GetServer().Run(ctx, serverTransport) //nolint:errcheck
+	}()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "1.0.0"}, nil)
+	session, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer func() { _ = session.Close() }() //nolint:errcheck
+
+	result, err := session.GetPrompt(ctx, &mcp.GetPromptParams{
+		Name:      "typed_prompt",
+		Arguments: map[string]string{"topic": "test"},
+	})
+	require.NoError(t, err)
+	require.Len(t, result.Messages, 1)
+}
+
+// Test that session is injected for resources (PR #1 bug fix)
+func TestResourceSessionInjection(t *testing.T) {
+	t.Parallel()
+
+	handler, err := NewHandler(
+		WithName("session-test"),
+		WithResource("test://resource", "Test session injection",
+			func(ctx context.Context, uri string) (*ResourceContent, error) {
+				session := GetSession(ctx)
+				require.NotNil(t, session, "Session should be injected for resources")
+				return &ResourceContent{
+					Content:  []byte("Session: " + session.SessionID()),
+					MIMEType: "text/plain",
+				}, nil
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	ctx := context.Background()
+
+	go func() {
+		_ = handler.GetServer().Run(ctx, serverTransport) //nolint:errcheck
+	}()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "1.0.0"}, nil)
+	session, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer func() { _ = session.Close() }() //nolint:errcheck
+
+	result, err := session.ReadResource(ctx, &mcp.ReadResourceParams{URI: "test://resource"})
+	require.NoError(t, err)
+	require.Len(t, result.Contents, 1)
+}
