@@ -20,7 +20,7 @@ const (
 )
 
 func buildHandler(gameState *GameState) (*mcpio.Handler, error) {
-	return mcpio.NewToolHandler(
+	return mcpio.NewHandler(
 		mcpio.WithName("example-dungeon-master"),
 		mcpio.WithVersion("1.0.0"),
 		mcpio.WithTool("dungeon_master", dungeonMasterToolDesc, gameState.NarrativeActionTool),

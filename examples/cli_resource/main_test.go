@@ -36,7 +36,7 @@ func (s *CliResourceTestSuite) TestFunctionality() {
 
 	// Create server using the same logic as main()
 	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewResourceHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("resource-server"),
 			mcpio.WithResourceTemplate("res://kv/{key}", "A simple key-value store", resourceReader),
 		)
@@ -99,7 +99,7 @@ func (s *CliResourceTestSuite) TestListing() {
 	ctx := s.T().Context()
 
 	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewResourceHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("resource-server"),
 			mcpio.WithResourceTemplate("res://kv/{key}", "A simple key-value store", resourceReader),
 		)
@@ -122,7 +122,7 @@ func (s *CliResourceTestSuite) TestErrorHandling() {
 	ctx := s.T().Context()
 
 	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewResourceHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("resource-server"),
 			mcpio.WithResourceTemplate("res://kv/{key}", "A simple key-value store", resourceReader),
 		)

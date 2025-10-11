@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 
@@ -25,7 +27,10 @@ func toUpper(ctx context.Context, input TextInput) (TextOutput, error) {
 }
 
 func main() {
-	handler, err := mcpio.NewToolHandler(
+	listen := flag.String("listen", "", "HTTP listen address (e.g., ':8080'). If empty, uses stdio transport")
+	flag.Parse()
+
+	handler, err := mcpio.NewHandler(
 		mcpio.WithName("simple-text-processor"),
 		mcpio.WithVersion("1.0.0"),
 		mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
@@ -34,7 +39,15 @@ func main() {
 		log.Fatalf("Failed to create handler: %v", err)
 	}
 
-	if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
-		log.Fatalf("Server error: %v", err)
+	if *listen != "" {
+		// HTTP transport
+		http.Handle("/mcp", handler)
+		log.Printf("MCP HTTP server listening on %s/mcp", *listen)
+		log.Fatal(http.ListenAndServe(*listen, nil))
+	} else {
+		// Stdio transport
+		if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+			log.Fatalf("Server error: %v", err)
+		}
 	}
 }

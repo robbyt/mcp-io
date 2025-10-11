@@ -14,10 +14,6 @@ func WithPrompt(name, description string, fn PromptFunc) Option {
 			return fmt.Errorf("prompt name cannot be empty: %w", ErrEmptyValue)
 		}
 
-		if cfg.prompts == nil {
-			return ErrIncompatibleHandler
-		}
-
 		registerFunc := func(server *mcp.Server) error {
 			prompt := &mcp.Prompt{
 				Name:        name,
@@ -38,10 +34,6 @@ func WithPromptWithArgs(name, description string, args []*mcp.PromptArgument, fn
 	return func(cfg *handlerConfig) error {
 		if name == "" {
 			return fmt.Errorf("prompt name cannot be empty: %w", ErrEmptyValue)
-		}
-
-		if cfg.prompts == nil {
-			return ErrIncompatibleHandler
 		}
 
 		registerFunc := func(server *mcp.Server) error {
@@ -102,10 +94,6 @@ func WithTypedPrompt[TArgs any](name, description string, fn TypedPromptFunc[TAr
 	return func(cfg *handlerConfig) error {
 		if name == "" {
 			return fmt.Errorf("prompt name cannot be empty: %w", ErrEmptyValue)
-		}
-
-		if cfg.prompts == nil {
-			return ErrIncompatibleHandler
 		}
 
 		// Generate schema from the TArgs type

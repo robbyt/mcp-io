@@ -87,7 +87,7 @@ func createCalculatorServerBuilder() func() (*mcp.Server, error) {
 			}, nil
 		}
 
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("schema-flexibility-demo"),
 			mcpio.WithToolWithSchema("calculator", "Perform arithmetic operations", calculator, &mcpio.ToolSchemas{
 				InputSchema:  calculatorInputSchema,
@@ -141,7 +141,7 @@ func createEchoServerBuilder() func() (*mcp.Server, error) {
 			}, nil
 		}
 
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("schema-flexibility-demo"),
 			mcpio.WithToolWithSchema("echo", "Echo a message with optional repetition", echo, &mcpio.ToolSchemas{
 				InputSchema: dynamicSchema,
@@ -157,7 +157,7 @@ func createEchoServerBuilder() func() (*mcp.Server, error) {
 // createProcessJsonServerBuilder creates a server with only the process_json tool
 func createProcessJsonServerBuilder() func() (*mcp.Server, error) {
 	return func() (*mcp.Server, error) {
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("schema-flexibility-demo"),
 			mcpio.WithToolWithSchema("process_json", "Add processed flag to any JSON object", processJSON, &mcpio.ToolSchemas{
 				InputSchema:  json.RawMessage(`{"type":"object","additionalProperties":true}`),
@@ -174,7 +174,7 @@ func createProcessJsonServerBuilder() func() (*mcp.Server, error) {
 // createSimpleServerBuilder creates a server with only the to_upper tool
 func createSimpleServerBuilder() func() (*mcp.Server, error) {
 	return func() (*mcp.Server, error) {
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("schema-flexibility-demo"),
 			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
 		)
@@ -279,7 +279,7 @@ func createFullServerBuilder() func() (*mcp.Server, error) {
 			}, nil
 		}
 
-		handler, err := mcpio.NewToolHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("schema-flexibility-demo"),
 			mcpio.WithVersion("1.0.0"),
 

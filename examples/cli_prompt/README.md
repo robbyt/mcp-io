@@ -5,10 +5,9 @@ An MCP prompt server that demonstrates both map-based and typed prompts for gene
 1. **Map-based prompts** (`greeter`) - Traditional prompts that accept string arguments and handle type casting manually
 2. **Typed prompts** (`document_writer`) - Type-safe prompts with automatic schema generation from Go structs
 
-## Constructors Used
+## Handler Setup
 
-### `NewHandler()` - Mixed Resource Types
-Used in the main application for mixing prompts with other resource types (tools, etc):
+This example uses `NewHandler()` to create an MCP server with two prompts:
 ```go
 handler, err := mcpio.NewHandler(
     mcpio.WithName("prompt-server"),
@@ -17,19 +16,7 @@ handler, err := mcpio.NewHandler(
 )
 ```
 
-### `NewPromptHandler()` - Prompt-Only (Alternative)
-Could be used for prompt-only servers with validation:
-```go
-handler, err := mcpio.NewPromptHandler(
-    mcpio.WithName("prompt-server"),
-    mcpio.WithPrompt("greeter", "Generates a friendly greeting", greeterPrompt),
-    // WithTypedPrompt also works here
-)
-```
-
-**When to use each:**
-- Use `NewHandler()` when you want to mix prompts with tools or resources in the future
-- Use `NewPromptHandler()` when you only need prompts and want compile-time validation that no other resource types are added
+The `NewHandler()` constructor supports any combination of MCP resources (tools, prompts, resources, resource templates). This example demonstrates a prompt-only server, but you can add tools or resources using additional `With*` options
 
 ## Map-based vs Typed Prompts
 

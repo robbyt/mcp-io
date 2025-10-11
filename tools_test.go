@@ -76,7 +76,7 @@ func TestHandlerConstruction(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, err := NewToolHandler(tt.opts...)
+			handler, err := NewHandler(tt.opts...)
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
@@ -116,7 +116,7 @@ func TestWithTypedTool(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewToolHandler(WithTool(tt.toolName, tt.description, greetFunc))
+			_, err := NewHandler(WithTool(tt.toolName, tt.description, greetFunc))
 
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
@@ -172,7 +172,7 @@ func TestWithRawTool(t *testing.T) {
 				schemaPtr = tt.s.(*jsonschema.Schema)
 			}
 
-			_, err := NewToolHandler(WithRawTool(tt.toolName, tt.description, schemaPtr, rawFunc))
+			_, err := NewHandler(WithRawTool(tt.toolName, tt.description, schemaPtr, rawFunc))
 
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
@@ -191,7 +191,7 @@ func TestToolRegistration(t *testing.T) {
 		Version: "1.0.0",
 	}, nil)
 
-	handler, err := NewToolHandler(
+	handler, err := NewHandler(
 		WithServer(server),
 		WithTool("greet", "Greet someone", greetFunc),
 		WithTool("farewell", "Say goodbye", farewellFunc),
@@ -210,7 +210,7 @@ func TestMultipleOptions(t *testing.T) {
 		Version: "1.0.0",
 	}, nil)
 
-	handler, err := NewToolHandler(
+	handler, err := NewHandler(
 		WithName("multi-tool-server"),
 		WithVersion("1.2.3"),
 		WithServer(server),
@@ -249,7 +249,7 @@ func TestErrorHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, err := NewToolHandler(tt.opts...)
+			handler, err := NewHandler(tt.opts...)
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Nil(t, handler)
 		})
@@ -258,7 +258,7 @@ func TestErrorHandling(t *testing.T) {
 
 func TestConcurrentAccess(t *testing.T) {
 	t.Parallel()
-	handler, err := NewToolHandler(
+	handler, err := NewHandler(
 		WithName("concurrent-test"),
 		WithTool("greet", "Greet someone", greetFunc),
 	)
@@ -279,23 +279,6 @@ func TestConcurrentAccess(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		<-done
 	}
-}
-
-func TestNewToolHandler_Validation(t *testing.T) {
-	t.Parallel()
-
-	// Test that NewToolHandler rejects non-tool resources
-	promptFunc := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
-		return &PromptResult{Messages: []PromptMessage{{Role: "user", Content: "test"}}}, nil
-	}
-
-	_, err := NewToolHandler(
-		WithName("invalid"),
-		WithPrompt("test", "test prompt", promptFunc),
-	)
-
-	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrIncompatibleHandler)
 }
 
 // Helper function to create test requests for raw tool handlers

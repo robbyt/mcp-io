@@ -30,7 +30,7 @@ func simpleEchoFunc(ctx context.Context, input SimpleInput) (SimpleOutput, error
 func TestServeHTTP(t *testing.T) {
 	t.Parallel()
 	// Create handler with real server for HTTP testing
-	handler, err := NewToolHandler(
+	handler, err := NewHandler(
 		WithName("test-server"),
 		WithTool("echo", "Echo input", simpleEchoFunc),
 	)
@@ -58,7 +58,7 @@ func TestServeStdio(t *testing.T) {
 	t.Parallel()
 
 	t.Run("method exists with context parameter", func(t *testing.T) {
-		handler, err := NewToolHandler(
+		handler, err := NewHandler(
 			WithName("test-server"),
 			WithTool("echo", "Echo input", simpleEchoFunc),
 		)
@@ -75,7 +75,7 @@ func TestServerWithTransport(t *testing.T) {
 	t.Run("server with InMemoryTransport and context cancellation", func(t *testing.T) {
 		serverTransport, clientTransport := mcp.NewInMemoryTransports()
 
-		handler, err := NewToolHandler(
+		handler, err := NewHandler(
 			WithName("test-server"),
 			WithTool("echo", "Echo input", simpleEchoFunc),
 		)
@@ -130,7 +130,7 @@ func TestServerWithTransport(t *testing.T) {
 		for i := range numServers {
 			serverTransport, clientTransport := mcp.NewInMemoryTransports()
 
-			handler, err := NewToolHandler(
+			handler, err := NewHandler(
 				WithName("test-server"),
 				WithTool("echo", "Echo input", simpleEchoFunc),
 			)
@@ -183,7 +183,7 @@ func TestGetServer(t *testing.T) {
 		Version: "1.0.0",
 	}, nil)
 
-	handler, err := NewToolHandler(WithServer(server))
+	handler, err := NewHandler(WithServer(server))
 	require.NoError(t, err)
 
 	retrievedServer := handler.GetServer()
@@ -192,7 +192,7 @@ func TestGetServer(t *testing.T) {
 
 func TestServeSSE(t *testing.T) {
 	t.Parallel()
-	handler, err := NewToolHandler(
+	handler, err := NewHandler(
 		WithName("test-server"),
 		WithTool("echo", "Echo input", simpleEchoFunc),
 	)

@@ -61,19 +61,13 @@ build:
 
 ## build-examples: Build all example applications
 .PHONY: build-examples
-build-examples: build-http-server build-cli-tool build-cli-prompt build-cli-resource build-cli-combined build-cli-elicitation build-simple-dungeon-master
+build-examples: build-cli-simple build-cli-prompt build-cli-resource build-mixed-resources build-cli-elicitation build-simple-dungeon-master
 
-## build-http-server: Build the HTTP server example
-.PHONY: build-http-server
-build-http-server:
+## build-cli-simple: Build the simple example (supports both stdio and HTTP)
+.PHONY: build-cli-simple
+build-cli-simple:
 	@mkdir -p bin/
-	go build -o bin/http-server ./examples/http_server/
-
-## build-cli-tool: Build the CLI tool example
-.PHONY: build-cli-tool
-build-cli-tool:
-	@mkdir -p bin/
-	go build -o bin/cli-tool ./examples/cli_tool/
+	go build -o bin/cli-simple ./examples/cli_simple/
 
 ## build-cli-prompt: Build the CLI prompt example
 .PHONY: build-cli-prompt
@@ -87,11 +81,11 @@ build-cli-resource:
 	@mkdir -p bin/
 	go build -o bin/cli-resource ./examples/cli_resource/
 
-## build-cli-combined: Build the CLI combined example
-.PHONY: build-cli-combined
-build-cli-combined:
+## build-mixed-resources: Build the mixed resources example
+.PHONY: build-mixed-resources
+build-mixed-resources:
 	@mkdir -p bin/
-	go build -o bin/cli-combined ./examples/cli_combined/
+	go build -o bin/mixed-resources ./examples/mixed_resources/
 
 ## build-cli-elicitation: Build the CLI elicitation example
 .PHONY: build-cli-elicitation
