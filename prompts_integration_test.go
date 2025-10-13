@@ -22,18 +22,8 @@ func TestPromptsIntegrationTestSuite(t *testing.T) {
 
 func (s *PromptsIntegrationTestSuite) TestPromptHandlerIntegration() {
 	s.Run("Greeter", func() {
-		ctx := s.Ctx
-
-		// Create in-memory transports
-		clientTransport, serverTransport := mcp.NewInMemoryTransports()
-
-		testImpl := &mcp.Implementation{
-			Name:    "test-client",
-			Version: "1.0.0",
-		}
-
 		// Create the server with the same prompt as cli-prompt
-		server, err := mcpio.NewHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("prompt-server"),
 			mcpio.WithPrompt("greeter", "Generates a friendly greeting", func(ctx context.Context, args map[string]any) (*mcpio.PromptResult, error) {
 				name, _ := args["name"].(string)
@@ -56,25 +46,11 @@ func (s *PromptsIntegrationTestSuite) TestPromptHandlerIntegration() {
 		)
 		s.Require().NoError(err)
 
-		// Connect the server to the transport
-		go func() {
-			if runErr := server.GetServer().Run(ctx, serverTransport); runErr != nil {
-				s.T().Logf("server run error: %v", runErr)
-			}
-		}()
-
-		// Create client and connect
-		client := mcp.NewClient(testImpl, nil)
-		session, err := client.Connect(ctx, clientTransport, nil)
-		s.Require().NoError(err)
-		defer func() {
-			if err := session.Close(); err != nil {
-				s.T().Logf("error closing session: %v", err)
-			}
-		}()
+		// Connect client using testutil helper
+		session := testutil.ConnectInMemory(s.T(), handler)
 
 		// Get the greeter prompt
-		result, err := session.GetPrompt(ctx, &mcp.GetPromptParams{
+		result, err := session.GetPrompt(s.Ctx, &mcp.GetPromptParams{
 			Name:      "greeter",
 			Arguments: map[string]string{"name": "World"},
 		})

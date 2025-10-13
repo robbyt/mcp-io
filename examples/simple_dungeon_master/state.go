@@ -9,17 +9,17 @@ import (
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/narrative"
 )
 
-// GameState coordinates game components
+// GameState coordinates game components with sub-states for narrative, dice, and cryptography.
 type GameState struct {
-	narrative *narrative.State // Narrative engine with history and skill check state
-	dice      *dice.State      // Dice roller with roll history
-	crypt     *crypt.State     // Cryptographic operations for encrypted data validation
-	config    *Config          // Runtime configuration options
+	narrative *narrative.State                                           // Narrative engine with history and skill check state
+	dice      *dice.State                                                // Dice roller with roll history
+	crypt     *crypt.State                                               // Cryptographic operations for encrypted data validation
+	config    *Config                                                    // Runtime configuration options
+	llmFunc   func(context.Context, string, int, string) (string, error) // LLM function for narrative generation (injectable for testing)
 
-	turnCounterMutex sync.RWMutex // Mutex for turnCounter only
-	turnCounter      int          // Counter for turn number (used for encryption nonce and game state progression)
-
-	llmFunc func(context.Context, string, int, string) (string, error) // LLM function for narrative generation (injectable for testing)
+	// turnCounterMutex protects turnCounter
+	turnCounterMutex sync.RWMutex
+	turnCounter      int // protected by turnCounterMutex; used for encryption nonce and game state progression
 }
 
 type Config struct {

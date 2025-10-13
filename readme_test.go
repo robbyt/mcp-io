@@ -4,15 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
 	"github.com/robbyt/mcp-io/capabilities"
+	"github.com/robbyt/mcp-io/internal/testutil"
 	"github.com/robbyt/mcp-io/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,64 +34,6 @@ type CalculateInput struct {
 
 type CalculateOutput struct {
 	Result float64 `json:"result" jsonschema:"Calculation result"`
-}
-
-// testMockSamplingSession is a minimal mock for testing sampling
-type testMockSamplingSession struct {
-	samplingSupported bool
-	response          *capabilities.MessageResult
-}
-
-func (m *testMockSamplingSession) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
-	return nil, mcpio.ErrElicitationNotSupported
-}
-
-func (m *testMockSamplingSession) CreateMessage(ctx context.Context, messages []*capabilities.Message, maxTokens int) (*capabilities.MessageResult, error) {
-	return m.response, nil
-}
-
-func (m *testMockSamplingSession) CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
-	return nil, nil
-}
-
-func (m *testMockSamplingSession) ListRoots(ctx context.Context) ([]*capabilities.Root, error) {
-	return nil, nil
-}
-
-func (m *testMockSamplingSession) Log(ctx context.Context, level capabilities.LogLevel, message string, data map[string]any) error {
-	return nil
-}
-
-func (m *testMockSamplingSession) Logger() *slog.Logger {
-	return slog.Default()
-}
-
-func (m *testMockSamplingSession) NotifyProgress(ctx context.Context, progress, total float64) error {
-	return nil
-}
-
-func (m *testMockSamplingSession) SessionID() string {
-	return "test-readme-session"
-}
-
-func (m *testMockSamplingSession) ClientCapabilities() *capabilities.ClientCapabilities {
-	return &capabilities.ClientCapabilities{}
-}
-
-func (m *testMockSamplingSession) SupportsElicitation() bool {
-	return false
-}
-
-func (m *testMockSamplingSession) SupportsSampling() bool {
-	return m.samplingSupported
-}
-
-func (m *testMockSamplingSession) Wait() error {
-	return nil
-}
-
-func (m *testMockSamplingSession) Close() error {
-	return nil
 }
 
 // Example tool functions
@@ -653,13 +594,10 @@ func TestSessionCapabilities(t *testing.T) {
 		}
 
 		// Create a mock session that supports sampling
-		mockSession := &testMockSamplingSession{
-			samplingSupported: true,
-			response: &capabilities.MessageResult{
-				Role:    "assistant",
-				Content: capabilities.TextContent{Text: "This code looks good. No issues found."},
-			},
-		}
+		mockSession := testutil.NewMockSamplingSession(true, &capabilities.MessageResult{
+			Role:    "assistant",
+			Content: capabilities.TextContent{Text: "This code looks good. No issues found."},
+		})
 
 		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession)
 
@@ -702,15 +640,12 @@ func TestSessionCapabilities(t *testing.T) {
 		assert.NotNil(t, handler)
 
 		// Test execution with mock
-		mockSession := &testMockSamplingSession{
-			samplingSupported: true,
-			response: &capabilities.MessageResult{
-				Role: "assistant",
-				Content: capabilities.TextContent{
-					Text: "The ancient door creaks open, revealing a dimly lit corridor filled with mysterious glowing runes. A cold wind rushes past you, carrying whispers of forgotten secrets!",
-				},
+		mockSession := testutil.NewMockSamplingSession(true, &capabilities.MessageResult{
+			Role: "assistant",
+			Content: capabilities.TextContent{
+				Text: "The ancient door creaks open, revealing a dimly lit corridor filled with mysterious glowing runes. A cold wind rushes past you, carrying whispers of forgotten secrets!",
 			},
-		}
+		})
 
 		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession)
 		result, err := dungeonMaster(ctx, AdventureInput{Action: "I open the mysterious door"})

@@ -23,16 +23,6 @@ func TestResourcesIntegrationTestSuite(t *testing.T) {
 
 func (s *ResourcesIntegrationTestSuite) TestResourceHandlerIntegration() {
 	s.Run("ReadResource", func() {
-		ctx := s.Ctx
-
-		// Create in-memory transports
-		clientTransport, serverTransport := mcp.NewInMemoryTransports()
-
-		testImpl := &mcp.Implementation{
-			Name:    "test-client",
-			Version: "1.0.0",
-		}
-
 		// Create test data store
 		data := map[string]string{
 			"greeting": "Hello, World!",
@@ -40,7 +30,7 @@ func (s *ResourcesIntegrationTestSuite) TestResourceHandlerIntegration() {
 		}
 
 		// Create the server with the same resource as cli-resource
-		server, err := mcpio.NewHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("resource-server"),
 			mcpio.WithResourceTemplate("res://kv/{key}", "A simple key-value store", func(ctx context.Context, uri string) (*mcpio.ResourceContent, error) {
 				key := strings.TrimPrefix(uri, "res://kv/")
@@ -55,25 +45,11 @@ func (s *ResourcesIntegrationTestSuite) TestResourceHandlerIntegration() {
 		)
 		s.Require().NoError(err)
 
-		// Connect the server to the transport
-		go func() {
-			if runErr := server.GetServer().Run(ctx, serverTransport); runErr != nil {
-				s.T().Logf("server run error: %v", runErr)
-			}
-		}()
-
-		// Create client and connect
-		client := mcp.NewClient(testImpl, nil)
-		session, err := client.Connect(ctx, clientTransport, nil)
-		s.Require().NoError(err)
-		defer func() {
-			if err := session.Close(); err != nil {
-				s.T().Logf("error closing session: %v", err)
-			}
-		}()
+		// Connect client using testutil helper
+		session := testutil.ConnectInMemory(s.T(), handler)
 
 		// Read the greeting resource
-		result, err := session.ReadResource(ctx, &mcp.ReadResourceParams{
+		result, err := session.ReadResource(s.Ctx, &mcp.ReadResourceParams{
 			URI: "res://kv/greeting",
 		})
 		s.Require().NoError(err)

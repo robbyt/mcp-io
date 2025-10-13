@@ -4,8 +4,6 @@ package mcpio_test
 
 import (
 	"context"
-	"os/exec"
-	"path/filepath"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -23,55 +21,9 @@ func TestToolsIntegrationTestSuite(t *testing.T) {
 }
 
 func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
-	cliToolPath := filepath.Join(s.ProjectRoot, "bin", "cli-tool")
-
 	s.Run("ToUpper", func() {
-		ctx := s.Ctx
-
-		// Create in-memory transports
-		clientTransport, serverTransport := mcp.NewInMemoryTransports()
-
-		// Start the CLI tool server in a goroutine
-		go func() {
-			cmd := exec.CommandContext(ctx, cliToolPath)
-
-			// Create pipes to connect the CLI tool to our transport
-			stdin, err := cmd.StdinPipe()
-			if err != nil {
-				return
-			}
-			stdout, err := cmd.StdoutPipe()
-			if err != nil {
-				return
-			}
-
-			// Start the command
-			if err := cmd.Start(); err != nil {
-				return
-			}
-
-			// Clean up pipes
-			defer func() {
-				closeErr := stdin.Close()
-				s.NoError(closeErr) //nolint:testifylint // Assert is appropriate in defer cleanup
-				closeErr = stdout.Close()
-				s.NoError(closeErr)
-			}()
-
-			// Wait for command to finish
-			waitErr := cmd.Wait()
-			s.NoError(waitErr)
-		}()
-
-		// Actually, let's use our library directly for testing
-		// since we know the CLI tools use mcpio.NewHandler
-		testImpl := &mcp.Implementation{
-			Name:    "test-client",
-			Version: "1.0.0",
-		}
-
 		// Create the server with the same tools as cli-tool
-		server, err := mcpio.NewHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("text-processor"),
 			mcpio.WithTool("to_upper", "Convert text to uppercase", func(ctx context.Context, input struct {
 				Text string `json:"text"`
@@ -86,25 +38,11 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 		)
 		s.Require().NoError(err)
 
-		// Connect the server to the transport
-		go func() {
-			if runErr := server.GetServer().Run(ctx, serverTransport); runErr != nil {
-				s.T().Logf("server run error: %v", runErr)
-			}
-		}()
-
-		// Create client and connect
-		client := mcp.NewClient(testImpl, nil)
-		session, err := client.Connect(ctx, clientTransport, nil)
-		s.Require().NoError(err)
-		defer func() {
-			if err := session.Close(); err != nil {
-				s.T().Logf("error closing session: %v", err)
-			}
-		}()
+		// Connect client using testutil helper
+		session := testutil.ConnectInMemory(s.T(), handler)
 
 		// Call the to_upper tool
-		result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		result, err := session.CallTool(s.Ctx, &mcp.CallToolParams{
 			Name:      "to_upper",
 			Arguments: map[string]any{"text": "hello world"},
 		})
@@ -115,17 +53,8 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 	})
 
 	s.Run("CountWords", func() {
-		ctx := s.Ctx
-
-		clientTransport, serverTransport := mcp.NewInMemoryTransports()
-
-		testImpl := &mcp.Implementation{
-			Name:    "test-client",
-			Version: "1.0.0",
-		}
-
 		// Create server with count tool
-		server, err := mcpio.NewHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("text-processor"),
 			mcpio.WithTool("count", "Count words or characters in text", func(ctx context.Context, input struct {
 				Text string `json:"text"`
@@ -147,22 +76,10 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 		)
 		s.Require().NoError(err)
 
-		go func() {
-			if runErr := server.GetServer().Run(ctx, serverTransport); runErr != nil {
-				s.T().Logf("server run error: %v", runErr)
-			}
-		}()
+		// Connect client using testutil helper
+		session := testutil.ConnectInMemory(s.T(), handler)
 
-		client := mcp.NewClient(testImpl, nil)
-		session, err := client.Connect(ctx, clientTransport, nil)
-		s.Require().NoError(err)
-		defer func() {
-			if err := session.Close(); err != nil {
-				s.T().Logf("error closing session: %v", err)
-			}
-		}()
-
-		result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		result, err := session.CallTool(s.Ctx, &mcp.CallToolParams{
 			Name: "count",
 			Arguments: map[string]any{
 				"text": "this is a test",
@@ -174,16 +91,7 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 	})
 
 	s.Run("ValidationError", func() {
-		ctx := s.Ctx
-
-		clientTransport, serverTransport := mcp.NewInMemoryTransports()
-
-		testImpl := &mcp.Implementation{
-			Name:    "test-client",
-			Version: "1.0.0",
-		}
-
-		server, err := mcpio.NewHandler(
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("text-processor"),
 			mcpio.WithTool("count", "Count words or characters in text", func(ctx context.Context, input struct {
 				Text string `json:"text"`
@@ -207,22 +115,10 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 		)
 		s.Require().NoError(err)
 
-		go func() {
-			if runErr := server.GetServer().Run(ctx, serverTransport); runErr != nil {
-				s.T().Logf("server run error: %v", runErr)
-			}
-		}()
+		// Connect client using testutil helper
+		session := testutil.ConnectInMemory(s.T(), handler)
 
-		client := mcp.NewClient(testImpl, nil)
-		session, err := client.Connect(ctx, clientTransport, nil)
-		s.Require().NoError(err)
-		defer func() {
-			if err := session.Close(); err != nil {
-				s.T().Logf("error closing session: %v", err)
-			}
-		}()
-
-		result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		result, err := session.CallTool(s.Ctx, &mcp.CallToolParams{
 			Name: "count",
 			Arguments: map[string]any{
 				"text": "this is a test",
@@ -239,17 +135,8 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 	})
 
 	s.Run("RawToolErrorCodePreservation", func() {
-		ctx := s.Ctx
-
-		clientTransport, serverTransport := mcp.NewInMemoryTransports()
-
-		testImpl := &mcp.Implementation{
-			Name:    "test-client",
-			Version: "1.0.0",
-		}
-
-		// Create server with raw tool that returns errors with codes
-		server, err := mcpio.NewHandler(
+		// Create handler with raw tool that returns errors with codes
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("error-test"),
 			mcpio.WithRawTool("validate", "Test error code preservation",
 				`{"type":"object","properties":{"input":{"type":"string"}}}`,
@@ -261,22 +148,10 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 		)
 		s.Require().NoError(err)
 
-		go func() {
-			if runErr := server.GetServer().Run(ctx, serverTransport); runErr != nil {
-				s.T().Logf("server run error: %v", runErr)
-			}
-		}()
+		// Connect client using testutil helper
+		session := testutil.ConnectInMemory(s.T(), handler)
 
-		client := mcp.NewClient(testImpl, nil)
-		session, err := client.Connect(ctx, clientTransport, nil)
-		s.Require().NoError(err)
-		defer func() {
-			if err := session.Close(); err != nil {
-				s.T().Logf("error closing session: %v", err)
-			}
-		}()
-
-		result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		result, err := session.CallTool(s.Ctx, &mcp.CallToolParams{
 			Name:      "validate",
 			Arguments: map[string]any{"input": "test"},
 		})
@@ -292,17 +167,8 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 	})
 
 	s.Run("RawToolErrorWithoutCode", func() {
-		ctx := s.Ctx
-
-		clientTransport, serverTransport := mcp.NewInMemoryTransports()
-
-		testImpl := &mcp.Implementation{
-			Name:    "test-client",
-			Version: "1.0.0",
-		}
-
-		// Create server with raw tool that returns errors without codes
-		server, err := mcpio.NewHandler(
+		// Create handler with raw tool that returns errors without codes
+		handler, err := mcpio.NewHandler(
 			mcpio.WithName("error-test"),
 			mcpio.WithRawTool("process", "Test error without code",
 				`{"type":"object","properties":{"input":{"type":"string"}}}`,
@@ -314,22 +180,10 @@ func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
 		)
 		s.Require().NoError(err)
 
-		go func() {
-			if runErr := server.GetServer().Run(ctx, serverTransport); runErr != nil {
-				s.T().Logf("server run error: %v", runErr)
-			}
-		}()
+		// Connect client using testutil helper
+		session := testutil.ConnectInMemory(s.T(), handler)
 
-		client := mcp.NewClient(testImpl, nil)
-		session, err := client.Connect(ctx, clientTransport, nil)
-		s.Require().NoError(err)
-		defer func() {
-			if err := session.Close(); err != nil {
-				s.T().Logf("error closing session: %v", err)
-			}
-		}()
-
-		result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		result, err := session.CallTool(s.Ctx, &mcp.CallToolParams{
 			Name:      "process",
 			Arguments: map[string]any{"input": "test"},
 		})

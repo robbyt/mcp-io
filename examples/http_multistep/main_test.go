@@ -1,107 +1,16 @@
 package main
 
 import (
-	"context"
-	"log/slog"
 	"path/filepath"
 	"runtime"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
-	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
-
-// MockSessionCapability is a mock implementation of SessionCapability
-type MockSessionCapability struct {
-	mock.Mock
-}
-
-func (m *MockSessionCapability) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
-	args := m.Called(ctx, message, requestedSchema)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*mcp.ElicitResult), args.Error(1)
-}
-
-func (m *MockSessionCapability) CreateMessage(ctx context.Context, messages []*capabilities.Message, maxTokens int) (*capabilities.MessageResult, error) {
-	args := m.Called(ctx, messages, maxTokens)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*capabilities.MessageResult), args.Error(1)
-}
-
-func (m *MockSessionCapability) CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
-	args := m.Called(ctx, params)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*mcp.CreateMessageResult), args.Error(1)
-}
-
-func (m *MockSessionCapability) ListRoots(ctx context.Context) ([]*capabilities.Root, error) {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*capabilities.Root), args.Error(1)
-}
-
-func (m *MockSessionCapability) Log(ctx context.Context, level capabilities.LogLevel, message string, data map[string]any) error {
-	args := m.Called(ctx, level, message, data)
-	return args.Error(0)
-}
-
-func (m *MockSessionCapability) Logger() *slog.Logger {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil
-	}
-	return args.Get(0).(*slog.Logger)
-}
-
-func (m *MockSessionCapability) NotifyProgress(ctx context.Context, progress, total float64) error {
-	args := m.Called(ctx, progress, total)
-	return args.Error(0)
-}
-
-func (m *MockSessionCapability) SessionID() string {
-	args := m.Called()
-	return args.String(0)
-}
-
-func (m *MockSessionCapability) ClientCapabilities() *capabilities.ClientCapabilities {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil
-	}
-	return args.Get(0).(*capabilities.ClientCapabilities)
-}
-
-func (m *MockSessionCapability) SupportsElicitation() bool {
-	args := m.Called()
-	return args.Bool(0)
-}
-
-func (m *MockSessionCapability) SupportsSampling() bool {
-	args := m.Called()
-	return args.Bool(0)
-}
-
-func (m *MockSessionCapability) Wait() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
-func (m *MockSessionCapability) Close() error {
-	args := m.Called()
-	return args.Error(0)
-}
 
 // HttpMultistepTestSuite tests the http_multistep example
 type HttpMultistepTestSuite struct {
@@ -126,7 +35,7 @@ func TestHttpMultistepSuite(t *testing.T) {
 func (s *HttpMultistepTestSuite) TestDevelopmentFlow() {
 	// Test development environment (basic config only)
 	s.Run("DevelopmentEnvironment", func() {
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 
 		// Expect two elicit calls: basic config and confirmation
@@ -171,7 +80,7 @@ func (s *HttpMultistepTestSuite) TestDevelopmentFlow() {
 func (s *HttpMultistepTestSuite) TestStagingFlow() {
 	// Test staging environment (basic + advanced config)
 	s.Run("StagingEnvironment", func() {
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 
 		// Expect three elicit calls: basic, advanced, and confirmation
@@ -231,7 +140,7 @@ func (s *HttpMultistepTestSuite) TestStagingFlow() {
 func (s *HttpMultistepTestSuite) TestProductionFlow() {
 	// Test production environment (all three configs)
 	s.Run("ProductionEnvironment", func() {
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 
 		// Expect four elicit calls: basic, advanced, deployment, and confirmation
@@ -297,7 +206,7 @@ func (s *HttpMultistepTestSuite) TestProductionFlow() {
 
 func (s *HttpMultistepTestSuite) TestErrorHandling() {
 	s.Run("UserCancelsBasicConfig", func() {
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "decline",
@@ -315,7 +224,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 	})
 
 	s.Run("UserCancelsAdvancedConfig", func() {
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
@@ -344,7 +253,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 	})
 
 	s.Run("InvalidDeploymentConfig", func() {
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
@@ -388,7 +297,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 	})
 
 	s.Run("UserDoesNotConfirm", func() {
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{

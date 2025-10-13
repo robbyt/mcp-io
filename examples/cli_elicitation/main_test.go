@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"log/slog"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -10,99 +8,10 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
-	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
-
-// MockSessionCapability is a mock implementation of SessionCapability
-type MockSessionCapability struct {
-	mock.Mock
-}
-
-func (m *MockSessionCapability) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
-	args := m.Called(ctx, message, requestedSchema)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*mcp.ElicitResult), args.Error(1)
-}
-
-func (m *MockSessionCapability) CreateMessage(ctx context.Context, messages []*capabilities.Message, maxTokens int) (*capabilities.MessageResult, error) {
-	args := m.Called(ctx, messages, maxTokens)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*capabilities.MessageResult), args.Error(1)
-}
-
-func (m *MockSessionCapability) CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
-	args := m.Called(ctx, params)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*mcp.CreateMessageResult), args.Error(1)
-}
-
-func (m *MockSessionCapability) ListRoots(ctx context.Context) ([]*capabilities.Root, error) {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*capabilities.Root), args.Error(1)
-}
-
-func (m *MockSessionCapability) Log(ctx context.Context, level capabilities.LogLevel, message string, data map[string]any) error {
-	args := m.Called(ctx, level, message, data)
-	return args.Error(0)
-}
-
-func (m *MockSessionCapability) Logger() *slog.Logger {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil
-	}
-	return args.Get(0).(*slog.Logger)
-}
-
-func (m *MockSessionCapability) NotifyProgress(ctx context.Context, progress, total float64) error {
-	args := m.Called(ctx, progress, total)
-	return args.Error(0)
-}
-
-func (m *MockSessionCapability) SessionID() string {
-	args := m.Called()
-	return args.String(0)
-}
-
-func (m *MockSessionCapability) ClientCapabilities() *capabilities.ClientCapabilities {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil
-	}
-	return args.Get(0).(*capabilities.ClientCapabilities)
-}
-
-func (m *MockSessionCapability) SupportsElicitation() bool {
-	args := m.Called()
-	return args.Bool(0)
-}
-
-func (m *MockSessionCapability) SupportsSampling() bool {
-	args := m.Called()
-	return args.Bool(0)
-}
-
-func (m *MockSessionCapability) Wait() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
-func (m *MockSessionCapability) Close() error {
-	args := m.Called()
-	return args.Error(0)
-}
 
 // DatabaseTestSuite tests the database elicitation example
 type DatabaseTestSuite struct {
@@ -233,7 +142,7 @@ func (s *DatabaseTestSuite) TestListRecords() {
 
 func (s *DatabaseTestSuite) TestCreateRecord() {
 	s.Run("AcceptRecordData", func() {
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
@@ -267,7 +176,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 	})
 
 	s.Run("DeclineRecordData", func() {
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "decline",
@@ -284,7 +193,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 	})
 
 	s.Run("InvalidIDWithSpaces", func() {
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
@@ -311,7 +220,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 		// Add existing record
 		database["existing"] = &Record{ID: "existing", Name: "Existing User"}
 
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
@@ -345,7 +254,7 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Age:   25,
 		}
 
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
@@ -404,7 +313,7 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Email: "old@example.com",
 		}
 
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "decline",
@@ -438,7 +347,7 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Email: "old@example.com",
 		}
 
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
@@ -504,7 +413,7 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 			Age:   30,
 		}
 
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
@@ -551,7 +460,7 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 			Name: "Keep This",
 		}
 
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "decline",
@@ -581,7 +490,7 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 			Name: "Keep This Too",
 		}
 
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
@@ -615,7 +524,7 @@ func (s *DatabaseTestSuite) TestDatabaseReport() {
 		database["rec1"] = &Record{ID: "rec1", Status: "active"}
 		database["rec2"] = &Record{ID: "rec2", Status: "inactive"}
 
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
@@ -640,7 +549,7 @@ func (s *DatabaseTestSuite) TestDatabaseReport() {
 	})
 
 	s.Run("DeclineReportPreferences", func() {
-		mockSession := new(MockSessionCapability)
+		mockSession := new(testutil.MockSessionCapability)
 		mockSession.On("SupportsElicitation").Return(true)
 		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "decline",
