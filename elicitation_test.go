@@ -92,7 +92,7 @@ func TestElicitTyped_Success(t *testing.T) {
 		},
 	}
 
-	ctx := injectSession(context.Background(), mockSession)
+	ctx := injectSession(t.Context(), mockSession)
 	result, err := ElicitTyped[TestConfig](ctx, "Test message")
 
 	require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestElicitTyped_SchemaGeneration(t *testing.T) {
 		},
 	}
 
-	ctx := injectSession(context.Background(), mockSession)
+	ctx := injectSession(t.Context(), mockSession)
 	result, err := ElicitTyped[TestConfig](ctx, "Test message")
 
 	require.NoError(t, err)
@@ -119,7 +119,7 @@ func TestElicitTyped_SchemaGeneration(t *testing.T) {
 }
 
 func TestElicitTyped_NoSession(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	result, err := ElicitTyped[TestConfig](ctx, "Test message")
 
 	require.Error(t, err)
@@ -131,7 +131,7 @@ func TestElicitTyped_ElicitationNotSupported(t *testing.T) {
 	// Create a mock session that doesn't support elicitation
 	mockSession := &TestMockNoElicitation{}
 
-	ctx := injectSession(context.Background(), mockSession)
+	ctx := injectSession(t.Context(), mockSession)
 	result, err := ElicitTyped[TestConfig](ctx, "Test message")
 
 	require.Error(t, err)
@@ -218,7 +218,7 @@ func TestElicitSimple_Success(t *testing.T) {
 		},
 	}
 
-	ctx := injectSession(context.Background(), mockSession)
+	ctx := injectSession(t.Context(), mockSession)
 	result, err := ElicitSimple(ctx, "Enter username:", "username", "Your username")
 
 	require.NoError(t, err)
@@ -233,7 +233,7 @@ func TestElicitSimple_Decline(t *testing.T) {
 		},
 	}
 
-	ctx := injectSession(context.Background(), mockSession)
+	ctx := injectSession(t.Context(), mockSession)
 	result, err := ElicitSimple(ctx, "Enter username:", "username", "Your username")
 
 	require.NoError(t, err)
@@ -242,7 +242,7 @@ func TestElicitSimple_Decline(t *testing.T) {
 }
 
 func TestElicitSimple_NoSession(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	result, err := ElicitSimple(ctx, "Enter username:", "username", "Your username")
 
 	require.Error(t, err)
@@ -260,4 +260,67 @@ func TestWrapElicitResult(t *testing.T) {
 	assert.NotNil(t, wrapped)
 	assert.Equal(t, mcpResult, wrapped.ElicitResult)
 	assert.True(t, wrapped.IsAccepted())
+}
+
+func TestMultiStepElicitation(t *testing.T) {
+	t.Parallel()
+
+	callCount := 0
+	mockSession := &TestMockSession{
+		ElicitFunc: func(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
+			callCount++
+			switch callCount {
+			case 1:
+				return &mcp.ElicitResult{
+					Action: "accept",
+					Content: map[string]any{
+						"name":  "config1",
+						"value": float64(100),
+					},
+				}, nil
+			case 2:
+				return &mcp.ElicitResult{
+					Action: "accept",
+					Content: map[string]any{
+						"name":  "config2",
+						"value": float64(200),
+					},
+				}, nil
+			case 3:
+				return &mcp.ElicitResult{
+					Action:  "accept",
+					Content: map[string]any{"confirm": "yes"},
+				}, nil
+			default:
+				return &mcp.ElicitResult{Action: "cancel"}, nil
+			}
+		},
+	}
+
+	ctx := injectSession(t.Context(), mockSession)
+
+	result1, err := ElicitTyped[TestConfig](ctx, "First config:")
+	require.NoError(t, err)
+	assert.True(t, result1.IsAccepted())
+
+	var config1 TestConfig
+	err = result1.DecodeContent(&config1)
+	require.NoError(t, err)
+	assert.Equal(t, "config1", config1.Name)
+	assert.Equal(t, 100, config1.Value)
+
+	result2, err := ElicitTyped[TestConfig](ctx, "Second config:")
+	require.NoError(t, err)
+	assert.True(t, result2.IsAccepted())
+
+	var config2 TestConfig
+	err = result2.DecodeContent(&config2)
+	require.NoError(t, err)
+	assert.Equal(t, "config2", config2.Name)
+	assert.Equal(t, 200, config2.Value)
+
+	result3, err := ElicitSimple(ctx, "Proceed?", "confirm", "Type yes to proceed")
+	require.NoError(t, err)
+	assert.True(t, result3.IsAccepted())
+	assert.Equal(t, "yes", result3.GetContent()["confirm"])
 }
