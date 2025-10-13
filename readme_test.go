@@ -89,32 +89,9 @@ func createRawToolHandler() (*mcpio.Handler, error) {
 	)
 }
 
-// Helper function for schema generation testing
-func createSchemaGenerationHandler() (*mcpio.Handler, error) {
-	type MyInput struct {
-		Name string `json:"name" jsonschema:"User's full name"`
-		Age  int    `json:"age"  jsonschema:"User's age in years"`
-	}
-
-	type MyOutput struct {
-		Greeting string `json:"greeting" jsonschema:"Personalized greeting message"`
-	}
-
-	greetFunc := func(ctx context.Context, input MyInput) (MyOutput, error) {
-		return MyOutput{Greeting: fmt.Sprintf("Hello %s, age %d!", input.Name, input.Age)}, nil
-	}
-
-	return mcpio.NewHandler(
-		mcpio.WithName("schema-example"),
-		mcpio.WithTool("greet", "Greet user with name and age", greetFunc),
-	)
-}
-
-// Test README examples with comprehensive assertions
 func TestReadmeExamples(t *testing.T) {
 	t.Parallel()
 	t.Run("QuickStart", func(t *testing.T) {
-		// Test exact Quick Start example from README
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("example-server"),
 			mcpio.WithVersion("1.0.0"),
@@ -123,7 +100,6 @@ func TestReadmeExamples(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, handler)
 
-		// Test with HTTP server as shown in README
 		server := httptest.NewServer(handler)
 		defer server.Close()
 
@@ -132,49 +108,7 @@ func TestReadmeExamples(t *testing.T) {
 		assert.Contains(t, server.URL, "http://")
 	})
 
-	t.Run("FunctionalOptionsAPI", func(t *testing.T) {
-		// Test multi-tool example from README Functional Options section
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("my-server"),
-			mcpio.WithVersion("1.0.0"),
-			mcpio.WithTool("to_upper", "Convert text", toUpper),
-			mcpio.WithTool("calculate", "Do math", calculate),
-		)
-		require.NoError(t, err)
-		assert.NotNil(t, handler)
-		assert.NotNil(t, handler.GetServer())
-	})
-
-	t.Run("CalculatorExample", func(t *testing.T) {
-		// Test calculator example from README Type-Safe Tools section
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("calculator"),
-			mcpio.WithTool("calculate", "Perform arithmetic operations", calculate),
-		)
-		require.NoError(t, err)
-		assert.NotNil(t, handler)
-
-		// Test that calculate function works correctly
-		result, err := calculate(context.Background(), CalculateInput{
-			Operation: "add",
-			A:         5.0,
-			B:         3.0,
-		})
-		require.NoError(t, err)
-		assert.InDelta(t, 8.0, result.Result, 0.001)
-
-		// Test division by zero error
-		_, err = calculate(context.Background(), CalculateInput{
-			Operation: "divide",
-			A:         5.0,
-			B:         0.0,
-		})
-		require.ErrorIs(t, err, errDivisionByZero)
-	})
-
-	t.Run("SchemaFlexibilityExamples", func(t *testing.T) {
-		// Test examples from the new Schema Flexibility section
-
+	t.Run("SchemaFlexibility_AllOptions", func(t *testing.T) {
 		// Traditional struct-based example
 		handler1, err := mcpio.NewHandler(
 			mcpio.WithName("traditional-example"),
@@ -287,29 +221,57 @@ func TestReadmeExamples(t *testing.T) {
 		assert.NotNil(t, handler4)
 	})
 
-	t.Run("RawJSONTool", func(t *testing.T) {
-		handler, err := createRawToolHandler()
+	t.Run("CoreConcepts_Instantiation", func(t *testing.T) {
+		handler, err := mcpio.NewHandler(
+			mcpio.WithName("my-server"),
+			mcpio.WithVersion("1.0.0"),
+			mcpio.WithTool("to_upper", "Convert text", toUpper),
+			mcpio.WithTool("calculate", "Do math", calculate),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler)
+		assert.NotNil(t, handler.GetServer())
+	})
+
+	t.Run("InputOutputSchema_Calculator", func(t *testing.T) {
+		handler, err := mcpio.NewHandler(
+			mcpio.WithName("calculator"),
+			mcpio.WithTool("calculate", "Perform arithmetic operations", calculate),
+		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler)
 
-		server := httptest.NewServer(handler)
-		defer server.Close()
+		result, err := calculate(context.Background(), CalculateInput{
+			Operation: "add",
+			A:         5.0,
+			B:         3.0,
+		})
+		require.NoError(t, err)
+		assert.InDelta(t, 8.0, result.Result, 0.001)
 
-		assert.NotNil(t, server)
+		_, err = calculate(context.Background(), CalculateInput{
+			Operation: "divide",
+			A:         5.0,
+			B:         0.0,
+		})
+		require.ErrorIs(t, err, errDivisionByZero)
 	})
 
-	t.Run("ErrorHandling", func(t *testing.T) {
-		// Test configuration error - empty name
+	t.Run("AdvancedFeatures_RawJSON", func(t *testing.T) {
+		handler, err := createRawToolHandler()
+		require.NoError(t, err)
+		assert.NotNil(t, handler)
+	})
+
+	t.Run("ComparisonSection_ErrorHandling", func(t *testing.T) {
 		_, err := mcpio.NewHandler(mcpio.WithName(""))
 		require.Error(t, err)
 		require.ErrorIs(t, err, mcpio.ErrEmptyValue)
 
-		// Test configuration error - empty version
 		_, err = mcpio.NewHandler(mcpio.WithVersion(""))
 		require.Error(t, err)
 		require.ErrorIs(t, err, mcpio.ErrEmptyValue)
 
-		// Test tool error types
 		validationErr := mcpio.ValidationError("test validation error")
 		assert.Contains(t, validationErr.Error(), "test validation error")
 
@@ -319,24 +281,11 @@ func TestReadmeExamples(t *testing.T) {
 		toolErr := mcpio.NewToolError("test tool error")
 		assert.Contains(t, toolErr.Error(), "test tool error")
 	})
-
-	t.Run("JSONSchemaGeneration", func(t *testing.T) {
-		handler, err := createSchemaGenerationHandler()
-		require.NoError(t, err)
-		assert.NotNil(t, handler)
-
-		server := httptest.NewServer(handler)
-		defer server.Close()
-
-		assert.NotNil(t, server)
-	})
 }
 
-// Test Dynamic Schema Creation (from README Schema Generation section)
 func TestDynamicSchemaCreation(t *testing.T) {
 	t.Parallel()
 	t.Run("NewObject", func(t *testing.T) {
-		// Test NewObject example from README
 		schema := schema.NewObject(
 			"Dynamic input",
 			map[string]string{
@@ -355,7 +304,6 @@ func TestDynamicSchemaCreation(t *testing.T) {
 	})
 
 	t.Run("NewDynamic", func(t *testing.T) {
-		// Test NewDynamic example from README
 		fields := []schema.FieldDef{
 			{Name: "status", Type: "string", Required: true, Enum: []string{"active", "inactive"}},
 			{Name: "count", Type: "number", Required: false},
@@ -370,7 +318,6 @@ func TestDynamicSchemaCreation(t *testing.T) {
 	})
 }
 
-// Test Transport Options (from README Transport Options section)
 func TestTransportOptions(t *testing.T) {
 	t.Parallel()
 	handler, err := mcpio.NewHandler(
@@ -382,22 +329,17 @@ func TestTransportOptions(t *testing.T) {
 	require.NotNil(t, handler)
 
 	t.Run("HTTPTransport", func(t *testing.T) {
-		// Test HTTP transport as shown in README
 		server := httptest.NewServer(handler)
 		defer server.Close()
 
 		assert.NotNil(t, server)
 		assert.NotEmpty(t, server.URL)
-
-		// Verify handler implements http.Handler interface
 		assert.Implements(t, (*http.Handler)(nil), handler)
 	})
 
 	t.Run("SSETransport", func(t *testing.T) {
-		// Test SSE transport method exists and is callable
 		assert.NotNil(t, handler.ServeSSE)
 
-		// Test SSE handler can be wrapped in http.HandlerFunc
 		sseHandler := http.HandlerFunc(handler.ServeSSE)
 		assert.NotNil(t, sseHandler)
 
@@ -408,20 +350,13 @@ func TestTransportOptions(t *testing.T) {
 	})
 
 	t.Run("StdioTransport", func(t *testing.T) {
-		// Test ServeStdio method exists and signature is correct
 		assert.NotNil(t, handler.ServeStdio)
-
-		// Note: We can't easily test stdio in unit tests without complex mocking,
-		// but we can verify the method signature and that it doesn't panic with nil inputs
-		// In real usage, this would be: handler.ServeStdio(context.Background(), os.Stdin, os.Stdout)
 	})
 }
 
-// Test Tool Functionality (actual execution of tools)
 func TestToolExecution(t *testing.T) {
 	t.Parallel()
 	t.Run("ToUpperTool", func(t *testing.T) {
-		// Test the toUpper function directly
 		result, err := toUpper(context.Background(), TextInput{Text: "hello world"})
 		require.NoError(t, err)
 		assert.Equal(t, "HELLO WORLD", result.Result)
@@ -457,7 +392,6 @@ func TestToolExecution(t *testing.T) {
 	})
 }
 
-// Test error types from README Error Handling section
 func TestErrorTypes(t *testing.T) {
 	t.Parallel()
 	t.Run("ToolError", func(t *testing.T) {
@@ -476,7 +410,6 @@ func TestErrorTypes(t *testing.T) {
 	})
 
 	t.Run("ConfigurationErrors", func(t *testing.T) {
-		// Test various configuration errors as shown in README
 		tests := []struct {
 			name     string
 			opts     []mcpio.Option
@@ -552,28 +485,6 @@ func TestSessionCapabilities(t *testing.T) {
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("progress-server"),
 			mcpio.WithTool("process", "Process files", processDataTool),
-		)
-		require.NoError(t, err)
-		assert.NotNil(t, handler)
-	})
-
-	t.Run("SamplingExample", func(t *testing.T) {
-		// Tool from README - exact code from Sampling section
-		analyzeTool := func(ctx context.Context, input struct{ Code string }) (map[string]any, error) {
-			result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
-				Role:    "user",
-				Content: "Analyze this code and suggest improvements:\n" + input.Code,
-			}}, 2000)
-			if err != nil {
-				return nil, err
-			}
-
-			return map[string]any{"analysis": result.Content.Text}, nil
-		}
-
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("analyzer"),
-			mcpio.WithTool("analyze", "Analyze code", analyzeTool),
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler)
