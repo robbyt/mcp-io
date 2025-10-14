@@ -82,8 +82,8 @@ The library now supports multiple ways to define tool schemas, giving you comple
 mcpio.WithTool("to_upper", "Convert text to uppercase", toUpperFunc)
 
 // Custom JSON schemas from strings (converted to optimal json.RawMessage)
-mcpio.WithTool("calculator", "Arithmetic calculator", calcFunc,
-    mcpio.WithInputSchema(`{
+mcpio.WithToolWithSchema("calculator", "Arithmetic calculator", calcFunc, &mcpio.ToolSchemas{
+    InputSchema: `{
         "type": "object",
         "properties": {
             "operation": {"type": "string", "enum": ["add", "subtract", "multiply", "divide"]},
@@ -91,21 +91,19 @@ mcpio.WithTool("calculator", "Arithmetic calculator", calcFunc,
             "b": {"type": "number"}
         },
         "required": ["operation", "a", "b"]
-    }`),
-    mcpio.WithOutputSchema(`{
+    }`,
+    OutputSchema: `{
         "type": "object",
         "properties": {"result": {"type": "number"}},
         "required": ["result"]
-    }`),
-)
+    }`,
+})
 
 // Maximum performance with json.RawMessage (zero marshaling overhead)
-mcpio.WithTool("fast_processor", "High-performance processing", processorFunc,
-    mcpio.WithSchemas(
-        json.RawMessage(`{"type":"object","additionalProperties":true}`),
-        json.RawMessage(`{"type":"object","properties":{"processed":{"type":"boolean"}}}`),
-    ),
-)
+mcpio.WithToolWithSchema("fast_processor", "High-performance processing", processorFunc, &mcpio.ToolSchemas{
+    InputSchema:  json.RawMessage(`{"type":"object","additionalProperties":true}`),
+    OutputSchema: json.RawMessage(`{"type":"object","properties":{"processed":{"type":"boolean"}}}`),
+})
 
 // Dynamic schemas using map[string]any
 dynamicSchema := map[string]any{
@@ -116,9 +114,9 @@ dynamicSchema := map[string]any{
     },
     "required": []string{"message"},
 }
-mcpio.WithTool("echo", "Echo with repetition", echoFunc,
-    mcpio.WithInputSchema(dynamicSchema),
-)
+mcpio.WithToolWithSchema("echo", "Echo with repetition", echoFunc, &mcpio.ToolSchemas{
+    InputSchema: dynamicSchema,
+})
 ```
 
 ### Performance Hierarchy
@@ -546,14 +544,14 @@ The new schema flexibility features are backward compatible. Existing code conti
 mcpio.WithTool("my_tool", "Description", myToolFunc)
 ```
 
-To leverage new schema options, simply add them:
+To leverage new schema options, use WithToolWithSchema:
 
 ```go
 // Add custom schema options
-mcpio.WithTool("my_tool", "Description", myToolFunc,
-    mcpio.WithInputSchema(`{"type":"object","properties":{"field":{"type":"string"}}}`),
-    mcpio.WithOutputSchema(outputSchema),
-)
+mcpio.WithToolWithSchema("my_tool", "Description", myToolFunc, &mcpio.ToolSchemas{
+    InputSchema:  `{"type":"object","properties":{"field":{"type":"string"}}}`,
+    OutputSchema: outputSchema,
+})
 ```
 
 ### Raw Tool Schema Updates
@@ -575,12 +573,10 @@ mcpio.WithRawTool("tool", "desc", schemaJSON, rawFunc)
 For high-performance tools, use `json.RawMessage`:
 
 ```go
-mcpio.WithTool("fast_tool", "High-performance tool", toolFunc,
-    mcpio.WithSchemas(
-        json.RawMessage(`{"type":"object","properties":...}`),
-        json.RawMessage(`{"type":"object","properties":...}`),
-    ),
-)
+mcpio.WithToolWithSchema("fast_tool", "High-performance tool", toolFunc, &mcpio.ToolSchemas{
+    InputSchema:  json.RawMessage(`{"type":"object","properties":...}`),
+    OutputSchema: json.RawMessage(`{"type":"object","properties":...}`),
+})
 ```
 
 ## Comparison with Direct MCP SDK
