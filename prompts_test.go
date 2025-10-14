@@ -258,6 +258,61 @@ func TestSchemaToPromptArguments(t *testing.T) {
 	assert.False(t, ageArg.Required)
 }
 
+func TestSchemaToPromptArguments_DeterministicOrdering(t *testing.T) {
+	t.Parallel()
+
+	schema := &jsonschema.Schema{
+		Type: "object",
+		Properties: map[string]*jsonschema.Schema{
+			"zebra": {
+				Type:        "string",
+				Description: "Last alphabetically",
+			},
+			"apple": {
+				Type:        "string",
+				Description: "First alphabetically",
+			},
+			"middle": {
+				Type:        "string",
+				Description: "Middle alphabetically",
+			},
+			"banana": {
+				Type:        "string",
+				Description: "Second alphabetically",
+			},
+		},
+		Required: []string{"apple", "zebra"},
+	}
+
+	// Call the function multiple times to verify consistent ordering
+	runs := 5
+	var previousOrder []string
+
+	for i := 0; i < runs; i++ {
+		args, err := schemaToPromptArguments(schema)
+		require.NoError(t, err)
+		require.Len(t, args, 4)
+
+		// Extract the order of names
+		currentOrder := make([]string, len(args))
+		for j, arg := range args {
+			currentOrder[j] = arg.Name
+		}
+
+		// Verify alphabetical ordering
+		assert.Equal(t, []string{"apple", "banana", "middle", "zebra"}, currentOrder,
+			"Arguments should be in alphabetical order")
+
+		// Verify consistency across runs
+		if i > 0 {
+			assert.Equal(t, previousOrder, currentOrder,
+				"Argument order should be consistent across multiple calls")
+		}
+
+		previousOrder = currentOrder
+	}
+}
+
 // Tests for createPromptHandler (regular map-based prompts)
 
 func TestCreatePromptHandler_Success(t *testing.T) {

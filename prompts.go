@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/robbyt/mcp-io/capabilities"
@@ -149,8 +151,12 @@ func schemaToPromptArguments(s any) ([]*mcp.PromptArgument, error) {
 		requiredMap[field] = true
 	}
 
-	// Convert schema properties to prompt arguments
-	for name, propSchema := range jsonSchemaObj.Properties {
+	// Extract and sort property keys for deterministic ordering
+	keys := slices.Sorted(maps.Keys(jsonSchemaObj.Properties))
+
+	// Convert schema properties to prompt arguments in sorted order
+	for _, name := range keys {
+		propSchema := jsonSchemaObj.Properties[name]
 		arg := &mcp.PromptArgument{
 			Name:        name,
 			Description: propSchema.Description,
