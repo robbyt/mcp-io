@@ -126,7 +126,7 @@ func (h *Handler) ServeSSE(w http.ResponseWriter, r *http.Request) {
 // in upstream PR: https://github.com/modelcontextprotocol/go-sdk/pull/465
 //
 // TODO: Once PR #465 is merged, update to use custom stdin/stdout
-func (h *Handler) ServeStdio(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
+func (h *Handler) ServeStdio(ctx context.Context, _ io.Reader, _ io.Writer) error {
 	transport := &mcp.StdioTransport{}
 	return h.server.Run(ctx, transport)
 }
