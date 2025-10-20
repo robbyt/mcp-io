@@ -50,19 +50,15 @@ func createCalculatorServerBuilder() func() (*mcp.Server, error) {
 			"required": ["operation", "a", "b"]
 		}`
 
-		calculatorOutputSchema := `{
-			"type": "object",
-			"properties": {
-				"result": {"type": "number", "description": "Calculation result"},
-				"operation": {"type": "string", "description": "Operation performed"}
-			},
-			"required": ["result", "operation"]
-		}`
+		calculator := func(ctx context.Context, input []byte) ([]byte, error) {
+			var params map[string]any
+			if err := json.Unmarshal(input, &params); err != nil {
+				return nil, err
+			}
 
-		calculator := func(ctx context.Context, input map[string]any) (map[string]any, error) {
-			op := input["operation"].(string)
-			a := input["a"].(float64)
-			b := input["b"].(float64)
+			op := params["operation"].(string)
+			a := params["a"].(float64)
+			b := params["b"].(float64)
 
 			var result float64
 			switch op {
@@ -81,18 +77,15 @@ func createCalculatorServerBuilder() func() (*mcp.Server, error) {
 				return nil, mcpio.ValidationError("unsupported operation: " + op)
 			}
 
-			return map[string]any{
+			return json.Marshal(map[string]any{
 				"result":    result,
 				"operation": op,
-			}, nil
+			})
 		}
 
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("schema-flexibility-demo"),
-			mcpio.WithToolWithSchema("calculator", "Perform arithmetic operations", calculator, &mcpio.ToolSchemas{
-				InputSchema:  calculatorInputSchema,
-				OutputSchema: calculatorOutputSchema,
-			}),
+			mcpio.WithRawTool("calculator", "Perform arithmetic operations", calculatorInputSchema, calculator),
 		)
 		if err != nil {
 			return nil, err
@@ -122,10 +115,15 @@ func createEchoServerBuilder() func() (*mcp.Server, error) {
 			"required": []string{"message"},
 		}
 
-		echo := func(ctx context.Context, input map[string]any) (map[string]any, error) {
-			message := input["message"].(string)
+		echo := func(ctx context.Context, input []byte) ([]byte, error) {
+			var params map[string]any
+			if err := json.Unmarshal(input, &params); err != nil {
+				return nil, err
+			}
+
+			message := params["message"].(string)
 			repeat := 1
-			if r, ok := input["repeat"]; ok {
+			if r, ok := params["repeat"]; ok {
 				repeat = int(r.(float64))
 			}
 
@@ -134,18 +132,16 @@ func createEchoServerBuilder() func() (*mcp.Server, error) {
 				result = append(result, message)
 			}
 
-			return map[string]any{
+			return json.Marshal(map[string]any{
 				"echoed":  result,
 				"count":   len(result),
 				"message": message,
-			}, nil
+			})
 		}
 
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("schema-flexibility-demo"),
-			mcpio.WithToolWithSchema("echo", "Echo a message with optional repetition", echo, &mcpio.ToolSchemas{
-				InputSchema: dynamicSchema,
-			}),
+			mcpio.WithRawTool("echo", "Echo a message with optional repetition", dynamicSchema, echo),
 		)
 		if err != nil {
 			return nil, err
@@ -159,10 +155,8 @@ func createProcessJsonServerBuilder() func() (*mcp.Server, error) {
 	return func() (*mcp.Server, error) {
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("schema-flexibility-demo"),
-			mcpio.WithToolWithSchema("process_json", "Add processed flag to any JSON object", processJSON, &mcpio.ToolSchemas{
-				InputSchema:  json.RawMessage(`{"type":"object","additionalProperties":true}`),
-				OutputSchema: json.RawMessage(`{"type":"object","additionalProperties":true,"properties":{"processed":{"type":"boolean"}}}`),
-			}),
+			mcpio.WithRawTool("process_json", "Add processed flag to any JSON object",
+				json.RawMessage(`{"type":"object","additionalProperties":true}`), processJSON),
 		)
 		if err != nil {
 			return nil, err
@@ -188,7 +182,7 @@ func createSimpleServerBuilder() func() (*mcp.Server, error) {
 // createFullServerBuilder creates a server with all tools - helper to reduce duplication
 func createFullServerBuilder() func() (*mcp.Server, error) {
 	return func() (*mcp.Server, error) {
-		// JSON schema strings for better performance (json.RawMessage is optimal)
+		// JSON schema string for calculator input (json.RawMessage is optimal)
 		calculatorInputSchema := `{
 			"type": "object",
 			"properties": {
@@ -203,20 +197,16 @@ func createFullServerBuilder() func() (*mcp.Server, error) {
 			"required": ["operation", "a", "b"]
 		}`
 
-		calculatorOutputSchema := `{
-			"type": "object",
-			"properties": {
-				"result": {"type": "number", "description": "Calculation result"},
-				"operation": {"type": "string", "description": "Operation performed"}
-			},
-			"required": ["result", "operation"]
-		}`
+		// Calculator function - raw version for WithRawTool
+		calculator := func(ctx context.Context, input []byte) ([]byte, error) {
+			var params map[string]any
+			if err := json.Unmarshal(input, &params); err != nil {
+				return nil, err
+			}
 
-		// Calculator function
-		calculator := func(ctx context.Context, input map[string]any) (map[string]any, error) {
-			op := input["operation"].(string)
-			a := input["a"].(float64)
-			b := input["b"].(float64)
+			op := params["operation"].(string)
+			a := params["a"].(float64)
+			b := params["b"].(float64)
 
 			var result float64
 			switch op {
@@ -235,10 +225,10 @@ func createFullServerBuilder() func() (*mcp.Server, error) {
 				return nil, mcpio.ValidationError("unsupported operation: " + op)
 			}
 
-			return map[string]any{
+			return json.Marshal(map[string]any{
 				"result":    result,
 				"operation": op,
-			}, nil
+			})
 		}
 
 		// Schema using map[string]any for dynamic construction
@@ -260,10 +250,15 @@ func createFullServerBuilder() func() (*mcp.Server, error) {
 			"required": []string{"message"},
 		}
 
-		echo := func(ctx context.Context, input map[string]any) (map[string]any, error) {
-			message := input["message"].(string)
+		echo := func(ctx context.Context, input []byte) ([]byte, error) {
+			var params map[string]any
+			if err := json.Unmarshal(input, &params); err != nil {
+				return nil, err
+			}
+
+			message := params["message"].(string)
 			repeat := 1
-			if r, ok := input["repeat"]; ok {
+			if r, ok := params["repeat"]; ok {
 				repeat = int(r.(float64))
 			}
 
@@ -272,11 +267,11 @@ func createFullServerBuilder() func() (*mcp.Server, error) {
 				result = append(result, message)
 			}
 
-			return map[string]any{
+			return json.Marshal(map[string]any{
 				"echoed":  result,
 				"count":   len(result),
 				"message": message,
-			}, nil
+			})
 		}
 
 		handler, err := mcpio.NewHandler(
@@ -286,22 +281,15 @@ func createFullServerBuilder() func() (*mcp.Server, error) {
 			// Traditional struct-based tool (no schema options needed)
 			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
 
-			// Tool with JSON string schemas (optimal performance with json.RawMessage conversion)
-			mcpio.WithToolWithSchema("calculator", "Perform arithmetic operations", calculator, &mcpio.ToolSchemas{
-				InputSchema:  calculatorInputSchema,
-				OutputSchema: calculatorOutputSchema,
-			}),
+			// Tool with JSON string schema (converted to json.RawMessage)
+			mcpio.WithRawTool("calculator", "Perform arithmetic operations", calculatorInputSchema, calculator),
 
 			// Tool with dynamic map[string]any schema
-			mcpio.WithToolWithSchema("echo", "Echo a message with optional repetition", echo, &mcpio.ToolSchemas{
-				InputSchema: dynamicSchema,
-			}),
+			mcpio.WithRawTool("echo", "Echo a message with optional repetition", dynamicSchema, echo),
 
-			// Tool with json.RawMessage schemas (maximum performance)
-			mcpio.WithToolWithSchema("process_json", "Add processed flag to any JSON object", processJSON, &mcpio.ToolSchemas{
-				InputSchema:  json.RawMessage(`{"type":"object","additionalProperties":true}`),
-				OutputSchema: json.RawMessage(`{"type":"object","additionalProperties":true,"properties":{"processed":{"type":"boolean"}}}`),
-			}),
+			// Tool with json.RawMessage schema (maximum performance)
+			mcpio.WithRawTool("process_json", "Add processed flag to any JSON object",
+				json.RawMessage(`{"type":"object","additionalProperties":true}`), processJSON),
 		)
 		if err != nil {
 			return nil, err

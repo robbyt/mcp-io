@@ -75,35 +75,34 @@ func main() {
 
 ## Schema Flexibility (New in v0.8.0+)
 
-The library now supports multiple ways to define tool schemas, giving you complete flexibility while optimizing for performance:
+The library supports multiple ways to define tool schemas, giving you complete flexibility while optimizing for performance:
 
 ```go
-// Traditional struct-based schemas (unchanged - recommended for most use cases)
+// Traditional struct-based schemas (recommended for most use cases)
+// WithTool auto-generates schemas from Go types
 mcpio.WithTool("to_upper", "Convert text to uppercase", toUpperFunc)
 
-// Custom JSON schemas from strings (converted to optimal json.RawMessage)
-mcpio.WithToolWithSchema("calculator", "Arithmetic calculator", calcFunc, &mcpio.ToolSchemas{
-    InputSchema: `{
-        "type": "object",
-        "properties": {
-            "operation": {"type": "string", "enum": ["add", "subtract", "multiply", "divide"]},
-            "a": {"type": "number"},
-            "b": {"type": "number"}
-        },
-        "required": ["operation", "a", "b"]
-    }`,
-    OutputSchema: `{
-        "type": "object",
-        "properties": {"result": {"type": "number"}},
-        "required": ["result"]
-    }`,
-})
+// Custom JSON schemas with manual JSON handling
+// WithRawTool requires explicit schema and raw JSON processing
+calcRawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+    var params map[string]any
+    json.Unmarshal(input, &params)
+    // ... process params ...
+    return json.Marshal(result)
+}
+mcpio.WithRawTool("calculator", "Arithmetic calculator", `{
+    "type": "object",
+    "properties": {
+        "operation": {"type": "string", "enum": ["add", "subtract", "multiply", "divide"]},
+        "a": {"type": "number"},
+        "b": {"type": "number"}
+    },
+    "required": ["operation", "a", "b"]
+}`, calcRawFunc)
 
 // Maximum performance with json.RawMessage (zero marshaling overhead)
-mcpio.WithToolWithSchema("fast_processor", "High-performance processing", processorFunc, &mcpio.ToolSchemas{
-    InputSchema:  json.RawMessage(`{"type":"object","additionalProperties":true}`),
-    OutputSchema: json.RawMessage(`{"type":"object","properties":{"processed":{"type":"boolean"}}}`),
-})
+mcpio.WithRawTool("fast_processor", "High-performance processing",
+    json.RawMessage(`{"type":"object","additionalProperties":true}`), processorRawFunc)
 
 // Dynamic schemas using map[string]any
 dynamicSchema := map[string]any{
@@ -114,9 +113,7 @@ dynamicSchema := map[string]any{
     },
     "required": []string{"message"},
 }
-mcpio.WithToolWithSchema("echo", "Echo with repetition", echoFunc, &mcpio.ToolSchemas{
-    InputSchema: dynamicSchema,
-})
+mcpio.WithRawTool("echo", "Echo with repetition", dynamicSchema, echoRawFunc)
 ```
 
 ### Performance Hierarchy
@@ -251,6 +248,62 @@ if err != nil {
     log.Fatalf("Failed to register tool: %v", err)
 }
 ```
+
+### Tool Metadata (Title and Annotations)
+
+Tools support optional metadata for display and behavioral hints per the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/server/tools).
+
+#### Recommended Approach: Using Functional Options
+
+The cleanest way to add metadata is using functional options from the `primitives/tool` package:
+
+```go
+import (
+	"github.com/robbyt/mcp-io"
+	toolOption "github.com/robbyt/mcp-io/primitives/tool"  // Recommended import alias
+)
+
+// Simple tool (no metadata needed)
+mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper)
+
+// Tool with display title
+mcpio.WithTool("get_weather", "Get weather for location", getWeather,
+	toolOption.WithTitle("Weather Information Provider"),
+)
+
+// Tool with behavioral annotations (convenience functions)
+mcpio.WithTool("read_file", "Read file contents", readFile,
+	toolOption.WithTitle("File Reader"),
+	toolOption.WithReadOnly(),    // Does not modify environment
+	toolOption.WithIdempotent(),  // Repeated calls have same effect
+)
+
+// Tool with full annotations
+mcpio.WithTool("delete_record", "Delete database record", deleteRecord,
+	toolOption.WithTitle("Record Deleter"),
+	toolOption.WithAnnotations(&toolOption.ToolAnnotations{
+		DestructiveHint: &[]bool{true}[0],  // May perform destructive updates
+	}),
+	toolOption.WithMeta(map[string]any{"version": "1.0"}),
+)
+
+// Combine multiple annotation hints
+mcpio.WithTool("api_call", "Call external API", callAPI,
+	toolOption.WithOpenWorld(),   // Interacts with external entities
+	toolOption.WithIdempotent(),
+)
+```
+
+**Available Convenience Options**:
+- `WithReadOnly()` - Tool does not modify its environment
+- `WithIdempotent()` - Repeated calls with same arguments have no additional effect
+- `WithDestructive()` - Tool may perform destructive updates
+- `WithOpenWorld()` - Tool may interact with external entities (web APIs, databases, etc.)
+- `WithClosedWorld()` - Tool has closed domain of interaction (local/internal only)
+
+**Display Precedence**: Per MCP spec, the display name follows this precedence: `Title` > `Annotations.Title` > `Name`
+
+**Security Note**: Per MCP spec, clients MUST consider tool annotations untrusted unless from trusted servers. Annotations are hints only and not guaranteed to provide faithful description of tool behavior.
 
 ## Advanced Features
 
@@ -537,21 +590,24 @@ func advancedTool(ctx context.Context, _ struct{}) (map[string]any, error) {
 
 ### Upgrading to Schema Flexibility (v0.8.0+)
 
-The new schema flexibility features are backward compatible. Existing code continues to work unchanged:
+The schema flexibility features are backward compatible. Existing code continues to work unchanged:
 
 ```go
-// Before and after - no changes needed
+// WithTool continues to work with auto-generated schemas
 mcpio.WithTool("my_tool", "Description", myToolFunc)
 ```
 
-To leverage new schema options, use WithToolWithSchema:
+For custom schemas, use `WithRawTool` with raw JSON handling:
 
 ```go
-// Add custom schema options
-mcpio.WithToolWithSchema("my_tool", "Description", myToolFunc, &mcpio.ToolSchemas{
-    InputSchema:  `{"type":"object","properties":{"field":{"type":"string"}}}`,
-    OutputSchema: outputSchema,
-})
+// WithRawTool requires manual JSON marshaling
+myRawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+    var params map[string]any
+    json.Unmarshal(input, &params)
+    // ... process ...
+    return json.Marshal(result)
+}
+mcpio.WithRawTool("my_tool", "Description", `{"type":"object","properties":{"field":{"type":"string"}}}`, myRawFunc)
 ```
 
 ### Raw Tool Schema Updates
@@ -570,13 +626,15 @@ mcpio.WithRawTool("tool", "desc", schemaJSON, rawFunc)
 
 ### Performance Optimization
 
-For high-performance tools, use `json.RawMessage`:
+For high-performance tools, use `WithRawTool` with `json.RawMessage`:
 
 ```go
-mcpio.WithToolWithSchema("fast_tool", "High-performance tool", toolFunc, &mcpio.ToolSchemas{
-    InputSchema:  json.RawMessage(`{"type":"object","properties":...}`),
-    OutputSchema: json.RawMessage(`{"type":"object","properties":...}`),
-})
+fastToolFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+    // Direct byte processing - no marshaling overhead
+    return processBytes(input)
+}
+mcpio.WithRawTool("fast_tool", "High-performance tool",
+    json.RawMessage(`{"type":"object","properties":...}`), fastToolFunc)
 ```
 
 ## Comparison with Direct MCP SDK

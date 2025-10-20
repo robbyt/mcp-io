@@ -117,11 +117,16 @@ func TestReadmeExamples(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, handler1)
 
-		// Calculator with JSON string schemas
-		calcFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
-			op := input["operation"].(string)
-			a := input["a"].(float64)
-			b := input["b"].(float64)
+		// Calculator with custom schema using WithRawTool
+		calcRawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+			var params map[string]any
+			if err := json.Unmarshal(input, &params); err != nil {
+				return nil, err
+			}
+
+			op := params["operation"].(string)
+			a := params["a"].(float64)
+			b := params["b"].(float64)
 
 			var result float64
 			switch op {
@@ -137,56 +142,58 @@ func TestReadmeExamples(t *testing.T) {
 				}
 				result = a / b
 			}
-			return map[string]any{"result": result}, nil
+			return json.Marshal(map[string]any{"result": result})
 		}
 
 		handler2, err := mcpio.NewHandler(
 			mcpio.WithName("calculator-example"),
-			mcpio.WithToolWithSchema("calculator", "Arithmetic calculator", calcFunc, &mcpio.ToolSchemas{
-				InputSchema: `{
-					"type": "object",
-					"properties": {
-						"operation": {"type": "string", "enum": ["add", "subtract", "multiply", "divide"]},
-						"a": {"type": "number"},
-						"b": {"type": "number"}
-					},
-					"required": ["operation", "a", "b"]
-				}`,
-				OutputSchema: `{
-					"type": "object",
-					"properties": {"result": {"type": "number"}},
-					"required": ["result"]
-				}`,
-			}),
+			mcpio.WithRawTool("calculator", "Arithmetic calculator", `{
+				"type": "object",
+				"properties": {
+					"operation": {"type": "string", "enum": ["add", "subtract", "multiply", "divide"]},
+					"a": {"type": "number"},
+					"b": {"type": "number"}
+				},
+				"required": ["operation", "a", "b"]
+			}`, calcRawFunc),
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler2)
 
-		// Maximum performance with json.RawMessage
-		processorFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		// Maximum performance with json.RawMessage using WithRawTool
+		processorRawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+			var params map[string]any
+			if err := json.Unmarshal(input, &params); err != nil {
+				return nil, err
+			}
+
 			output := make(map[string]any)
-			for k, v := range input {
+			for k, v := range params {
 				output[k] = v
 			}
 			output["processed"] = true
-			return output, nil
+			return json.Marshal(output)
 		}
 
 		handler3, err := mcpio.NewHandler(
 			mcpio.WithName("fast-processor-example"),
-			mcpio.WithToolWithSchema("fast_processor", "High-performance processing", processorFunc, &mcpio.ToolSchemas{
-				InputSchema:  json.RawMessage(`{"type":"object","additionalProperties":true}`),
-				OutputSchema: json.RawMessage(`{"type":"object","properties":{"processed":{"type":"boolean"}}}`),
-			}),
+			mcpio.WithRawTool("fast_processor", "High-performance processing",
+				json.RawMessage(`{"type":"object","additionalProperties":true}`),
+				processorRawFunc),
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler3)
 
-		// Dynamic schemas using map[string]any
-		echoFunc := func(ctx context.Context, input map[string]any) (map[string]any, error) {
-			message := input["message"].(string)
+		// Dynamic schemas using map[string]any with WithRawTool
+		echoRawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+			var params map[string]any
+			if err := json.Unmarshal(input, &params); err != nil {
+				return nil, err
+			}
+
+			message := params["message"].(string)
 			repeat := 1
-			if r, ok := input["repeat"]; ok {
+			if r, ok := params["repeat"]; ok {
 				repeat = int(r.(float64))
 			}
 
@@ -195,11 +202,12 @@ func TestReadmeExamples(t *testing.T) {
 				echoed = append(echoed, message)
 			}
 
-			return map[string]any{
+			result := map[string]any{
 				"echoed":  echoed,
 				"count":   len(echoed),
 				"message": message,
-			}, nil
+			}
+			return json.Marshal(result)
 		}
 
 		dynamicSchema := map[string]any{
@@ -213,9 +221,7 @@ func TestReadmeExamples(t *testing.T) {
 
 		handler4, err := mcpio.NewHandler(
 			mcpio.WithName("echo-example"),
-			mcpio.WithToolWithSchema("echo", "Echo with repetition", echoFunc, &mcpio.ToolSchemas{
-				InputSchema: dynamicSchema,
-			}),
+			mcpio.WithRawTool("echo", "Echo with repetition", dynamicSchema, echoRawFunc),
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler4)
