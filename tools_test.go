@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/robbyt/mcp-io/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -129,11 +128,17 @@ func TestWithTypedTool(t *testing.T) {
 
 func TestWithRawTool(t *testing.T) {
 	t.Parallel()
-	s := schema.NewObject(
-		"Raw tool input",
-		map[string]string{"data": "Input data"},
-		[]string{"data"},
-	)
+	s := &jsonschema.Schema{
+		Type:        "object",
+		Description: "Raw tool input",
+		Properties: map[string]*jsonschema.Schema{
+			"data": {
+				Type:        "string",
+				Description: "Input data",
+			},
+		},
+		Required: []string{"data"},
+	}
 
 	tests := []struct {
 		name        string

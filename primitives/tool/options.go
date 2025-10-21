@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/robbyt/mcp-io/schema"
 )
 
 // Option is a functional option for configuring an mcp.Tool.
@@ -33,7 +32,7 @@ func WithTitle(title string) Option {
 //	tool.WithOutputSchema(`{"type":"object","properties":{"temp":{"type":"number"}}}`)
 func WithOutputSchema(outputSchema any) Option {
 	return func(t *mcp.Tool) error {
-		converted, err := schema.ConvertToRawMessage(outputSchema)
+		converted, err := convertToRawMessage(outputSchema)
 		if err != nil {
 			return fmt.Errorf("invalid output schema: %w", err)
 		}

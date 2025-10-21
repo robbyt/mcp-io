@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	mcpio "github.com/robbyt/mcp-io"
 	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
-	"github.com/robbyt/mcp-io/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -75,13 +75,17 @@ func createRawToolHandler() (*mcpio.Handler, error) {
 	}
 
 	// Define input schema for the raw tool
-	inputSchema := schema.NewObject(
-		"Raw processing input",
-		map[string]string{
-			"data": "Raw data to process",
+	inputSchema := &jsonschema.Schema{
+		Type:        "object",
+		Description: "Raw processing input",
+		Properties: map[string]*jsonschema.Schema{
+			"data": {
+				Type:        "string",
+				Description: "Raw data to process",
+			},
 		},
-		[]string{"data"},
-	)
+		Required: []string{"data"},
+	}
 
 	return mcpio.NewHandler(
 		mcpio.WithName("raw-processor"),
@@ -286,41 +290,6 @@ func TestReadmeExamples(t *testing.T) {
 
 		toolErr := mcpio.NewToolError("test tool error")
 		assert.Contains(t, toolErr.Error(), "test tool error")
-	})
-}
-
-func TestDynamicSchemaCreation(t *testing.T) {
-	t.Parallel()
-	t.Run("NewObject", func(t *testing.T) {
-		schema := schema.NewObject(
-			"Dynamic input",
-			map[string]string{
-				"field1": "First field",
-				"field2": "Second field",
-			},
-			[]string{"field1"}, // required fields
-		)
-
-		require.NotNil(t, schema)
-		assert.Equal(t, "object", schema.Type)
-		assert.Equal(t, "Dynamic input", schema.Description)
-		assert.NotNil(t, schema.Properties)
-		assert.Contains(t, schema.Required, "field1")
-		assert.NotContains(t, schema.Required, "field2")
-	})
-
-	t.Run("NewDynamic", func(t *testing.T) {
-		fields := []schema.FieldDef{
-			{Name: "status", Type: "string", Required: true, Enum: []string{"active", "inactive"}},
-			{Name: "count", Type: "number", Required: false},
-		}
-		schema := schema.NewDynamic(fields)
-
-		require.NotNil(t, schema)
-		assert.Equal(t, "object", schema.Type)
-		assert.NotNil(t, schema.Properties)
-		assert.Contains(t, schema.Required, "status")
-		assert.NotContains(t, schema.Required, "count")
 	})
 }
 

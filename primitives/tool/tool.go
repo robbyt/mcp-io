@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/robbyt/mcp-io/schema"
 )
 
 // New creates a new mcp.Tool with required fields and optional configuration.
@@ -42,7 +41,7 @@ func New(name, description string, inputSchema any, opts ...Option) (*mcp.Tool, 
 	}
 
 	// Convert input schema to json.RawMessage for optimal SDK performance
-	convertedInput, err := schema.ConvertToRawMessage(inputSchema)
+	convertedInput, err := convertToRawMessage(inputSchema)
 	if err != nil {
 		return nil, fmt.Errorf("invalid input schema for tool %q: %w", name, err)
 	}

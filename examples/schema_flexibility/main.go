@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"maps"
 	"os"
 	"strings"
 
@@ -32,10 +31,8 @@ func processJSON(ctx context.Context, input []byte) ([]byte, error) {
 	}
 
 	// Add a "processed" flag to any input
-	output := make(map[string]any)
-	maps.Copy(output, params)
-	output["processed"] = true
-	return json.Marshal(output)
+	params["processed"] = true
+	return json.Marshal(params)
 }
 
 func main() {
@@ -88,49 +85,6 @@ func main() {
 		})
 	}
 
-	// Schema using map[string]any for dynamic construction
-	dynamicSchema := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"message": map[string]any{
-				"type":        "string",
-				"description": "Message to echo",
-			},
-			"repeat": map[string]any{
-				"type":        "integer",
-				"minimum":     1,
-				"maximum":     10,
-				"default":     1,
-				"description": "Number of times to repeat",
-			},
-		},
-		"required": []string{"message"},
-	}
-
-	echo := func(ctx context.Context, input []byte) ([]byte, error) {
-		var params map[string]any
-		if err := json.Unmarshal(input, &params); err != nil {
-			return nil, err
-		}
-
-		message := params["message"].(string)
-		repeat := 1
-		if r, ok := params["repeat"]; ok {
-			repeat = int(r.(float64))
-		}
-
-		var result []string
-		for i := 0; i < repeat; i++ {
-			result = append(result, message)
-		}
-
-		return json.Marshal(map[string]any{
-			"echoed":  result,
-			"count":   len(result),
-			"message": message,
-		})
-	}
-
 	handler, err := mcpio.NewHandler(
 		mcpio.WithName("schema-flexibility-demo"),
 		mcpio.WithVersion("1.0.0"),
@@ -140,9 +94,6 @@ func main() {
 
 		// Tool with JSON string schemas (optimal performance with json.RawMessage conversion)
 		mcpio.WithRawTool("calculator", "Perform arithmetic operations", calculatorInputSchema, calculator),
-
-		// Tool with dynamic map[string]any schema
-		mcpio.WithRawTool("echo", "Echo a message with optional repetition", dynamicSchema, echo),
 
 		// Tool with json.RawMessage schemas (maximum performance)
 		mcpio.WithRawTool("process_json", "Add processed flag to any JSON object",
@@ -156,7 +107,6 @@ func main() {
 	log.Println("Available tools:")
 	log.Println("  - to_upper: WithTool with struct-based schema generation")
 	log.Println("  - calculator: WithRawTool with JSON string schema (converted to json.RawMessage)")
-	log.Println("  - echo: WithRawTool with map[string]any schema construction")
 	log.Println("  - process_json: WithRawTool with json.RawMessage schema (maximum performance)")
 	log.Println()
 

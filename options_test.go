@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/robbyt/mcp-io/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -167,11 +167,17 @@ func TestMultipleOptionsApplication(t *testing.T) {
 		Version: "1.0.0",
 	}, nil)
 
-	schema := schema.NewObject(
-		"Test schema",
-		map[string]string{"input": "Test input"},
-		[]string{"input"},
-	)
+	schema := &jsonschema.Schema{
+		Type:        "object",
+		Description: "Test schema",
+		Properties: map[string]*jsonschema.Schema{
+			"input": {
+				Type:        "string",
+				Description: "Test input",
+			},
+		},
+		Required: []string{"input"},
+	}
 
 	cfg := &handlerConfig{
 		tools: make([]toolRegisterFunc, 0),

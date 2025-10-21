@@ -6,7 +6,6 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/robbyt/mcp-io/primitives/tool"
-	"github.com/robbyt/mcp-io/schema"
 )
 
 // Option is a functional option for configuring handlers
@@ -120,7 +119,7 @@ func WithTypedPrompt[TArgs any](name, description string, fn TypedPromptFunc[TAr
 		}
 
 		// Generate schema from the TArgs type
-		s, err := schema.New[TArgs]()
+		s, err := jsonschema.For[TArgs](nil)
 		if err != nil {
 			return fmt.Errorf("failed to generate schema for prompt %s: %w", name, err)
 		}
