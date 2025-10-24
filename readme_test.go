@@ -3,7 +3,10 @@ package mcpio_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"maps"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -26,14 +29,14 @@ type TextOutput struct {
 	Result string `json:"result" jsonschema:"Transformed text"`
 }
 
-type CalculateInput struct {
-	Operation string  `json:"operation" jsonschema:"Arithmetic operation to perform"`
-	A         float64 `json:"a"         jsonschema:"First number"`
-	B         float64 `json:"b"         jsonschema:"Second number"`
+type DivideInput struct {
+	Numerator   float64 `json:"numerator"   jsonschema:"Number to be divided"`
+	Denominator float64 `json:"denominator" jsonschema:"Number to divide by (cannot be zero)"`
+	Precision   int     `json:"precision"   jsonschema:"Decimal places for rounding,minimum=0,maximum=10,default=2"`
 }
 
-type CalculateOutput struct {
-	Result float64 `json:"result" jsonschema:"Calculation result"`
+type DivideOutput struct {
+	Result float64 `json:"result" jsonschema:"Division result rounded to specified precision"`
 }
 
 // Example tool functions
@@ -41,29 +44,18 @@ func toUpper(ctx context.Context, input TextInput) (TextOutput, error) {
 	return TextOutput{Result: strings.ToUpper(input.Text)}, nil
 }
 
-var (
-	errDivisionByZero = mcpio.NewToolError("division by zero")
-	errUnsupportedOp  = mcpio.ValidationError("unsupported operation")
-)
-
-func calculate(ctx context.Context, input CalculateInput) (CalculateOutput, error) {
-	var result float64
-	switch input.Operation {
-	case "add":
-		result = input.A + input.B
-	case "subtract":
-		result = input.A - input.B
-	case "multiply":
-		result = input.A * input.B
-	case "divide":
-		if input.B == 0 {
-			return CalculateOutput{}, errDivisionByZero
-		}
-		result = input.A / input.B
-	default:
-		return CalculateOutput{}, fmt.Errorf("operation %q: %w", input.Operation, errUnsupportedOp)
+func divide(ctx context.Context, input DivideInput) (DivideOutput, error) {
+	if input.Denominator == 0 {
+		return DivideOutput{}, mcpio.NewToolError("division by zero")
 	}
-	return CalculateOutput{Result: result}, nil
+
+	result := input.Numerator / input.Denominator
+
+	// Round to specified precision
+	multiplier := math.Pow(10, float64(input.Precision))
+	rounded := math.Round(result*multiplier) / multiplier
+
+	return DivideOutput{Result: rounded}, nil
 }
 
 // Helper function for raw JSON tool usage - from README Advanced Features section
@@ -189,9 +181,7 @@ func TestReadmeExamples(t *testing.T) {
 			}
 
 			output := make(map[string]any)
-			for k, v := range params {
-				output[k] = v
-			}
+			maps.Copy(output, params)
 			output["processed"] = true
 			return json.Marshal(output)
 		}
@@ -253,35 +243,42 @@ func TestReadmeExamples(t *testing.T) {
 			mcpio.WithName("my-server"),
 			mcpio.WithVersion("1.0.0"),
 			mcpio.WithTool("to_upper", "Convert text", toUpper),
-			mcpio.WithTool("calculate", "Do math", calculate),
+			mcpio.WithTool("divide", "Divide numbers", divide),
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler)
 		assert.NotNil(t, handler.GetServer())
 	})
 
-	t.Run("InputOutputSchema_Calculator", func(t *testing.T) {
+	t.Run("InputOutputSchema_Divide", func(t *testing.T) {
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("calculator"),
-			mcpio.WithTool("calculate", "Perform arithmetic operations", calculate),
+			mcpio.WithTool("divide", "Divide two numbers with configurable precision", divide,
+				toolOption.WithReadOnly(),
+				toolOption.WithIdempotent(),
+			),
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler)
 
-		result, err := calculate(context.Background(), CalculateInput{
-			Operation: "add",
-			A:         5.0,
-			B:         3.0,
+		// Test division with precision
+		result, err := divide(context.Background(), DivideInput{
+			Numerator:   10.0,
+			Denominator: 3.0,
+			Precision:   2,
 		})
 		require.NoError(t, err)
-		assert.InDelta(t, 8.0, result.Result, 0.001)
+		assert.InDelta(t, 3.33, result.Result, 0.001)
 
-		_, err = calculate(context.Background(), CalculateInput{
-			Operation: "divide",
-			A:         5.0,
-			B:         0.0,
+		// Test division by zero
+		_, err = divide(context.Background(), DivideInput{
+			Numerator:   5.0,
+			Denominator: 0.0,
+			Precision:   2,
 		})
-		require.ErrorIs(t, err, errDivisionByZero)
+		require.Error(t, err)
+		var toolErr *mcpio.ToolError
+		require.ErrorAs(t, err, &toolErr)
 	})
 
 	t.Run("AdvancedFeatures_RawJSON", func(t *testing.T) {
@@ -425,33 +422,25 @@ func TestToolExecution(t *testing.T) {
 		assert.Equal(t, "HELLO WORLD", result.Result)
 	})
 
-	t.Run("CalculateTool", func(t *testing.T) {
-		testCases := []struct {
-			name     string
-			input    CalculateInput
-			expected float64
-			wantErr  error
-		}{
-			{"Add", CalculateInput{"add", 10, 5}, 15, nil},
-			{"Subtract", CalculateInput{"subtract", 10, 5}, 5, nil},
-			{"Multiply", CalculateInput{"multiply", 10, 5}, 50, nil},
-			{"Divide", CalculateInput{"divide", 10, 5}, 2, nil},
-			{"DivideByZero", CalculateInput{"divide", 10, 0}, 0, errDivisionByZero},
-			{"InvalidOperation", CalculateInput{"invalid", 10, 5}, 0, errUnsupportedOp},
-		}
+	t.Run("DivideTool", func(t *testing.T) {
+		// Test precision rounding
+		result, err := divide(context.Background(), DivideInput{
+			Numerator:   10.0,
+			Denominator: 3.0,
+			Precision:   2,
+		})
+		require.NoError(t, err)
+		assert.InDelta(t, 3.33, result.Result, 0.001)
 
-		for _, tc := range testCases {
-			t.Run(tc.name, func(t *testing.T) {
-				result, err := calculate(context.Background(), tc.input)
-
-				if tc.wantErr != nil {
-					require.ErrorIs(t, err, tc.wantErr)
-				} else {
-					require.NoError(t, err)
-					assert.InDelta(t, tc.expected, result.Result, 0.001)
-				}
-			})
-		}
+		// Test division by zero
+		_, err = divide(context.Background(), DivideInput{
+			Numerator:   5.0,
+			Denominator: 0.0,
+			Precision:   2,
+		})
+		require.Error(t, err)
+		var toolErr *mcpio.ToolError
+		require.ErrorAs(t, err, &toolErr)
 	})
 }
 
@@ -498,36 +487,90 @@ func TestSessionCapabilities(t *testing.T) {
 	t.Parallel()
 
 	t.Run("ElicitationExample", func(t *testing.T) {
-		// Type from README
-		type UserConfig struct {
-			Name        string `json:"name"        jsonschema:"Your full name"`
-			Environment string `json:"environment" jsonschema:"enum=dev,enum=prod"`
-			Port        int    `json:"port"        jsonschema:"minimum=1024,maximum=65535"`
+		// Types from README
+		type DeleteRecordsInput struct {
+			UserID int `json:"userId" jsonschema:"User ID whose records will be deleted"`
+		}
+
+		type ConfirmDeletion struct {
+			Confirm string `json:"confirm" jsonschema:"Type DELETE to confirm deletion"`
+		}
+
+		type Record struct {
+			ID   int
+			Name string
+		}
+
+		// Mock helper functions
+		getRecords := func(_ int) []Record {
+			return []Record{
+				{ID: 1, Name: "record1"},
+				{ID: 2, Name: "record2"},
+			}
+		}
+
+		formatRecordList := func(records []Record) string {
+			var list string
+			for _, r := range records {
+				list += fmt.Sprintf("- Record %d: %s\n", r.ID, r.Name)
+			}
+			return list
+		}
+
+		performDeletion := func(records []Record) int {
+			return len(records)
 		}
 
 		// Tool from README
-		setupTool := func(ctx context.Context, _ struct{}) (map[string]any, error) {
-			// Session is automatically available via context
-			result, err := mcpio.ElicitTyped[UserConfig](ctx, "Enter configuration:")
+		deleteRecords := func(ctx context.Context, input DeleteRecordsInput) (map[string]any, error) {
+			// Preview what will be deleted
+			records := getRecords(input.UserID)
+
+			if len(records) == 0 {
+				return map[string]any{"deleted": 0, "message": "No records found for user"}, nil
+			}
+
+			// Build confirmation message showing what will be deleted
+			message := fmt.Sprintf(
+				"You are about to delete %d records for user ID %d:\n\n%s\n\nType DELETE to confirm.",
+				len(records), input.UserID, formatRecordList(records),
+			)
+
+			// Ask user to confirm with elicitation
+			result, err := mcpio.ElicitTyped[ConfirmDeletion](ctx, message)
 			if err != nil {
+				// Handle clients that don't support elicitation
+				if errors.Is(err, mcpio.ErrElicitationNotSupported) {
+					return nil, fmt.Errorf("cannot delete records: client does not support confirmation")
+				}
 				return nil, err
 			}
 
 			if result.IsAccepted() {
-				var config UserConfig
-				if err := result.DecodeContent(&config); err != nil {
+				var conf ConfirmDeletion
+				if err := result.DecodeContent(&conf); err != nil {
 					return nil, err
 				}
-				return map[string]any{"status": "configured", "config": config}, nil
+
+				if conf.Confirm == "DELETE" {
+					// Perform the actual deletion
+					deleted := performDeletion(records)
+					return map[string]any{
+						"deleted": deleted,
+						"message": fmt.Sprintf("Deleted %d records", deleted),
+					}, nil
+				}
 			}
 
-			return map[string]any{"status": "cancelled"}, nil
+			return map[string]any{"status": "cancelled", "deleted": 0}, nil
 		}
 
 		// Register tool - session is automatically injected
 		handler, err := mcpio.NewHandler(
-			mcpio.WithName("interactive-server"),
-			mcpio.WithTool("setup", "Interactive setup", setupTool),
+			mcpio.WithName("database-manager"),
+			mcpio.WithTool("delete_records", "Delete database records with confirmation", deleteRecords,
+				toolOption.WithDestructive(),
+			),
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler)

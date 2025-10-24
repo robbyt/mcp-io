@@ -73,17 +73,15 @@ func main() {
 }
 ```
 
-### Running and Testing
+### Running and Testing This Example
 
-Run the server:
+Compile and run the example server:
 
 ```bash
 go run main.go
 ```
 
-The server will start and listen on http://localhost:8080/mcp.
-
-Test it using the MCP Inspector CLI:
+The server will listen on http://localhost:8080/mcp and can be tested with the MCP Inspector CLI:
 
 ```bash
 # List available tools
@@ -93,7 +91,9 @@ npx @modelcontextprotocol/inspector --cli http://localhost:8080/mcp --method too
 npx @modelcontextprotocol/inspector --cli http://localhost:8080/mcp --method tools/call --tool-name to_upper --tool-arg text="hello world"
 ```
 
-**Example output from tools/list:**
+**Example MCP protocol output from tools/list:**
+
+The `inputSchema` and `outputSchema` fields contain JSON Schemas definitions that are populated by the tool's parameters, and are typically handled by a MCP client library.
 
 ```json
 {
@@ -130,6 +130,8 @@ npx @modelcontextprotocol/inspector --cli http://localhost:8080/mcp --method too
 
 **Example output from tools/call:**
 
+When a MCP client calls the `to_upper` tool with the argument `text="hello world"`, the server responds with:
+
 ```json
 {
   "content": [
@@ -144,13 +146,11 @@ npx @modelcontextprotocol/inspector --cli http://localhost:8080/mcp --method too
 }
 ```
 
-This demonstrates how an LLM would interact with your MCP server - sending input parameters and receiving structured responses.
-
-## Core Development Concepts
+## Development Concepts In Depth
 
 ### Handler Instantiation
 
-The library uses a functional options pattern for clean, composable configuration:
+The library uses a functional options pattern allowing for discoverable configuration, and future extensibility. Create a new MCP handler using `mcpio.NewHandler`, passing in options like server name, version, and tools:
 
 ```go
 handler, err := mcpio.NewHandler(
@@ -159,206 +159,255 @@ handler, err := mcpio.NewHandler(
     mcpio.WithTool("tool1", "Description", toolFunc1),
     mcpio.WithTool("tool2", "Description", toolFunc2),
 )
-// Errors are returned, not panicked
-if err != nil {
-    log.Fatalf("Configuration error: %v", err)
-}
 ```
 
 ### Input/Output Schema Definition
 
-Define the input/output schema required for receiving and responding to MCP tool requests, using structs. Set `jsonschema` struct tags to set additional option and guidance to the LLM for populating and working with the fields in the schema. This text will appear in the schema description, and guides the LLM to provide better input and understand the output.
+The easiest way to define JSON Schemas for your tools is to use annotated Go structs. The library automatically generates schemas from struct types using [`github.com/google/jsonschema-go/jsonschema`](https://pkg.go.dev/github.com/google/jsonschema-go/jsonschema). The `jsonschema` struct tag provides descriptions and constraints that guide the LLM in understanding and populating fields.
+
+For simple descriptions, use the tag value directly. For advanced constraints like enums, ranges, or patterns, use comma-separated key=value pairs. See the [jsonschema package documentation](https://pkg.go.dev/github.com/google/jsonschema-go/jsonschema) for all supported annotations.
+
+**Example: Division Calculator with Schema Constraints**
 
 ```go
-type MyInput struct {
-    Name string `json:"name" jsonschema:"User's full name"`
-    Age  int    `json:"age"  jsonschema:"User's age in years"`
-}
-```
+package main
 
-```go
-type CalculateInput struct {
-    Operation string  `json:"operation" jsonschema:"Arithmetic operation. Specify only one: add, subtract, multiply, or divide"`
-    A         float64 `json:"a" jsonschema:"First number"`
-    B         float64 `json:"b" jsonschema:"Second number"`
-}
+import (
+    "context"
+    "log"
+    "math"
 
-type CalculateOutput struct {
-    Result float64 `json:"result" jsonschema:"Calculation result"`
-}
+    mcpio "github.com/robbyt/mcp-io"
 
-// calculate uses the CalculateInput as an input and returns CalculateOutput
-func calculate(ctx context.Context, input CalculateInput) (CalculateOutput, error) {
-    var result float64
-    switch input.Operation {
-    case "add":
-        result = input.A + input.B
-    case "subtract":
-        result = input.A - input.B
-    case "multiply":
-        result = input.A * input.B
-    case "divide":
-        if input.B == 0 {
-            return CalculateOutput{}, mcpio.NewToolError("division by zero")
-        }
-        result = input.A / input.B
-    default:
-        return CalculateOutput{}, mcpio.ValidationError("unsupported operation: " + input.Operation)
-    }
-    return CalculateOutput{Result: result}, nil
-}
-
-// Add the tool with error handling
-handler, err := mcpio.NewHandler(
-    mcpio.WithName("calculator"),
-    mcpio.WithTool("calculate", "Perform arithmetic operations", calculate),
+    // More guidance on using this in the next section:
+    toolOption "github.com/robbyt/mcp-io/primitives/tool"
 )
-if err != nil {
-    log.Fatalf("Failed to register tool: %v", err)
+
+type DivideInput struct {
+    Numerator   float64 `json:"numerator" jsonschema:"Number to be divided"`
+    Denominator float64 `json:"denominator" jsonschema:"Number to divide by (cannot be zero)"`
+    Precision   int     `json:"precision" jsonschema:"Decimal places for rounding,minimum=0,maximum=10,default=2"`
+}
+
+type DivideOutput struct {
+    Result float64 `json:"result" jsonschema:"Division result rounded to specified precision"`
+}
+
+func divide(ctx context.Context, input DivideInput) (DivideOutput, error) {
+    if input.Denominator == 0 {
+        return DivideOutput{}, mcpio.NewToolError("division by zero")
+    }
+
+    result := input.Numerator / input.Denominator
+
+    // Round to specified precision
+    multiplier := math.Pow(10, float64(input.Precision))
+    rounded := math.Round(result*multiplier) / multiplier
+
+    return DivideOutput{Result: rounded}, nil
+}
+
+func main() {
+    handler, err := mcpio.NewHandler(
+        mcpio.WithName("calculator"),
+        mcpio.WithTool("divide", "Divide two numbers with configurable precision", divide,
+            toolOption.WithReadOnly(),
+            toolOption.WithIdempotent(),
+        ),
+    )
+    if err != nil {
+        log.Fatalf("Failed to create handler: %v", err)
+    }
+
+    // The previous example used a HTTP transport, but you can also use stdio pipes for MCP communication:
+    if err := handler.ServeStdio(context.Background(), nil, nil); err != nil {
+        log.Fatalf("Server error: %v", err)
+    }
 }
 ```
 
-### Tool Metadata (Title and Annotations)
+### Tool Metadata and Multiple Tools Per Server
 
-Tools support optional metadata for display and behavioral hints per the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/server/tools).
+MCP servers typically expose multiple related tools via a single handler. Tool metadata provides behavioral hints per the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) that help LLMs and MCP clients make safer decisions. These annotations allow clients to understand tool behavior WITHOUT executing them. For example, an LLM can see that a tool is marked `WithDestructive()` and should (hopefully) act carefully when calling it. MCP Elicitation is another feature that adds a user confirmation step, and will be reviewed in a later section.
 
-#### Using Functional Options
+**Important**: Per the MCP spec, tool annotations are hints only and NOT guaranteed to provide faithful description of tool behavior. Clients MUST consider annotations untrusted unless from trusted servers, and should never make security decisions based solely on these hints.
 
-The cleanest way to add metadata is using functional options from the `primitives/tool` package:
+The following example demonstrates a database management server with four related tools, each using appropriate metadata annotations:
 
 ```go
 import (
 	"github.com/robbyt/mcp-io"
-	toolOption "github.com/robbyt/mcp-io/primitives/tool"  // Recommended import alias
+	toolOption "github.com/robbyt/mcp-io/primitives/tool"
 )
 
-// Simple tool (no metadata needed)
-mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper)
+// Database management server exposing multiple related tools
+handler, err := mcpio.NewHandler(
+	mcpio.WithName("database-manager"),
+	mcpio.WithVersion("1.0.0"),
 
-// Tool with display title
-mcpio.WithTool("get_weather", "Get weather for location", getWeather,
-	toolOption.WithTitle("Weather Information Provider"),
-)
+	// Safe read operation - can be called repeatedly without side effects
+	mcpio.WithTool("get_records", "Retrieve records from database", getRecords,
+		toolOption.WithReadOnly(),
+		toolOption.WithIdempotent(),
+	),
 
-// Tool with behavioral annotations (convenience functions)
-mcpio.WithTool("read_file", "Read file contents", readFile,
-	toolOption.WithTitle("File Reader"),
-	toolOption.WithReadOnly(),    // Does not modify environment
-	toolOption.WithIdempotent(),  // Repeated calls have same effect
-)
+	// Update operation - modifies state but safe to retry
+	mcpio.WithTool("update_record", "Update existing database record", updateRecord,
+		toolOption.WithIdempotent(),  // Same inputs produce same result
+	),
 
-// Tool with full annotations
-mcpio.WithTool("delete_record", "Delete database record", deleteRecord,
-	toolOption.WithTitle("Record Deleter"),
-	toolOption.WithAnnotations(&toolOption.ToolAnnotations{
-		DestructiveHint: &[]bool{true}[0],  // May perform destructive updates
-	}),
-	toolOption.WithMeta(map[string]any{"version": "1.0"}),
-)
+	// Destructive operation - irreversible deletion
+	mcpio.WithTool("delete_records", "Permanently delete records", deleteRecords,
+		toolOption.WithDestructive(),  // Signals LLM to use caution
+	),
 
-// Combine multiple annotation hints
-mcpio.WithTool("api_call", "Call external API", callAPI,
-	toolOption.WithOpenWorld(),   // Interacts with external entities
-	toolOption.WithIdempotent(),
+	// Backup operation - interacts with external storage
+	mcpio.WithTool("backup_database", "Backup to cloud storage", backupDatabase,
+		toolOption.WithReadOnly(),     // Doesn't modify local database
+		toolOption.WithOpenWorld(),    // Communicates with external services
+	),
 )
 ```
 
-**Available Convenience Options**:
-- `WithReadOnly()` - Tool does not modify its environment
-- `WithIdempotent()` - Repeated calls with same arguments have no additional effect
-- `WithDestructive()` - Tool may perform destructive updates
-- `WithOpenWorld()` - Tool may interact with external entities (web APIs, databases, etc.)
-- `WithClosedWorld()` - Tool has closed domain of interaction (local/internal only)
-
-**Display Precedence**: Per MCP spec, the display name follows this precedence: `Title` > `Annotations.Title` > `Name`
-
-**Security Note**: Per MCP spec, clients MUST consider tool annotations untrusted unless from trusted servers. Annotations are hints only and not guaranteed to provide faithful description of tool behavior.
+Tool annotations guide LLM decision-making per the MCP specification, helping clients understand tool behavior and make safer choices. For details on each annotation's meaning and usage, see the documented functions in [`primitives/tool/options.go`](primitives/tool/options.go).
 
 ### Transport Options
 
-A single handler supports multiple transport types:
+A single handler instance supports multiple transport types. Choose one transport at runtime based on your deployment needs:
+
+- **stdio** - Process communication via standard input/output (recommended default)
+- **HTTP** - Standard HTTP POST/GET requests (Streamable HTTP transport)
+- **SSE** - Server-Sent Events for streaming (part of Streamable HTTP)
+
+For details on MCP transport protocols, see the [official specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports).
 
 ```go
-// Create handler once
-handler, err := mcpio.NewHandler(
-    mcpio.WithName("my-server"),
-    mcpio.WithVersion("1.0.0"),
-    mcpio.WithTool("to_upper", "Convert text", toUpper),
+package main
+
+import (
+    "context"
+    "flag"
+    "log"
+    "net/http"
+
+    mcpio "github.com/robbyt/mcp-io"
 )
-if err != nil {
-    log.Fatal(err)
-}
 
-// Choose your transport:
+func main() {
+    transport := flag.String("transport", "stdio", "Transport type: http, sse, or stdio")
+    flag.Parse()
 
-// HTTP - for standard HTTP clients
-http.Handle("/mcp", handler)
-log.Fatal(http.ListenAndServe(":8080", nil))
+    handler, err := mcpio.NewHandler(
+        mcpio.WithName("my-server"),
+        mcpio.WithVersion("1.0.0"),
+        mcpio.WithTool("to_upper", "Convert text", toUpper),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
 
-// SSE - for browser clients with server-sent events
-http.Handle("/mcp-sse", http.HandlerFunc(handler.ServeSSE))
-log.Fatal(http.ListenAndServe(":8080", nil))
+    switch *transport {
+    case "http":
+        // HTTP - for standard HTTP clients
+        http.Handle("/mcp", handler)
+        log.Printf("Starting HTTP server on :8080/mcp")
+        log.Fatal(http.ListenAndServe(":8080", nil))
 
-// Stdio - for CLI tools and process communication
-if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
-    log.Fatal(err)
+    case "sse":
+        // SSE - for browser clients with server-sent events
+        http.Handle("/mcp-sse", http.HandlerFunc(handler.ServeSSE))
+        log.Printf("Starting SSE server on :8080/mcp-sse")
+        log.Fatal(http.ListenAndServe(":8080", nil))
+
+    case "stdio":
+        // Stdio - for CLI tools and process communication
+        log.Printf("Starting stdio transport")
+        if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+            log.Fatal(err)
+        }
+
+    default:
+        log.Fatalf("Unknown transport: %s", *transport)
+    }
 }
 ```
 
 ## Session Capabilities
 
-mcp-io provides access to MCP session capabilities through context-based injection. The session is automatically available in all tool, prompt, and resource handlers, allowing you to access features like elicitation, sampling, logging, and progress notifications.
+Session capabilities enable interactive MCP tools with user confirmation, AI delegation, progress reporting, and detailed logging. These capabilities are automatically available in your tool handlers via context without additional setup. Not all MCP clients support all session capabilities, and your tools should gracefully handle unsupported features. The capabilities helpers return sentinel errors (like `mcpio.ErrElicitationNotSupported`) when the feature is available on the client, which can be checked and handled with `errors.Is`.
 
 ### Elicitation (Interactive User Input)
 
-Request additional information from users at runtime for configuration, preferences, or confirmation. Elicitation enables interactive workflows where tools can gather structured data dynamically.
+Request additional information from users at runtime for configuration, preferences, or confirmation. Elicitation enables interactive workflows where tools can gather structured data dynamically. Never use elicitation for passwords, API keys, or secrets. Use only for configuration data, preferences, and non-sensitive user input. 
 
-#### Quick Example
+This example shows using elicitation as a confirmation when performing destructive operations:
 
 ```go
-type UserConfig struct {
-    Name        string `json:"name" jsonschema:"Your full name"`
-    Environment string `json:"environment" jsonschema:"enum=dev,enum=prod"`
-    Port        int    `json:"port" jsonschema:"minimum=1024,maximum=65535"`
+type DeleteRecordsInput struct {
+    UserID int `json:"user_id" jsonschema:"User ID whose records will be deleted"`
 }
 
-func setupTool(ctx context.Context, _ struct{}) (map[string]any, error) {
-    // Session is automatically available via context
-    result, err := mcpio.ElicitTyped[UserConfig](ctx, "Enter configuration:")
+type ConfirmDeletion struct {
+    Confirm string `json:"confirm" jsonschema:"Type DELETE to confirm deletion"`
+}
+
+func deleteRecords(ctx context.Context, input DeleteRecordsInput) (map[string]any, error) {
+    // Preview what will be deleted
+    records := getRecords(input.UserID) // Returns []Record from database
+
+    if len(records) == 0 {
+        return map[string]any{"deleted": 0, "message": "No records found for user"}, nil
+    }
+
+    // Build confirmation message showing what will be deleted
+    message := fmt.Sprintf(
+        "You are about to delete %d records for user ID %d:\n\n%s\n\nType DELETE to confirm.",
+        len(records), input.UserID, formatRecordList(records),
+    )
+
+    // Ask user to confirm with elicitation
+    result, err := mcpio.ElicitTyped[ConfirmDeletion](ctx, message)
     if err != nil {
+        // Handle clients that don't support elicitation
+        if errors.Is(err, mcpio.ErrElicitationNotSupported) {
+            return nil, fmt.Errorf("cannot delete records: client does not support confirmation")
+        }
         return nil, err
     }
 
     if result.IsAccepted() {
-        var config UserConfig
-        if err := result.DecodeContent(&config); err != nil {
+        var conf ConfirmDeletion
+        if err := result.DecodeContent(&conf); err != nil {
             return nil, err
         }
-        return map[string]any{"status": "configured", "config": config}, nil
+
+        if conf.Confirm == "DELETE" {
+            // Perform the actual deletion
+            deleted := performDeletion(records)
+            return map[string]any{
+                "deleted": deleted,
+                "message": fmt.Sprintf("Deleted %d records", deleted),
+            }, nil
+        }
     }
 
-    return map[string]any{"status": "cancelled"}, nil
+    return map[string]any{"status": "cancelled", "deleted": 0}, nil
 }
 
 // Register tool - session is automatically injected
 handler, err := mcpio.NewHandler(
-    mcpio.WithName("interactive-server"),
-    mcpio.WithTool("setup", "Interactive setup", setupTool),
+    mcpio.WithName("database-manager"),
+    mcpio.WithTool("delete_records", "Delete database records with confirmation", deleteRecords,
+        toolOption.WithDestructive(),
+    ),
 )
 ```
 
-#### Elicitation Methods
-
-- **`ElicitTyped[T](ctx, message)`** - Type-safe elicitation with automatic schema generation from Go structs
-- **`ElicitSimple(ctx, message, fieldName, prompt)`** - Single string field elicitation for quick inputs or confirmations
-
-**Security Warning**: Never use elicitation for passwords, API keys, or secrets. Use only for configuration data, preferences, and non-sensitive user input.
-
 ### Sampling (LLM Integration)
 
-[Sampling](https://modelcontextprotocol.io/specification/2025-06-18/client/sampling) allows your MCP server to delegate LLM work to the client. The server doesn't run an LLM itself—instead, it sends prompts to the client's LLM and uses the responses as helpers to build its output. This offloads expensive inference from your server to the client.
+[Sampling](https://modelcontextprotocol.io/specification/2025-06-18/client/sampling) allows your MCP server to delegate LLM work to the client. The server doesn't run the LLM inference, it sends prompts to the client's LLM and uses the responses as helpers to build its output. This offloads expensive inference from your server to the client.
 
-**The workflow:** Your tool receives input -> builds a prompt -> sends it to the client's LLM -> uses the LLM's response in your final output.
+Your MCP tool receives input -> builds a prompt -> sends it to the client's LLM -> receives a response from the prompt and uses the LLM's response in your final output.
 
 #### Example: AI Dungeon Master
 
