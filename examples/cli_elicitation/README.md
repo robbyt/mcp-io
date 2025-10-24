@@ -21,7 +21,7 @@ An in-memory database MCP server that demonstrates elicitation - the ability for
 
 ```
 1. Client calls a server tool.
-2. Server realizes it needs more input → issues an elicitation request.
+2. Server realizes it needs more input -> issues an elicitation request.
 3. Client prompts the user and validates their response.
 4. Client returns the elicited input to the server.
 5. Server resumes and completes the tool call.

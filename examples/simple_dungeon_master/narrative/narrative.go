@@ -112,7 +112,7 @@ func (s *State) BuildTurnPrompt(config PromptConfig) string {
 		prompt.WriteString("Recent turns:")
 		prompt.WriteString("\n<Turns>\n")
 		for _, turn := range s.turns {
-			prompt.WriteString(fmt.Sprintf("- %s → %s\n", turn.Config.InputAction, turn.Narrative))
+			prompt.WriteString(fmt.Sprintf("- %s -> %s\n", turn.Config.InputAction, turn.Narrative))
 		}
 		prompt.WriteString("\n</Turns>\n")
 	}
@@ -174,7 +174,7 @@ func (s *State) BuildReviewPrompt(config PromptConfig, draftNarrative string) st
 		prompt.WriteString("Recent turns:")
 		prompt.WriteString("\n<Turns>\n")
 		for _, turn := range s.turns {
-			prompt.WriteString(fmt.Sprintf("- %s → %s\n", turn.Config.InputAction, turn.Narrative))
+			prompt.WriteString(fmt.Sprintf("- %s -> %s\n", turn.Config.InputAction, turn.Narrative))
 		}
 		prompt.WriteString("\n</Turns>\n")
 	}

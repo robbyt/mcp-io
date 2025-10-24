@@ -403,7 +403,7 @@ handler, err := mcpio.NewHandler(
 
 [Sampling](https://modelcontextprotocol.io/specification/2025-06-18/client/sampling) allows your MCP server to delegate LLM work to the client. The server doesn't run an LLM itself—instead, it sends prompts to the client's LLM and uses the responses as helpers to build its output. This offloads expensive inference from your server to the client.
 
-**The workflow:** Your tool receives input → builds a prompt → sends it to the client's LLM → uses the LLM's response in your final output.
+**The workflow:** Your tool receives input -> builds a prompt -> sends it to the client's LLM -> uses the LLM's response in your final output.
 
 #### Example: AI Dungeon Master
 

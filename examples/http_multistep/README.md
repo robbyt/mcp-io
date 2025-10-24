@@ -70,7 +70,7 @@ Step 1: Basic Config
 - environment: "development"
 - enableMonitoring: false
 
-→ Only requires basic config, skips advanced and deployment steps
+-> Only requires basic config, skips advanced and deployment steps
 ```
 
 #### Production Environment (Full Flow)

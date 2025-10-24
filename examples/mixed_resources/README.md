@@ -10,9 +10,9 @@ A comprehensive MCP server that demonstrates all three core MCP primitives worki
 │                 │ ◄─────────────────────────────── │                  │
 │                 │   Tools, Resources, Prompts      │                  │
 └─────────────────┘                                  └──────────────────┘
-         │ 2a. tools/list → ["format_text", "analyze_text"]
-         │ 2b. resources/list → ["doc://templates/", "doc://samples/"]
-         │ 2c. prompts/list → ["document_writer"]
+         │ 2a. tools/list -> ["format_text", "analyze_text"]
+         │ 2b. resources/list -> ["doc://templates/", "doc://samples/"]
+         │ 2c. prompts/list -> ["document_writer"]
          │
          │  3. Workflow example:
          ▼

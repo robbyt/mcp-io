@@ -216,16 +216,16 @@ func updateRecord(ctx context.Context, input struct {
 	// Build change summary
 	var changes []string
 	if input.Name != "" && input.Name != record.Name {
-		changes = append(changes, fmt.Sprintf("Name: %s → %s", record.Name, input.Name))
+		changes = append(changes, fmt.Sprintf("Name: %s -> %s", record.Name, input.Name))
 	}
 	if input.Email != "" && input.Email != record.Email {
-		changes = append(changes, fmt.Sprintf("Email: %s → %s", record.Email, input.Email))
+		changes = append(changes, fmt.Sprintf("Email: %s -> %s", record.Email, input.Email))
 	}
 	if input.Status != "" && input.Status != record.Status {
-		changes = append(changes, fmt.Sprintf("Status: %s → %s", record.Status, input.Status))
+		changes = append(changes, fmt.Sprintf("Status: %s -> %s", record.Status, input.Status))
 	}
 	if input.Age != nil && *input.Age != record.Age {
-		changes = append(changes, fmt.Sprintf("Age: %d → %d", record.Age, *input.Age))
+		changes = append(changes, fmt.Sprintf("Age: %d -> %d", record.Age, *input.Age))
 	}
 
 	if len(changes) == 0 {
