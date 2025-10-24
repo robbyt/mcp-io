@@ -4,11 +4,11 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/robbyt/mcp-io)](https://goreportcard.com/report/github.com/robbyt/mcp-io)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A library that wraps the [Model Context Protocol (MCP) SDK](https://github.com/modelcontextprotocol/go-sdk) to provide a functional options constructor API, and better error handling and ergonomics when creating MCP servers. 
+A library that wraps the [Model Context Protocol (MCP) SDK](https://github.com/modelcontextprotocol/go-sdk) to provide a functional options constructor API with error handling instead of panics.
 
 ## Overview
 
-The official MCP is simple, and very flexible. However, there are some behaviors that I didn't like: it panics when required values are missing, it uses bare structs instead of constructors, and the overall API is much more flexible than what I needed. So I wrote this package as an opinionated wrapper to add some guardrails and abstractions.
+This library wraps the official [MCP SDK](https://github.com/modelcontextprotocol/go-sdk) to provide a functional options API with improved error handling. The official SDK provides flexibility through bare structs and direct initialization, which can result in runtime panics when required fields are missing. This wrapper adds validation at configuration time, returning errors instead of panicking, and uses functional options for composable configuration.
 
 ## Features
 
@@ -17,7 +17,7 @@ The official MCP is simple, and very flexible. However, there are some behaviors
 - **Type-Safe Tools**: Define MCP resources with Go generics to specify the in/out schema shapes
 - **Multiple Transports**: HTTP, SSE, and stdio support through a single handler
 - **Sentinel Error Types**: Errors return specific types that can be checked with `errors.Is`
-- **Extensive Examples**: My main goal was to learn the MCP spec, so many examples are included
+- **Extensive Examples**: Includes examples demonstrating MCP features and usage patterns
 
 ## Installation
 
@@ -27,7 +27,7 @@ go get github.com/robbyt/mcp-io
 
 ## Quick Start
 
-Here's a simple example of creating an MCP server that exposes a tool to convert text to uppercase:
+Here's a basic example of creating an MCP server that exposes a tool that can convert text to uppercase:
 
 ```go
 package main
@@ -73,82 +73,82 @@ func main() {
 }
 ```
 
-## Schema Flexibility (New in v0.8.0+)
+### Running and Testing
 
-The library supports multiple ways to define tool schemas, giving you complete flexibility while optimizing for performance:
-
-```go
-// Traditional struct-based schemas (recommended for most use cases)
-// WithTool auto-generates schemas from Go types
-mcpio.WithTool("to_upper", "Convert text to uppercase", toUpperFunc)
-
-// Custom JSON schemas with manual JSON handling
-// WithRawTool requires explicit schema and raw JSON processing
-calcRawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
-    var params map[string]any
-    json.Unmarshal(input, &params)
-    // ... process params ...
-    return json.Marshal(result)
-}
-mcpio.WithRawTool("calculator", "Arithmetic calculator", `{
-    "type": "object",
-    "properties": {
-        "operation": {"type": "string", "enum": ["add", "subtract", "multiply", "divide"]},
-        "a": {"type": "number"},
-        "b": {"type": "number"}
-    },
-    "required": ["operation", "a", "b"]
-}`, calcRawFunc)
-
-// Maximum performance with json.RawMessage (zero marshaling overhead)
-mcpio.WithRawTool("fast_processor", "High-performance processing",
-    json.RawMessage(`{"type":"object","additionalProperties":true}`), processorRawFunc)
-
-// Dynamic schemas using map[string]any
-dynamicSchema := map[string]any{
-    "type": "object",
-    "properties": map[string]any{
-        "message": map[string]any{"type": "string"},
-        "repeat": map[string]any{"type": "integer", "minimum": 1, "maximum": 10},
-    },
-    "required": []string{"message"},
-}
-mcpio.WithRawTool("echo", "Echo with repetition", dynamicSchema, echoRawFunc)
-```
-
-### Performance Hierarchy
-
-Based on analysis of MCP SDK v0.8.0 internals, schema types are optimized in this order:
-
-1. **`json.RawMessage`** - Zero marshaling overhead, direct wire compatibility (fastest)
-2. **JSON strings** - Validated and converted to `json.RawMessage` internally
-3. **`*jsonschema.Schema`** - Type-safe but requires JSON marshaling
-4. **`map[string]any`** - Flexible but with map overhead (slowest)
-
-**Recommendation**: Use `json.RawMessage` for high-performance tools, JSON strings for readability, and struct-based schemas for development convenience.
-
-## Testing Your Server
-
-You can test your MCP server using the [MCP CLI tools](https://github.com/f/mcptools):
+Run the server:
 
 ```bash
-# Install the CLI tool
-go install github.com/f/mcptools/cmd/mcptools@latest
+go run main.go
+```
 
-# Test your HTTP server (from the example above running on :8080/mcp)
-mcp tools http://localhost:8080/mcp
+The server will start and listen on http://localhost:8080/mcp.
+
+Test it using the MCP Inspector CLI:
+
+```bash
+# List available tools
+npx @modelcontextprotocol/inspector --cli http://localhost:8080/mcp --method tools/list
 
 # Call the to_upper tool
-mcp call to_upper --params '{"text":"hello world"}' http://localhost:8080/mcp
-
-# Use different output formats
-mcp tools --format json http://localhost:8080/mcp
-mcp tools --format pretty http://localhost:8080/mcp
+npx @modelcontextprotocol/inspector --cli http://localhost:8080/mcp --method tools/call --tool-name to_upper --tool-arg text="hello world"
 ```
+
+**Example output from tools/list:**
+
+```json
+{
+  "tools": [
+    {
+      "name": "to_upper",
+      "description": "Convert text to uppercase",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text to transform"
+          }
+        },
+        "required": ["text"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "description": "Transformed text"
+          }
+        },
+        "required": ["result"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
+```
+
+**Example output from tools/call:**
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"result\":\"HELLO WORLD\"}"
+    }
+  ],
+  "structuredContent": {
+    "result": "HELLO WORLD"
+  }
+}
+```
+
+This demonstrates how an LLM would interact with your MCP server - sending input parameters and receiving structured responses.
 
 ## Core Development Concepts
 
-### Instantiation of the Handler
+### Handler Instantiation
 
 The library uses a functional options pattern for clean, composable configuration:
 
@@ -162,37 +162,6 @@ handler, err := mcpio.NewHandler(
 // Errors are returned, not panicked
 if err != nil {
     log.Fatalf("Configuration error: %v", err)
-}
-```
-
-### Transport Options
-
-A single handler supports multiple transport types:
-
-```go
-// Create handler once
-handler, err := mcpio.NewHandler(
-    mcpio.WithName("my-server"),
-    mcpio.WithVersion("1.0.0"),
-    mcpio.WithTool("to_upper", "Convert text", toUpper),
-)
-if err != nil {
-    log.Fatal(err)
-}
-
-// Choose your transport:
-
-// HTTP - for standard HTTP clients
-http.Handle("/mcp", handler)
-log.Fatal(http.ListenAndServe(":8080", nil))
-
-// SSE - for browser clients with server-sent events
-http.Handle("/mcp-sse", http.HandlerFunc(handler.ServeSSE))
-log.Fatal(http.ListenAndServe(":8080", nil))
-
-// Stdio - for CLI tools and process communication
-if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
-    log.Fatal(err)
 }
 ```
 
@@ -218,7 +187,7 @@ type CalculateOutput struct {
     Result float64 `json:"result" jsonschema:"Calculation result"`
 }
 
-// calculate uses the CalculateInput as an input and returns CalculateOutput 
+// calculate uses the CalculateInput as an input and returns CalculateOutput
 func calculate(ctx context.Context, input CalculateInput) (CalculateOutput, error) {
     var result float64
     switch input.Operation {
@@ -253,7 +222,7 @@ if err != nil {
 
 Tools support optional metadata for display and behavioral hints per the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/server/tools).
 
-#### Recommended Approach: Using Functional Options
+#### Using Functional Options
 
 The cleanest way to add metadata is using functional options from the `primitives/tool` package:
 
@@ -305,102 +274,35 @@ mcpio.WithTool("api_call", "Call external API", callAPI,
 
 **Security Note**: Per MCP spec, clients MUST consider tool annotations untrusted unless from trusted servers. Annotations are hints only and not guaranteed to provide faithful description of tool behavior.
 
-## Advanced Features
+### Transport Options
 
-### Raw JSON Tools
-
-Use raw JSON tools when you need to:
-- Accept arbitrary JSON structures that can't be predefined as Go structs
-- Process JSON-to-JSON transformations where the structure varies
-- Work with dynamic schemas determined at runtime
-- Interface with external APIs that return varying JSON formats
+A single handler supports multiple transport types:
 
 ```go
-import "github.com/robbyt/mcp-io/schema"
-
-// Example: A tool that validates and reformats any JSON input
-validateJSON := func(ctx context.Context, input []byte) ([]byte, error) {
-    // Unmarshal to confirm it's valid JSON
-    var jsonData any
-    if err := json.Unmarshal(input, &jsonData); err != nil {
-        return nil, mcpio.ValidationError("Invalid JSON: " + err.Error())
-    }
-    
-    // Re-marshal back to JSON with indentation for pretty formatting
-    formatted, err := json.MarshalIndent(jsonData, "", "  ")
-    if err != nil {
-        return nil, mcpio.ProcessingError("Failed to format JSON: " + err.Error())
-    }
-    
-    // Return the formatted JSON wrapped in a result object
-    result := map[string]any{
-        "formatted_json": string(formatted),
-        "valid": true,
-        "size_bytes": len(input),
-    }
-    
-    return json.Marshal(result)
-}
-
-// Define the input schema - accepts any JSON object
-schemaDescription := "JSON validation input"
-properties := map[string]string{
-    "json_data": "Any JSON object or array to validate and format",
-}
-requiredFields := []string{"json_data"}
-
-inputSchema := schema.NewObject(
-    schemaDescription, // Human-readable description of this schema
-    properties,        // Map of field names to field descriptions  
-    requiredFields,    // List of required field names
-)
-
+// Create handler once
 handler, err := mcpio.NewHandler(
-    mcpio.WithName("json-processor"),
-    mcpio.WithRawTool("validate_json", "Validate and format any JSON input", inputSchema, validateJSON),
+    mcpio.WithName("my-server"),
+    mcpio.WithVersion("1.0.0"),
+    mcpio.WithTool("to_upper", "Convert text", toUpper),
 )
 if err != nil {
-    log.Fatalf("Failed to create raw tool: %v", err)
-}
-```
-
-## Schema Generation
-
-The library uses the same JSON schema generation as the MCP SDK:
-
-```go
-type MyInput struct {
-    Name string `json:"name" jsonschema:"User name"`
-    Age  int    `json:"age"  jsonschema:"User age"`
+    log.Fatal(err)
 }
 
-// Schema is automatically generated when you register the tool
-handler, err := mcpio.NewHandler(
-    mcpio.WithTool("my_tool", "Process user data", myToolFunc),
-)
-```
+// Choose your transport:
 
-For schemas that can change shape, use the `schema.NewObject` helper function:
+// HTTP - for standard HTTP clients
+http.Handle("/mcp", handler)
+log.Fatal(http.ListenAndServe(":8080", nil))
 
-```go
-import "github.com/robbyt/mcp-io/schema"
+// SSE - for browser clients with server-sent events
+http.Handle("/mcp-sse", http.HandlerFunc(handler.ServeSSE))
+log.Fatal(http.ListenAndServe(":8080", nil))
 
-// Create schemas programmatically
-s := schema.NewObject(
-    "Dynamic input",
-    map[string]string{
-        "field1": "First field",
-        "field2": "Second field", 
-    },
-    []string{"field1"}, // required fields
-)
-
-// Or use field definitions for more control
-fields := []schema.FieldDef{
-    {Name: "status", Type: "string", Required: true, Enum: []string{"active", "inactive"}},
-    {Name: "count", Type: "number", Required: false},
+// Stdio - for CLI tools and process communication
+if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+    log.Fatal(err)
 }
-dynamicSchema := schema.NewDynamic(fields)
 ```
 
 ## Session Capabilities
@@ -485,22 +387,37 @@ func dungeonMaster(ctx context.Context, input AdventureInput) (map[string]any, e
 }
 ```
 
-**Example interaction:**
-```bash
-# Start the server
-cd examples/simple_dungeon_master
-go run main.go
+**Running the example:**
 
-# In another terminal, call the tool
-mcp call dungeon_master --params '{"action":"I open the mysterious door"}' http://localhost:8080/mcp
+The `examples/simple_dungeon_master` directory contains a full implementation using stdio transport. This example requires a client with sampling support (like Claude Desktop) to delegate narrative generation to the client's LLM.
+
+```bash
+# List available tools
+npx @modelcontextprotocol/inspector --cli go run examples/simple_dungeon_master --method tools/list
+
+# Test the debug tool (works without sampling)
+npx @modelcontextprotocol/inspector --cli go run examples/simple_dungeon_master --method tools/call --tool-name debug_gameState
 ```
 
-**Response:**
+**Output from debug_gameState:**
 ```json
 {
-  "narrative": "The ancient door groans open, revealing a chamber of gold coins. Suddenly, the coins coalesce into a massive golden serpent with ruby eyes!"
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"currentTurnNumber\":0,\"skillCheckRequired\":0,\"summary\":\"\",\"turnHistory\":[]}"
+    }
+  ],
+  "structuredContent": {
+    "currentTurnNumber": 0,
+    "skillCheckRequired": 0,
+    "summary": "",
+    "turnHistory": []
+  }
 }
 ```
+
+**Note:** The `dungeon_master` tool requires a client with sampling support. The CLI inspector will return `"client does not support sampling"`. To fully test this example, configure it in Claude Desktop or another MCP client that supports sampling.
 
 ### Progress Notifications
 
@@ -586,9 +503,178 @@ func advancedTool(ctx context.Context, _ struct{}) (map[string]any, error) {
 - Multi-step workflows: [examples/http_multistep](examples/http_multistep/)
 - See [godoc](https://pkg.go.dev/github.com/robbyt/mcp-io) for full API documentation
 
+## Testing Your Server
+
+You can test your MCP server using the [MCP CLI tools](https://github.com/f/mcptools):
+
+```bash
+# Install the CLI tool
+go install github.com/f/mcptools/cmd/mcptools@latest
+
+# Test your HTTP server (from the example above running on :8080/mcp)
+mcptools tools http://localhost:8080/mcp
+
+# Call the to_upper tool
+mcptools call to_upper --params '{"text":"hello world"}' http://localhost:8080/mcp
+
+# Use different output formats
+mcptools tools --format json http://localhost:8080/mcp
+mcptools tools --format pretty http://localhost:8080/mcp
+```
+
+## Advanced Features
+
+### Raw JSON Tools
+
+Use raw JSON tools when you need to:
+- Accept arbitrary JSON structures that can't be predefined as Go structs
+- Process JSON-to-JSON transformations where the structure varies
+- Work with dynamic schemas determined at runtime
+- Interface with external APIs that return varying JSON formats
+
+```go
+// Example: A tool that validates and reformats any JSON input
+validateJSON := func(ctx context.Context, input []byte) ([]byte, error) {
+    // Unmarshal to confirm it's valid JSON
+    var jsonData any
+    if err := json.Unmarshal(input, &jsonData); err != nil {
+        return nil, mcpio.ValidationError("Invalid JSON: " + err.Error())
+    }
+
+    // Re-marshal back to JSON with indentation for pretty formatting
+    formatted, err := json.MarshalIndent(jsonData, "", "  ")
+    if err != nil {
+        return nil, mcpio.ProcessingError("Failed to format JSON: " + err.Error())
+    }
+
+    // Return the formatted JSON wrapped in a result object
+    result := map[string]any{
+        "formatted_json": string(formatted),
+        "valid": true,
+        "size_bytes": len(input),
+    }
+
+    return json.Marshal(result)
+}
+
+// Define schema as JSON string
+inputSchema := `{
+    "type": "object",
+    "properties": {
+        "json_data": {
+            "type": "object",
+            "description": "Any JSON object or array to validate and format"
+        }
+    },
+    "required": ["json_data"]
+}`
+
+handler, err := mcpio.NewHandler(
+    mcpio.WithName("json-processor"),
+    mcpio.WithRawTool("validate_json", "Validate and format any JSON input", inputSchema, validateJSON),
+)
+if err != nil {
+    log.Fatalf("Failed to create raw tool: %v", err)
+}
+```
+
+### Schema Flexibility
+
+The library accepts multiple input types for defining tool schemas with `WithRawTool`, giving you flexibility in how you author schemas while optimizing for performance:
+
+```go
+// Traditional struct-based schemas (recommended for most use cases)
+// WithTool auto-generates schemas from Go types
+mcpio.WithTool("to_upper", "Convert text to uppercase", toUpperFunc)
+
+// Custom JSON schemas with manual JSON handling
+// WithRawTool requires explicit schema and raw JSON processing
+calcRawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+    var params map[string]any
+    json.Unmarshal(input, &params)
+    // ... process params ...
+    return json.Marshal(result)
+}
+mcpio.WithRawTool("calculator", "Arithmetic calculator", `{
+    "type": "object",
+    "properties": {
+        "operation": {"type": "string", "enum": ["add", "subtract", "multiply", "divide"]},
+        "a": {"type": "number"},
+        "b": {"type": "number"}
+    },
+    "required": ["operation", "a", "b"]
+}`, calcRawFunc)
+
+// Maximum performance with json.RawMessage (zero marshaling overhead)
+mcpio.WithRawTool("fast_processor", "High-performance processing",
+    json.RawMessage(`{"type":"object","additionalProperties":true}`), processorRawFunc)
+
+// Schema using map[string]any (can be programmatically constructed)
+mapBasedSchema := map[string]any{
+    "type": "object",
+    "properties": map[string]any{
+        "message": map[string]any{"type": "string"},
+        "repeat": map[string]any{"type": "integer", "minimum": 1, "maximum": 10},
+    },
+    "required": []string{"message"},
+}
+mcpio.WithRawTool("echo", "Echo with repetition", mapBasedSchema, echoRawFunc)
+```
+
+#### Performance Hierarchy
+
+`WithRawTool` accepts multiple input types for the schema parameter. Each type has different performance characteristics based on internal conversion to `json.RawMessage`:
+
+1. **`json.RawMessage`** - Zero marshaling overhead, returned as-is
+2. **JSON strings** - Validated and converted to `json.RawMessage` (no marshaling)
+3. **`*jsonschema.Schema`** - Requires JSON marshaling to convert
+4. **`map[string]any`** - Requires JSON marshaling to convert
+
+Use `json.RawMessage` for performance-critical tools, JSON strings for readability, `map[string]any` for programmatic construction, and struct-based schemas (with `WithTool`) for type safety and development convenience.
+
+### Manual Schema Construction
+
+For schemas that require dynamic construction or complex validation rules, define schemas as JSON strings or using the `jsonschema` package directly:
+
+```go
+import "github.com/google/jsonschema-go/jsonschema"
+
+// Option 1: JSON string schema (recommended for readability)
+schema := `{
+    "type": "object",
+    "properties": {
+        "status": {
+            "type": "string",
+            "enum": ["active", "inactive"]
+        },
+        "count": {
+            "type": "number",
+            "minimum": 0
+        }
+    },
+    "required": ["status"]
+}`
+
+// Option 2: Using jsonschema.Schema directly
+schema := &jsonschema.Schema{
+    Type: "object",
+    Properties: map[string]*jsonschema.Schema{
+        "field1": {Type: "string", Description: "First field"},
+        "field2": {Type: "string", Description: "Second field"},
+    },
+    Required: []string{"field1"},
+}
+
+// Use with WithRawTool
+handler, err := mcpio.NewHandler(
+    mcpio.WithName("dynamic-server"),
+    mcpio.WithRawTool("dynamic_tool", "Tool with custom schema", schema, rawFunc),
+)
+```
+
 ## Migration Guide
 
-### Upgrading to Schema Flexibility (v0.8.0+)
+### Schema Flexibility
 
 The schema flexibility features are backward compatible. Existing code continues to work unchanged:
 
@@ -639,21 +725,127 @@ mcpio.WithRawTool("fast_tool", "High-performance tool",
 
 ## Comparison with Direct MCP SDK
 
-### MCP SDK (can panic)
+This library wraps the official MCP SDK to provide additional safety and convenience. Here are the key differences:
+
+### Configuration and Error Handling
+
+**MCP SDK**: Uses bare structs with runtime validation
 ```go
-server := mcp.NewServer(&mcp.Implementation{Name: ""}, nil) // Panics on empty name!
-mcp.AddTool(server, &mcp.Tool{Name: "greet"}, handler)    // Can panic on bad types!
+// Panics at runtime if name is empty
+server := mcp.NewServer(&mcp.Implementation{Name: ""}, nil)
 ```
 
-### mcp-io (error handling)
+**mcp-io**: Uses functional options with upfront validation
 ```go
+// Returns error at configuration time
 handler, err := mcpio.NewHandler(
-    mcpio.WithName(""), // Returns error instead of panic
-    mcpio.WithTool("greet", "Say hello", greetFunc),
+    mcpio.WithName(""), // error: server name cannot be empty
 )
 if err != nil {
-    log.Printf("Configuration error: %v", err) // Graceful handling
+    log.Printf("Configuration error: %v", err)
 }
+```
+
+### Type-Safe Tools with Generics
+
+**MCP SDK**: Manual schema creation and type assertions
+```go
+tool := &mcp.Tool{
+    Name:        "greet",
+    Description: "Greet user",
+    InputSchema: &jsonschema.Schema{ /* manual schema */ },
+}
+
+handler := func(req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+    // Manual type assertions and unmarshaling
+    var input map[string]any
+    json.Unmarshal(req.Params.Arguments, &input)
+    name := input["name"].(string)
+
+    result := map[string]any{"greeting": "Hello " + name}
+    content, _ := json.Marshal(result)
+
+    return &mcp.CallToolResult{Content: []any{content}}, nil
+}
+mcp.AddTool(server, tool, handler)
+```
+
+**mcp-io**: Automatic schema generation and type safety
+```go
+type GreetInput struct {
+    Name string `json:"name" jsonschema:"User's name"`
+}
+
+type GreetOutput struct {
+    Greeting string `json:"greeting" jsonschema:"The greeting message"`
+}
+
+func greet(ctx context.Context, input GreetInput) (GreetOutput, error) {
+    return GreetOutput{Greeting: "Hello " + input.Name}, nil
+}
+
+// Schema automatically generated, types checked at compile time
+handler, err := mcpio.NewHandler(
+    mcpio.WithName("greeter"),
+    mcpio.WithTool("greet", "Greet user", greet),
+)
+```
+
+### Session Capabilities
+
+**MCP SDK**: Manual session handling and capability checking
+```go
+handler := func(req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+    // Must manually extract and check session
+    if req.Session == nil {
+        return nil, errors.New("no session")
+    }
+    if req.Session.Capabilities.Sampling == nil {
+        return nil, errors.New("sampling not supported")
+    }
+    // Use session...
+}
+```
+
+**mcp-io**: Automatic session injection via context
+```go
+func myTool(ctx context.Context, input MyInput) (MyOutput, error) {
+    // Session automatically available in context
+    result, err := mcpio.CreateMessage(ctx, messages, maxTokens)
+    // Error handling built-in
+    return output, nil
+}
+```
+
+### Transport Handling
+
+**MCP SDK**: Separate setup for each transport type
+```go
+server := mcp.NewServer(impl, nil)
+// HTTP requires manual handler creation
+httpHandler := mcp.NewStreamableHTTPHandler(server)
+http.Handle("/mcp", httpHandler)
+
+// SSE requires different setup
+sseHandler := mcp.NewSSEHandler(server)
+http.Handle("/sse", sseHandler)
+
+// Stdio requires different invocation
+transport := mcp.StdioTransport{...}
+transport.Serve(server)
+```
+
+**mcp-io**: Single handler for all transport types
+```go
+handler, err := mcpio.NewHandler(
+    mcpio.WithName("my-server"),
+    mcpio.WithTool("tool", "Description", toolFunc),
+)
+
+// Use same handler for any transport
+http.Handle("/mcp", handler)                    // HTTP
+http.Handle("/sse", http.HandlerFunc(handler.ServeSSE)) // SSE
+handler.ServeStdio(ctx, os.Stdin, os.Stdout)   // Stdio
 ```
 
 ## License

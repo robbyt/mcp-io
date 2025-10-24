@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/jsonschema-go/jsonschema"
 	mcpio "github.com/robbyt/mcp-io"
 	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
+	toolOption "github.com/robbyt/mcp-io/primitives/tool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -66,30 +66,47 @@ func calculate(ctx context.Context, input CalculateInput) (CalculateOutput, erro
 	return CalculateOutput{Result: result}, nil
 }
 
-// Helper function for raw JSON tool usage
+// Helper function for raw JSON tool usage - from README Advanced Features section
 func createRawToolHandler() (*mcpio.Handler, error) {
-	// Raw function that works with JSON bytes
-	processJSON := func(ctx context.Context, input []byte) ([]byte, error) {
-		// Custom JSON processing logic here
-		return []byte(`{"processed": true, "input_length": ` + fmt.Sprintf("%d", len(input)) + `}`), nil
+	// Example: A tool that validates and reformats any JSON input
+	validateJSON := func(ctx context.Context, input []byte) ([]byte, error) {
+		// Unmarshal to confirm it's valid JSON
+		var jsonData any
+		if err := json.Unmarshal(input, &jsonData); err != nil {
+			return nil, mcpio.ValidationError("Invalid JSON: " + err.Error())
+		}
+
+		// Re-marshal back to JSON with indentation for pretty formatting
+		formatted, err := json.MarshalIndent(jsonData, "", "  ")
+		if err != nil {
+			return nil, mcpio.ProcessingError("Failed to format JSON: " + err.Error())
+		}
+
+		// Return the formatted JSON wrapped in a result object
+		result := map[string]any{
+			"formatted_json": string(formatted),
+			"valid":          true,
+			"size_bytes":     len(input),
+		}
+
+		return json.Marshal(result)
 	}
 
-	// Define input schema for the raw tool
-	inputSchema := &jsonschema.Schema{
-		Type:        "object",
-		Description: "Raw processing input",
-		Properties: map[string]*jsonschema.Schema{
-			"data": {
-				Type:        "string",
-				Description: "Raw data to process",
-			},
-		},
-		Required: []string{"data"},
-	}
+	// Define schema as JSON string
+	inputSchema := `{
+    "type": "object",
+    "properties": {
+        "json_data": {
+            "type": "object",
+            "description": "Any JSON object or array to validate and format"
+        }
+    },
+    "required": ["json_data"]
+}`
 
 	return mcpio.NewHandler(
-		mcpio.WithName("raw-processor"),
-		mcpio.WithRawTool("process_raw", "Process raw JSON data", inputSchema, processJSON),
+		mcpio.WithName("json-processor"),
+		mcpio.WithRawTool("validate_json", "Validate and format any JSON input", inputSchema, validateJSON),
 	)
 }
 
@@ -188,7 +205,7 @@ func TestReadmeExamples(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, handler3)
 
-		// Dynamic schemas using map[string]any with WithRawTool
+		// Schema using map[string]any (can be programmatically constructed)
 		echoRawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
 			var params map[string]any
 			if err := json.Unmarshal(input, &params); err != nil {
@@ -214,7 +231,7 @@ func TestReadmeExamples(t *testing.T) {
 			return json.Marshal(result)
 		}
 
-		dynamicSchema := map[string]any{
+		mapBasedSchema := map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"message": map[string]any{"type": "string"},
@@ -225,7 +242,7 @@ func TestReadmeExamples(t *testing.T) {
 
 		handler4, err := mcpio.NewHandler(
 			mcpio.WithName("echo-example"),
-			mcpio.WithRawTool("echo", "Echo with repetition", dynamicSchema, echoRawFunc),
+			mcpio.WithRawTool("echo", "Echo with repetition", mapBasedSchema, echoRawFunc),
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler4)
@@ -290,6 +307,77 @@ func TestReadmeExamples(t *testing.T) {
 
 		toolErr := mcpio.NewToolError("test tool error")
 		assert.Contains(t, toolErr.Error(), "test tool error")
+	})
+
+	t.Run("ToolMetadata", func(t *testing.T) {
+		// Example tool functions for testing metadata
+		getWeather := func(ctx context.Context, input struct{ Location string }) (map[string]any, error) {
+			return map[string]any{"temp": 72, "conditions": "sunny"}, nil
+		}
+		readFile := func(ctx context.Context, input struct{ Path string }) (map[string]any, error) {
+			return map[string]any{"content": "file contents"}, nil
+		}
+		deleteRecord := func(ctx context.Context, input struct{ ID string }) (map[string]any, error) {
+			return map[string]any{"deleted": true}, nil
+		}
+		callAPI := func(ctx context.Context, input struct{ Endpoint string }) (map[string]any, error) {
+			return map[string]any{"response": "data"}, nil
+		}
+
+		// Simple tool (no metadata needed) - from README
+		handler1, err := mcpio.NewHandler(
+			mcpio.WithName("simple-server"),
+			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler1)
+
+		// Tool with display title - from README
+		handler2, err := mcpio.NewHandler(
+			mcpio.WithName("weather-server"),
+			mcpio.WithTool("get_weather", "Get weather for location", getWeather,
+				toolOption.WithTitle("Weather Information Provider"),
+			),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler2)
+
+		// Tool with behavioral annotations (convenience functions) - from README
+		handler3, err := mcpio.NewHandler(
+			mcpio.WithName("file-server"),
+			mcpio.WithTool("read_file", "Read file contents", readFile,
+				toolOption.WithTitle("File Reader"),
+				toolOption.WithReadOnly(),
+				toolOption.WithIdempotent(),
+			),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler3)
+
+		// Tool with full annotations - from README
+		handler4, err := mcpio.NewHandler(
+			mcpio.WithName("delete-server"),
+			mcpio.WithTool("delete_record", "Delete database record", deleteRecord,
+				toolOption.WithTitle("Record Deleter"),
+				toolOption.WithAnnotations(&toolOption.ToolAnnotations{
+					DestructiveHint: &[]bool{true}[0],
+				}),
+				toolOption.WithMeta(map[string]any{"version": "1.0"}),
+			),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler4)
+
+		// Combine multiple annotation hints - from README
+		handler5, err := mcpio.NewHandler(
+			mcpio.WithName("api-server"),
+			mcpio.WithTool("api_call", "Call external API", callAPI,
+				toolOption.WithOpenWorld(),
+				toolOption.WithIdempotent(),
+			),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler5)
 	})
 }
 
