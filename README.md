@@ -405,9 +405,17 @@ handler, err := mcpio.NewHandler(
 
 ### Sampling (LLM Integration)
 
-[Sampling](https://modelcontextprotocol.io/specification/2025-06-18/client/sampling) allows your MCP server to delegate LLM work to the client. The server doesn't run the LLM inference, it sends prompts to the client's LLM and uses the responses as helpers to build its output. This offloads expensive inference from your server to the client.
+[Sampling](https://modelcontextprotocol.io/specification/2025-06-18/client/sampling) allows your MCP server to request LLM generations from the client without needing API keys. The client maintains control over which models to use and whether to allow the request. This enables agentic behaviors where your server can make LLM calls nested inside tool execution to build more intelligent responses.
 
-Your MCP tool receives input -> builds a prompt -> sends it to the client's LLM -> receives a response from the prompt and uses the LLM's response in your final output.
+**Sampling flow:**
+
+1. MCP tool receives input
+2. Tool builds sampling messages
+3. Server sends request to client using the context
+4. Client gets user approval (optional)
+5. Client forwards the completion request to the LLM
+6. LLM generates response
+7. Tool uses response in its output
 
 #### Example: AI Dungeon Master
 
@@ -438,14 +446,14 @@ func dungeonMaster(ctx context.Context, input AdventureInput) (map[string]any, e
 
 **Running the example:**
 
-The `examples/simple_dungeon_master` directory contains a full implementation using stdio transport. This example requires a client with sampling support (like Claude Desktop) to delegate narrative generation to the client's LLM.
+The `examples/simple_dungeon_master` directory contains a full implementation using stdio transport. This example requires a client with sampling support to delegate narrative generation to the client's LLM.
 
 ```bash
 # List available tools
-npx @modelcontextprotocol/inspector --cli go run examples/simple_dungeon_master --method tools/list
+npx @modelcontextprotocol/inspector --cli go run -C examples/simple_dungeon_master . --method tools/list
 
 # Test the debug tool (works without sampling)
-npx @modelcontextprotocol/inspector --cli go run examples/simple_dungeon_master --method tools/call --tool-name debug_gameState
+npx @modelcontextprotocol/inspector --cli go run -C examples/simple_dungeon_master . --method tools/call --tool-name debug_gameState
 ```
 
 **Output from debug_gameState:**
@@ -466,7 +474,7 @@ npx @modelcontextprotocol/inspector --cli go run examples/simple_dungeon_master 
 }
 ```
 
-**Note:** The `dungeon_master` tool requires a client with sampling support. The CLI inspector will return `"client does not support sampling"`. To fully test this example, configure it in Claude Desktop or another MCP client that supports sampling.
+**Note:** The `dungeon_master` tool requires a client with sampling capability. The CLI inspector will return `"client does not support sampling"`. To fully test this example, configure it in Claude Desktop or another MCP client that supports sampling.
 
 ### Progress Notifications
 
