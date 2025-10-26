@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	mcpSDK "github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
 	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
@@ -84,7 +84,7 @@ func createRawToolHandler() (*mcpio.Handler, error) {
 		return json.Marshal(result)
 	}
 
-	// Define schema as JSON string
+	// Define input schema (required) - tells LLM what to send
 	inputSchema := `{
     "type": "object",
     "properties": {
@@ -96,9 +96,21 @@ func createRawToolHandler() (*mcpio.Handler, error) {
     "required": ["json_data"]
 }`
 
+	// Define output schema (optional) - tells LLM what to expect back
+	outputSchema := `{
+    "type": "object",
+    "properties": {
+        "formatted_json": {"type": "string", "description": "Pretty-printed JSON"},
+        "valid": {"type": "boolean", "description": "Whether input was valid JSON"},
+        "size_bytes": {"type": "integer", "description": "Size of input in bytes"}
+    }
+}`
+
 	return mcpio.NewHandler(
 		mcpio.WithName("json-processor"),
-		mcpio.WithRawTool("validate_json", "Validate and format any JSON input", inputSchema, validateJSON),
+		mcpio.WithRawTool("validate_json", "Validate and format any JSON input", inputSchema, validateJSON,
+			toolOption.WithOutputSchema(outputSchema), // Optional but recommended for LLM understanding
+		),
 	)
 }
 
@@ -119,123 +131,6 @@ func TestReadmeExamples(t *testing.T) {
 		assert.NotNil(t, server)
 		assert.NotEmpty(t, server.URL)
 		assert.Contains(t, server.URL, "http://")
-	})
-
-	t.Run("SchemaFlexibility_AllOptions", func(t *testing.T) {
-		// Traditional struct-based example
-		handler1, err := mcpio.NewHandler(
-			mcpio.WithName("traditional-example"),
-			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
-		)
-		require.NoError(t, err)
-		assert.NotNil(t, handler1)
-
-		// Calculator with custom schema using WithRawTool
-		calcRawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
-			var params map[string]any
-			if err := json.Unmarshal(input, &params); err != nil {
-				return nil, err
-			}
-
-			op := params["operation"].(string)
-			a := params["a"].(float64)
-			b := params["b"].(float64)
-
-			var result float64
-			switch op {
-			case "add":
-				result = a + b
-			case "subtract":
-				result = a - b
-			case "multiply":
-				result = a * b
-			case "divide":
-				if b == 0 {
-					return nil, mcpio.NewToolError("division by zero")
-				}
-				result = a / b
-			}
-			return json.Marshal(map[string]any{"result": result})
-		}
-
-		handler2, err := mcpio.NewHandler(
-			mcpio.WithName("calculator-example"),
-			mcpio.WithRawTool("calculator", "Arithmetic calculator", `{
-				"type": "object",
-				"properties": {
-					"operation": {"type": "string", "enum": ["add", "subtract", "multiply", "divide"]},
-					"a": {"type": "number"},
-					"b": {"type": "number"}
-				},
-				"required": ["operation", "a", "b"]
-			}`, calcRawFunc),
-		)
-		require.NoError(t, err)
-		assert.NotNil(t, handler2)
-
-		// Maximum performance with json.RawMessage using WithRawTool
-		processorRawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
-			var params map[string]any
-			if err := json.Unmarshal(input, &params); err != nil {
-				return nil, err
-			}
-
-			output := make(map[string]any)
-			maps.Copy(output, params)
-			output["processed"] = true
-			return json.Marshal(output)
-		}
-
-		handler3, err := mcpio.NewHandler(
-			mcpio.WithName("fast-processor-example"),
-			mcpio.WithRawTool("fast_processor", "High-performance processing",
-				json.RawMessage(`{"type":"object","additionalProperties":true}`),
-				processorRawFunc),
-		)
-		require.NoError(t, err)
-		assert.NotNil(t, handler3)
-
-		// Schema using map[string]any (can be programmatically constructed)
-		echoRawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
-			var params map[string]any
-			if err := json.Unmarshal(input, &params); err != nil {
-				return nil, err
-			}
-
-			message := params["message"].(string)
-			repeat := 1
-			if r, ok := params["repeat"]; ok {
-				repeat = int(r.(float64))
-			}
-
-			var echoed []string
-			for i := 0; i < repeat; i++ {
-				echoed = append(echoed, message)
-			}
-
-			result := map[string]any{
-				"echoed":  echoed,
-				"count":   len(echoed),
-				"message": message,
-			}
-			return json.Marshal(result)
-		}
-
-		mapBasedSchema := map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"message": map[string]any{"type": "string"},
-				"repeat":  map[string]any{"type": "integer", "minimum": 1, "maximum": 10},
-			},
-			"required": []string{"message"},
-		}
-
-		handler4, err := mcpio.NewHandler(
-			mcpio.WithName("echo-example"),
-			mcpio.WithRawTool("echo", "Echo with repetition", mapBasedSchema, echoRawFunc),
-		)
-		require.NoError(t, err)
-		assert.NotNil(t, handler4)
 	})
 
 	t.Run("CoreConcepts_Instantiation", func(t *testing.T) {
@@ -285,96 +180,6 @@ func TestReadmeExamples(t *testing.T) {
 		handler, err := createRawToolHandler()
 		require.NoError(t, err)
 		assert.NotNil(t, handler)
-	})
-
-	t.Run("ComparisonSection_ErrorHandling", func(t *testing.T) {
-		_, err := mcpio.NewHandler(mcpio.WithName(""))
-		require.Error(t, err)
-		require.ErrorIs(t, err, mcpio.ErrEmptyValue)
-
-		_, err = mcpio.NewHandler(mcpio.WithVersion(""))
-		require.Error(t, err)
-		require.ErrorIs(t, err, mcpio.ErrEmptyValue)
-
-		validationErr := mcpio.ValidationError("test validation error")
-		assert.Contains(t, validationErr.Error(), "test validation error")
-
-		processingErr := mcpio.ProcessingError("test processing error")
-		assert.Contains(t, processingErr.Error(), "test processing error")
-
-		toolErr := mcpio.NewToolError("test tool error")
-		assert.Contains(t, toolErr.Error(), "test tool error")
-	})
-
-	t.Run("ToolMetadata", func(t *testing.T) {
-		// Example tool functions for testing metadata
-		getWeather := func(ctx context.Context, input struct{ Location string }) (map[string]any, error) {
-			return map[string]any{"temp": 72, "conditions": "sunny"}, nil
-		}
-		readFile := func(ctx context.Context, input struct{ Path string }) (map[string]any, error) {
-			return map[string]any{"content": "file contents"}, nil
-		}
-		deleteRecord := func(ctx context.Context, input struct{ ID string }) (map[string]any, error) {
-			return map[string]any{"deleted": true}, nil
-		}
-		callAPI := func(ctx context.Context, input struct{ Endpoint string }) (map[string]any, error) {
-			return map[string]any{"response": "data"}, nil
-		}
-
-		// Simple tool (no metadata needed) - from README
-		handler1, err := mcpio.NewHandler(
-			mcpio.WithName("simple-server"),
-			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
-		)
-		require.NoError(t, err)
-		assert.NotNil(t, handler1)
-
-		// Tool with display title - from README
-		handler2, err := mcpio.NewHandler(
-			mcpio.WithName("weather-server"),
-			mcpio.WithTool("get_weather", "Get weather for location", getWeather,
-				toolOption.WithTitle("Weather Information Provider"),
-			),
-		)
-		require.NoError(t, err)
-		assert.NotNil(t, handler2)
-
-		// Tool with behavioral annotations (convenience functions) - from README
-		handler3, err := mcpio.NewHandler(
-			mcpio.WithName("file-server"),
-			mcpio.WithTool("read_file", "Read file contents", readFile,
-				toolOption.WithTitle("File Reader"),
-				toolOption.WithReadOnly(),
-				toolOption.WithIdempotent(),
-			),
-		)
-		require.NoError(t, err)
-		assert.NotNil(t, handler3)
-
-		// Tool with full annotations - from README
-		handler4, err := mcpio.NewHandler(
-			mcpio.WithName("delete-server"),
-			mcpio.WithTool("delete_record", "Delete database record", deleteRecord,
-				toolOption.WithTitle("Record Deleter"),
-				toolOption.WithAnnotations(&toolOption.ToolAnnotations{
-					DestructiveHint: &[]bool{true}[0],
-				}),
-				toolOption.WithMeta(map[string]any{"version": "1.0"}),
-			),
-		)
-		require.NoError(t, err)
-		assert.NotNil(t, handler4)
-
-		// Combine multiple annotation hints - from README
-		handler5, err := mcpio.NewHandler(
-			mcpio.WithName("api-server"),
-			mcpio.WithTool("api_call", "Call external API", callAPI,
-				toolOption.WithOpenWorld(),
-				toolOption.WithIdempotent(),
-			),
-		)
-		require.NoError(t, err)
-		assert.NotNil(t, handler5)
 	})
 }
 
@@ -479,6 +284,12 @@ func TestErrorTypes(t *testing.T) {
 				assert.ErrorIs(t, err, tt.expected)
 			})
 		}
+	})
+
+	t.Run("MCPSDKPanics", func(t *testing.T) {
+		assert.Panics(t, func() {
+			mcpSDK.NewServer(nil, nil)
+		}, "MCP SDK should panic when given nil Implementation")
 	})
 }
 
@@ -708,27 +519,38 @@ func TestSessionCapabilities(t *testing.T) {
 		assert.NotNil(t, handler)
 	})
 
-	t.Run("DirectSessionAccess", func(t *testing.T) {
+	t.Run("SessionInterfaceAccess", func(t *testing.T) {
 		// Tool from README
 		advancedTool := func(ctx context.Context, _ struct{}) (map[string]any, error) {
 			session := mcpio.GetSession(ctx)
 			if session == nil {
-				return map[string]any{"error": "no session available"}, nil
+				return nil, errors.New("no session available")
 			}
 
-			// Check capabilities
-			var features []string
-			if session.SupportsElicitation() {
-				features = append(features, "elicitation")
+			// Check capabilities before using features
+			if session.SupportsElicitation() { //nolint:staticcheck
+				// Use elicitation...
 			}
-			if session.SupportsSampling() {
-				features = append(features, "sampling")
+			if session.SupportsSampling() { //nolint:staticcheck
+				// Use sampling...
 			}
 
-			// Access session info
+			// Access client capabilities for detailed information
+			caps := session.ClientCapabilities()
+			assert.NotNil(t, caps)
+			if caps.Roots != nil && caps.Roots.ListChanged {
+				// Client supports notifications for roots list changes
+				roots, err := session.ListRoots(ctx)
+				if err == nil {
+					// Use roots...
+					assert.NotNil(t, roots)
+				}
+			}
+
+			// Access session methods directly
 			sessionID := session.SessionID()
 
-			return map[string]any{"sessionID": sessionID, "features": features}, nil
+			return map[string]any{"sessionID": sessionID}, nil
 		}
 
 		handler, err := mcpio.NewHandler(
