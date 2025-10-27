@@ -1,10 +1,14 @@
 package mcpio
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/primitives/tool"
 )
 
@@ -192,6 +196,11 @@ func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Opti
 	}
 }
 
+// ToolFunc is the function signature for typed tools with automatic schema generation.
+// The function receives a context and typed input, and returns typed output with an optional error.
+// Schema generation is handled automatically based on the TIn and TOut types.
+type ToolFunc[TIn, TOut any] func(context.Context, TIn) (TOut, error)
+
 // WithTool adds a type-safe tool with automatic schema generation from Go types.
 //
 // The InputSchema is automatically generated from the TIn type parameter.
@@ -238,6 +247,11 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 	}
 }
 
+// RawToolFunc is the function signature for raw JSON tools.
+// The function receives a context and raw JSON bytes as input, and returns JSON bytes as output.
+// Schema must be provided explicitly when using WithRawTool.
+type RawToolFunc func(context.Context, []byte) ([]byte, error)
+
 // WithRawTool adds a tool with manual JSON handling and explicit schema.
 // Use this when you need direct control over JSON processing or dynamic schemas.
 // Optional metadata can be provided via functional options from primitives/tool package.
@@ -281,5 +295,57 @@ func WithRawTool(name, description string, inputSchema any, fn RawToolFunc, opts
 		cfg.tools = append(cfg.tools, registerFunc)
 
 		return nil
+	}
+}
+
+// createRawToolHandler wraps a raw function to match the MCP ToolHandler signature
+func createRawToolHandler(fn RawToolFunc) mcp.ToolHandler {
+	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		// Inject session into context so the user function can access it
+		session := capabilities.NewSessionCapability(req.Session)
+		ctx = injectSession(ctx, session)
+
+		// Marshal input arguments to JSON bytes
+		inputJSON, err := json.Marshal(req.Params.Arguments)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: fmt.Sprintf("Failed to marshal input: %v", err)},
+				},
+				IsError: true,
+			}, nil
+		}
+
+		// Execute raw function
+		outputJSON, err := fn(ctx, inputJSON)
+		if err != nil {
+			// Check if it's a tool error
+			var toolErr *ToolError
+			if errors.As(err, &toolErr) {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{
+						&mcp.TextContent{Text: toolErr.Error()},
+					},
+					IsError: true,
+				}, nil
+			}
+			// Protocol error
+			return nil, err
+		}
+
+		// Parse output for structured response
+		var output any
+		if err := json.Unmarshal(outputJSON, &output); err != nil {
+			// Raw tools must return valid JSON
+			return nil, errors.Join(ErrInvalidJSON, err)
+		}
+
+		// Return structured output
+		outputJSONStr := string(outputJSON)
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: outputJSONStr},
+			},
+		}, nil
 	}
 }

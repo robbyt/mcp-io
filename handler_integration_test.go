@@ -12,15 +12,15 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type ToolsIntegrationTestSuite struct {
+type HandlerIntegrationTestSuite struct {
 	testutil.IntegrationSuite
 }
 
-func TestToolsIntegrationTestSuite(t *testing.T) {
-	suite.Run(t, new(ToolsIntegrationTestSuite))
+func TestHandlerIntegrationTestSuite(t *testing.T) {
+	suite.Run(t, new(HandlerIntegrationTestSuite))
 }
 
-func (s *ToolsIntegrationTestSuite) TestToolHandlerIntegration() {
+func (s *HandlerIntegrationTestSuite) TestToolHandlerIntegration() {
 	s.Run("ToUpper", func() {
 		// Create the server with the same tools as cli-tool
 		handler, err := mcpio.NewHandler(

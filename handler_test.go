@@ -648,3 +648,103 @@ func TestServeStdioInternalBehavior(t *testing.T) {
 	defer cancel()
 	assert.NotNil(t, ctxWithCancel)
 }
+
+func TestHandlerConstruction(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name           string
+		opts           []Option
+		wantErr        error
+		wantNilHandler bool
+	}{
+		{
+			name:    "basic handler",
+			opts:    nil,
+			wantErr: nil,
+		},
+		{
+			name:    "with name and version",
+			opts:    []Option{WithName("test-server"), WithVersion("1.2.3")},
+			wantErr: nil,
+		},
+		{
+			name:           "empty name error",
+			opts:           []Option{WithName("")},
+			wantErr:        ErrEmptyValue,
+			wantNilHandler: true,
+		},
+		{
+			name:           "empty version error",
+			opts:           []Option{WithVersion("")},
+			wantErr:        ErrEmptyValue,
+			wantNilHandler: true,
+		},
+		{
+			name:           "nil server error",
+			opts:           []Option{WithServer(nil)},
+			wantErr:        ErrNilValue,
+			wantNilHandler: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, err := NewHandler(tt.opts...)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				if tt.wantNilHandler {
+					assert.Nil(t, handler)
+				}
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, handler)
+				assert.NotNil(t, handler.server)
+			}
+		})
+	}
+}
+
+func TestToolRegistration(t *testing.T) {
+	t.Parallel()
+	// Use real MCP server instead of mock
+	server := mcp.NewServer(&mcp.Implementation{
+		Name:    "test-server",
+		Version: "1.0.0",
+	}, nil)
+
+	handler, err := NewHandler(
+		WithServer(server),
+		WithTool("greet", "Greet someone", greetFunc),
+		WithTool("farewell", "Say goodbye", farewellFunc),
+	)
+
+	require.NoError(t, err)
+	assert.NotNil(t, handler)
+	assert.Equal(t, server, handler.GetServer())
+}
+
+func TestConcurrentAccess(t *testing.T) {
+	t.Parallel()
+	handler, err := NewHandler(
+		WithName("concurrent-test"),
+		WithTool("greet", "Greet someone", greetFunc),
+	)
+	require.NoError(t, err)
+
+	// Multiple goroutines accessing the same handler should be safe
+	done := make(chan bool, 10)
+
+	for i := 0; i < 10; i++ {
+		go func() {
+			server := handler.GetServer()
+			assert.NotNil(t, server)
+			done <- true
+		}()
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+}
