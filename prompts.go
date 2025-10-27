@@ -8,9 +8,9 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/robbyt/mcp-io/capabilities"
-	"github.com/robbyt/mcp-io/schema"
 )
 
 // PromptFunc is the function signature for user-defined prompt handlers.
@@ -127,6 +127,33 @@ func createTypedPromptHandler[TArgs any](fn TypedPromptFunc[TArgs]) mcp.PromptHa
 	}
 }
 
+// convertToJSONSchema converts any schema type to *jsonschema.Schema for
+// internal processing that requires accessing specific schema fields like
+// Properties and Required.
+func convertToJSONSchema(schema any) (*jsonschema.Schema, error) {
+	if schema == nil {
+		return nil, fmt.Errorf("schema cannot be nil")
+	}
+
+	// If it's already a *jsonschema.Schema, use it directly
+	if s, ok := schema.(*jsonschema.Schema); ok {
+		return s, nil
+	}
+
+	// Convert other types by marshaling to JSON and unmarshaling to *jsonschema.Schema
+	jsonBytes, err := json.Marshal(schema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal schema to JSON: %w", err)
+	}
+
+	var result *jsonschema.Schema
+	if err := json.Unmarshal(jsonBytes, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal schema from JSON: %w", err)
+	}
+
+	return result, nil
+}
+
 // schemaToPromptArguments converts a JSON schema to MCP prompt arguments
 func schemaToPromptArguments(s any) ([]*mcp.PromptArgument, error) {
 	if s == nil {
@@ -134,7 +161,7 @@ func schemaToPromptArguments(s any) ([]*mcp.PromptArgument, error) {
 	}
 
 	// Convert to *jsonschema.Schema to access Properties and Required fields
-	jsonSchemaObj, err := schema.ConvertToJSONSchema(s)
+	jsonSchemaObj, err := convertToJSONSchema(s)
 	if err != nil {
 		return nil, err
 	}

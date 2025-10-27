@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"maps"
 	"os"
 	"strings"
 
@@ -24,17 +23,20 @@ func toUpper(ctx context.Context, input TextInput) (TextOutput, error) {
 	return TextOutput{Result: strings.ToUpper(input.Text)}, nil
 }
 
-// Generic tool function that works with any JSON
-func processJSON(ctx context.Context, input map[string]any) (map[string]any, error) {
+// Generic tool function that works with any JSON - raw version for WithRawTool
+func processJSON(ctx context.Context, input []byte) ([]byte, error) {
+	var params map[string]any
+	if err := json.Unmarshal(input, &params); err != nil {
+		return nil, err
+	}
+
 	// Add a "processed" flag to any input
-	output := make(map[string]any)
-	maps.Copy(output, input)
-	output["processed"] = true
-	return output, nil
+	params["processed"] = true
+	return json.Marshal(params)
 }
 
 func main() {
-	// JSON schema strings for better performance (json.RawMessage is optimal)
+	// JSON schema string for calculator input (json.RawMessage is optimal)
 	calculatorInputSchema := `{
 		"type": "object",
 		"properties": {
@@ -49,20 +51,16 @@ func main() {
 		"required": ["operation", "a", "b"]
 	}`
 
-	calculatorOutputSchema := `{
-		"type": "object",
-		"properties": {
-			"result": {"type": "number", "description": "Calculation result"},
-			"operation": {"type": "string", "description": "Operation performed"}
-		},
-		"required": ["result", "operation"]
-	}`
+	// Calculator function - raw version for WithRawTool
+	calculator := func(ctx context.Context, input []byte) ([]byte, error) {
+		var params map[string]any
+		if err := json.Unmarshal(input, &params); err != nil {
+			return nil, err
+		}
 
-	// Calculator function
-	calculator := func(ctx context.Context, input map[string]any) (map[string]any, error) {
-		op := input["operation"].(string)
-		a := input["a"].(float64)
-		b := input["b"].(float64)
+		op := params["operation"].(string)
+		a := params["a"].(float64)
+		b := params["b"].(float64)
 
 		var result float64
 		switch op {
@@ -81,48 +79,10 @@ func main() {
 			return nil, mcpio.ValidationError("unsupported operation: " + op)
 		}
 
-		return map[string]any{
+		return json.Marshal(map[string]any{
 			"result":    result,
 			"operation": op,
-		}, nil
-	}
-
-	// Schema using map[string]any for dynamic construction
-	dynamicSchema := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"message": map[string]any{
-				"type":        "string",
-				"description": "Message to echo",
-			},
-			"repeat": map[string]any{
-				"type":        "integer",
-				"minimum":     1,
-				"maximum":     10,
-				"default":     1,
-				"description": "Number of times to repeat",
-			},
-		},
-		"required": []string{"message"},
-	}
-
-	echo := func(ctx context.Context, input map[string]any) (map[string]any, error) {
-		message := input["message"].(string)
-		repeat := 1
-		if r, ok := input["repeat"]; ok {
-			repeat = int(r.(float64))
-		}
-
-		var result []string
-		for i := 0; i < repeat; i++ {
-			result = append(result, message)
-		}
-
-		return map[string]any{
-			"echoed":  result,
-			"count":   len(result),
-			"message": message,
-		}, nil
+		})
 	}
 
 	handler, err := mcpio.NewHandler(
@@ -133,21 +93,11 @@ func main() {
 		mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
 
 		// Tool with JSON string schemas (optimal performance with json.RawMessage conversion)
-		mcpio.WithToolWithSchema("calculator", "Perform arithmetic operations", calculator, &mcpio.ToolSchemas{
-			InputSchema:  calculatorInputSchema,
-			OutputSchema: calculatorOutputSchema,
-		}),
-
-		// Tool with dynamic map[string]any schema
-		mcpio.WithToolWithSchema("echo", "Echo a message with optional repetition", echo, &mcpio.ToolSchemas{
-			InputSchema: dynamicSchema,
-		}),
+		mcpio.WithRawTool("calculator", "Perform arithmetic operations", calculatorInputSchema, calculator),
 
 		// Tool with json.RawMessage schemas (maximum performance)
-		mcpio.WithToolWithSchema("process_json", "Add processed flag to any JSON object", processJSON, &mcpio.ToolSchemas{
-			InputSchema:  json.RawMessage(`{"type":"object","additionalProperties":true}`),
-			OutputSchema: json.RawMessage(`{"type":"object","additionalProperties":true,"properties":{"processed":{"type":"boolean"}}}`),
-		}),
+		mcpio.WithRawTool("process_json", "Add processed flag to any JSON object",
+			json.RawMessage(`{"type":"object","additionalProperties":true}`), processJSON),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create handler: %v", err)
@@ -155,10 +105,9 @@ func main() {
 
 	log.Println("Schema Flexibility Demo Server")
 	log.Println("Available tools:")
-	log.Println("  - to_upper: Uses struct-based schema generation")
-	log.Println("  - calculator: Uses JSON string schemas (converted to optimal json.RawMessage)")
-	log.Println("  - echo: Uses map[string]any schema construction")
-	log.Println("  - process_json: Uses json.RawMessage schemas (maximum performance)")
+	log.Println("  - to_upper: WithTool with struct-based schema generation")
+	log.Println("  - calculator: WithRawTool with JSON string schema (converted to json.RawMessage)")
+	log.Println("  - process_json: WithRawTool with json.RawMessage schema (maximum performance)")
 	log.Println()
 
 	if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {

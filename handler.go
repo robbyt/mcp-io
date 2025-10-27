@@ -42,6 +42,10 @@ func (h *Handler) GetServer() *mcp.Server {
 	return h.server
 }
 
+// toolRegisterFunc is an internal function type that registers a tool on an MCP server.
+// This is used internally by the option functions to defer tool registration.
+type toolRegisterFunc func(*mcp.Server) error
+
 // NewHandler creates a new MCP handler that supports any combination of MCP resources.
 // This is the unified constructor that can handle tools, prompts, resources, and resource templates.
 func NewHandler(opts ...Option) (*Handler, error) {

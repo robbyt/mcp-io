@@ -50,19 +50,15 @@ func createCalculatorServerBuilder() func() (*mcp.Server, error) {
 			"required": ["operation", "a", "b"]
 		}`
 
-		calculatorOutputSchema := `{
-			"type": "object",
-			"properties": {
-				"result": {"type": "number", "description": "Calculation result"},
-				"operation": {"type": "string", "description": "Operation performed"}
-			},
-			"required": ["result", "operation"]
-		}`
+		calculator := func(ctx context.Context, input []byte) ([]byte, error) {
+			var params map[string]any
+			if err := json.Unmarshal(input, &params); err != nil {
+				return nil, err
+			}
 
-		calculator := func(ctx context.Context, input map[string]any) (map[string]any, error) {
-			op := input["operation"].(string)
-			a := input["a"].(float64)
-			b := input["b"].(float64)
+			op := params["operation"].(string)
+			a := params["a"].(float64)
+			b := params["b"].(float64)
 
 			var result float64
 			switch op {
@@ -81,71 +77,15 @@ func createCalculatorServerBuilder() func() (*mcp.Server, error) {
 				return nil, mcpio.ValidationError("unsupported operation: " + op)
 			}
 
-			return map[string]any{
+			return json.Marshal(map[string]any{
 				"result":    result,
 				"operation": op,
-			}, nil
+			})
 		}
 
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("schema-flexibility-demo"),
-			mcpio.WithToolWithSchema("calculator", "Perform arithmetic operations", calculator, &mcpio.ToolSchemas{
-				InputSchema:  calculatorInputSchema,
-				OutputSchema: calculatorOutputSchema,
-			}),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
-}
-
-// createEchoServerBuilder creates a server with only the echo tool
-func createEchoServerBuilder() func() (*mcp.Server, error) {
-	return func() (*mcp.Server, error) {
-		dynamicSchema := map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"message": map[string]any{
-					"type":        "string",
-					"description": "Message to echo",
-				},
-				"repeat": map[string]any{
-					"type":        "integer",
-					"minimum":     1,
-					"maximum":     10,
-					"default":     1,
-					"description": "Number of times to repeat",
-				},
-			},
-			"required": []string{"message"},
-		}
-
-		echo := func(ctx context.Context, input map[string]any) (map[string]any, error) {
-			message := input["message"].(string)
-			repeat := 1
-			if r, ok := input["repeat"]; ok {
-				repeat = int(r.(float64))
-			}
-
-			var result []string
-			for i := 0; i < repeat; i++ {
-				result = append(result, message)
-			}
-
-			return map[string]any{
-				"echoed":  result,
-				"count":   len(result),
-				"message": message,
-			}, nil
-		}
-
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("schema-flexibility-demo"),
-			mcpio.WithToolWithSchema("echo", "Echo a message with optional repetition", echo, &mcpio.ToolSchemas{
-				InputSchema: dynamicSchema,
-			}),
+			mcpio.WithRawTool("calculator", "Perform arithmetic operations", calculatorInputSchema, calculator),
 		)
 		if err != nil {
 			return nil, err
@@ -159,10 +99,8 @@ func createProcessJsonServerBuilder() func() (*mcp.Server, error) {
 	return func() (*mcp.Server, error) {
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("schema-flexibility-demo"),
-			mcpio.WithToolWithSchema("process_json", "Add processed flag to any JSON object", processJSON, &mcpio.ToolSchemas{
-				InputSchema:  json.RawMessage(`{"type":"object","additionalProperties":true}`),
-				OutputSchema: json.RawMessage(`{"type":"object","additionalProperties":true,"properties":{"processed":{"type":"boolean"}}}`),
-			}),
+			mcpio.WithRawTool("process_json", "Add processed flag to any JSON object",
+				json.RawMessage(`{"type":"object","additionalProperties":true}`), processJSON),
 		)
 		if err != nil {
 			return nil, err
@@ -188,7 +126,7 @@ func createSimpleServerBuilder() func() (*mcp.Server, error) {
 // createFullServerBuilder creates a server with all tools - helper to reduce duplication
 func createFullServerBuilder() func() (*mcp.Server, error) {
 	return func() (*mcp.Server, error) {
-		// JSON schema strings for better performance (json.RawMessage is optimal)
+		// JSON schema string for calculator input (json.RawMessage is optimal)
 		calculatorInputSchema := `{
 			"type": "object",
 			"properties": {
@@ -203,20 +141,16 @@ func createFullServerBuilder() func() (*mcp.Server, error) {
 			"required": ["operation", "a", "b"]
 		}`
 
-		calculatorOutputSchema := `{
-			"type": "object",
-			"properties": {
-				"result": {"type": "number", "description": "Calculation result"},
-				"operation": {"type": "string", "description": "Operation performed"}
-			},
-			"required": ["result", "operation"]
-		}`
+		// Calculator function - raw version for WithRawTool
+		calculator := func(ctx context.Context, input []byte) ([]byte, error) {
+			var params map[string]any
+			if err := json.Unmarshal(input, &params); err != nil {
+				return nil, err
+			}
 
-		// Calculator function
-		calculator := func(ctx context.Context, input map[string]any) (map[string]any, error) {
-			op := input["operation"].(string)
-			a := input["a"].(float64)
-			b := input["b"].(float64)
+			op := params["operation"].(string)
+			a := params["a"].(float64)
+			b := params["b"].(float64)
 
 			var result float64
 			switch op {
@@ -235,48 +169,10 @@ func createFullServerBuilder() func() (*mcp.Server, error) {
 				return nil, mcpio.ValidationError("unsupported operation: " + op)
 			}
 
-			return map[string]any{
+			return json.Marshal(map[string]any{
 				"result":    result,
 				"operation": op,
-			}, nil
-		}
-
-		// Schema using map[string]any for dynamic construction
-		dynamicSchema := map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"message": map[string]any{
-					"type":        "string",
-					"description": "Message to echo",
-				},
-				"repeat": map[string]any{
-					"type":        "integer",
-					"minimum":     1,
-					"maximum":     10,
-					"default":     1,
-					"description": "Number of times to repeat",
-				},
-			},
-			"required": []string{"message"},
-		}
-
-		echo := func(ctx context.Context, input map[string]any) (map[string]any, error) {
-			message := input["message"].(string)
-			repeat := 1
-			if r, ok := input["repeat"]; ok {
-				repeat = int(r.(float64))
-			}
-
-			var result []string
-			for i := 0; i < repeat; i++ {
-				result = append(result, message)
-			}
-
-			return map[string]any{
-				"echoed":  result,
-				"count":   len(result),
-				"message": message,
-			}, nil
+			})
 		}
 
 		handler, err := mcpio.NewHandler(
@@ -286,22 +182,12 @@ func createFullServerBuilder() func() (*mcp.Server, error) {
 			// Traditional struct-based tool (no schema options needed)
 			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
 
-			// Tool with JSON string schemas (optimal performance with json.RawMessage conversion)
-			mcpio.WithToolWithSchema("calculator", "Perform arithmetic operations", calculator, &mcpio.ToolSchemas{
-				InputSchema:  calculatorInputSchema,
-				OutputSchema: calculatorOutputSchema,
-			}),
+			// Tool with JSON string schema (converted to json.RawMessage)
+			mcpio.WithRawTool("calculator", "Perform arithmetic operations", calculatorInputSchema, calculator),
 
-			// Tool with dynamic map[string]any schema
-			mcpio.WithToolWithSchema("echo", "Echo a message with optional repetition", echo, &mcpio.ToolSchemas{
-				InputSchema: dynamicSchema,
-			}),
-
-			// Tool with json.RawMessage schemas (maximum performance)
-			mcpio.WithToolWithSchema("process_json", "Add processed flag to any JSON object", processJSON, &mcpio.ToolSchemas{
-				InputSchema:  json.RawMessage(`{"type":"object","additionalProperties":true}`),
-				OutputSchema: json.RawMessage(`{"type":"object","additionalProperties":true,"properties":{"processed":{"type":"boolean"}}}`),
-			}),
+			// Tool with json.RawMessage schema (maximum performance)
+			mcpio.WithRawTool("process_json", "Add processed flag to any JSON object",
+				json.RawMessage(`{"type":"object","additionalProperties":true}`), processJSON),
 		)
 		if err != nil {
 			return nil, err
@@ -380,8 +266,14 @@ func (s *SchemaFlexibilityTestSuite) TestCalculatorTool() {
 				s.Require().NoError(err)
 				s.Require().False(result.IsError)
 
-				resultMap, ok := result.StructuredContent.(map[string]any)
-				s.Require().True(ok, "StructuredContent should be a map")
+				// Raw tools return JSON in TextContent
+				textContent, ok := result.Content[0].(*mcp.TextContent)
+				s.Require().True(ok, "Content should be TextContent")
+
+				var resultMap map[string]any
+				err = json.Unmarshal([]byte(textContent.Text), &resultMap)
+				s.Require().NoError(err)
+
 				s.InEpsilon(tc.expected, resultMap["result"], 0.0001)
 				s.Equal(tc.operation, resultMap["operation"])
 			})
@@ -404,9 +296,9 @@ func (s *SchemaFlexibilityTestSuite) TestCalculatorTool() {
 			}
 		})
 
-		// Test invalid operation - this will be caught by schema validation
+		// Test invalid operation - tool returns validation error
 		s.Run("InvalidOperation", func() {
-			_, err := session.CallTool(ctx, &mcp.CallToolParams{
+			result, err := session.CallTool(ctx, &mcp.CallToolParams{
 				Name: "calculator",
 				Arguments: map[string]any{
 					"operation": "invalid",
@@ -414,62 +306,12 @@ func (s *SchemaFlexibilityTestSuite) TestCalculatorTool() {
 					"b":         3,
 				},
 			})
-			// Schema validation should catch the invalid operation
-			s.Require().Error(err)
-			s.Contains(err.Error(), "enum")
+			s.Require().NoError(err)
+			s.Require().True(result.IsError)
+			if textContent, ok := result.Content[0].(*mcp.TextContent); s.True(ok) {
+				s.Contains(textContent.Text, "unsupported operation")
+			}
 		})
-	})
-}
-
-func (s *SchemaFlexibilityTestSuite) TestEchoTool() {
-	ctx := s.T().Context()
-
-	serverBuilder := createEchoServerBuilder()
-
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
-		testCases := []struct {
-			name     string
-			message  string
-			repeat   *int
-			expected []string
-		}{
-			{"DefaultRepeat", "hello", nil, []string{"hello"}},
-			{"SingleRepeat", "world", intPtr(1), []string{"world"}},
-			{"MultipleRepeat", "test", intPtr(3), []string{"test", "test", "test"}},
-			{"MaxRepeat", "max", intPtr(10), []string{"max", "max", "max", "max", "max", "max", "max", "max", "max", "max"}},
-		}
-
-		for _, tc := range testCases {
-			s.Run(tc.name, func() {
-				args := map[string]any{"message": tc.message}
-				if tc.repeat != nil {
-					args["repeat"] = *tc.repeat
-				}
-
-				result, err := session.CallTool(ctx, &mcp.CallToolParams{
-					Name:      "echo",
-					Arguments: args,
-				})
-				s.Require().NoError(err)
-				s.Require().False(result.IsError)
-
-				resultMap, ok := result.StructuredContent.(map[string]any)
-				s.Require().True(ok, "StructuredContent should be a map")
-
-				echoed, ok := resultMap["echoed"].([]any)
-				s.Require().True(ok, "echoed should be an array")
-
-				// Convert []any to []string for comparison
-				var echoedStr []string
-				for _, v := range echoed {
-					echoedStr = append(echoedStr, v.(string))
-				}
-
-				s.Equal(tc.expected, echoedStr)
-				s.Equal(len(tc.expected), int(resultMap["count"].(float64)))
-				s.Equal(tc.message, resultMap["message"])
-			})
-		}
 	})
 }
 
@@ -517,8 +359,13 @@ func (s *SchemaFlexibilityTestSuite) TestProcessJsonTool() {
 				s.Require().NoError(err)
 				s.Require().False(result.IsError)
 
-				resultMap, ok := result.StructuredContent.(map[string]any)
-				s.Require().True(ok, "StructuredContent should be a map")
+				// Raw tools return JSON in TextContent
+				textContent, ok := result.Content[0].(*mcp.TextContent)
+				s.Require().True(ok, "Content should be TextContent")
+
+				var resultMap map[string]any
+				err = json.Unmarshal([]byte(textContent.Text), &resultMap)
+				s.Require().NoError(err)
 
 				for key, expectedValue := range tc.expected {
 					s.Equal(expectedValue, resultMap[key], "Key %s should match", key)
@@ -537,7 +384,7 @@ func (s *SchemaFlexibilityTestSuite) TestToolListing() {
 	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
 		result, err := session.ListTools(ctx, &mcp.ListToolsParams{})
 		s.Require().NoError(err)
-		s.Require().Len(result.Tools, 4)
+		s.Require().Len(result.Tools, 3)
 
 		toolMap := make(map[string]mcp.Tool)
 		for _, tool := range result.Tools {
@@ -548,7 +395,6 @@ func (s *SchemaFlexibilityTestSuite) TestToolListing() {
 		expectedTools := map[string]string{
 			"to_upper":     "Convert text to uppercase",
 			"calculator":   "Perform arithmetic operations",
-			"echo":         "Echo a message with optional repetition",
 			"process_json": "Add processed flag to any JSON object",
 		}
 
@@ -583,9 +429,4 @@ func (s *SchemaFlexibilityTestSuite) TestBinaryBuild() {
 	// Verify binary was created
 	s.FileExists(binaryPath)
 	s.T().Log("Binary built successfully at", binaryPath)
-}
-
-// Helper function to create int pointer
-func intPtr(i int) *int {
-	return &i
 }

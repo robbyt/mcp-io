@@ -1,4 +1,4 @@
-package schema
+package tool
 
 import (
 	"encoding/json"
@@ -7,10 +7,10 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-// ConvertToRawMessage converts any schema type to json.RawMessage for optimal performance with
+// convertToRawMessage converts any schema type to json.RawMessage for optimal performance with
 // the MCP SDK. json.RawMessage has zero marshaling overhead during tool listing, so it uses fewer
 // resources.
-func ConvertToRawMessage(schema any) (json.RawMessage, error) {
+func convertToRawMessage(schema any) (json.RawMessage, error) {
 	if schema == nil {
 		return nil, fmt.Errorf("schema cannot be nil")
 	}
@@ -51,31 +51,4 @@ func ConvertToRawMessage(schema any) (json.RawMessage, error) {
 		}
 		return json.RawMessage(bytes), nil
 	}
-}
-
-// ConvertToJSONSchema converts any schema type to *jsonschema.Schema for
-// internal processing that requires accessing specific schema fields like
-// Properties and Required (e.g., schemaToPromptArguments function).
-func ConvertToJSONSchema(schema any) (*jsonschema.Schema, error) {
-	if schema == nil {
-		return nil, fmt.Errorf("schema cannot be nil")
-	}
-
-	// If it's already a *jsonschema.Schema, use it directly
-	if s, ok := schema.(*jsonschema.Schema); ok {
-		return s, nil
-	}
-
-	// Convert other types by marshaling to JSON and unmarshaling to *jsonschema.Schema
-	jsonBytes, err := json.Marshal(schema)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal schema to JSON: %w", err)
-	}
-
-	var result *jsonschema.Schema
-	if err := json.Unmarshal(jsonBytes, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal schema from JSON: %w", err)
-	}
-
-	return result, nil
 }

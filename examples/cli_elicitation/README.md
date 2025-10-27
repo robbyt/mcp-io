@@ -161,7 +161,7 @@ mcp call delete_record --params '{"id":"test1"}' ./bin/cli-elicitation
 
 ### To test elicitation features:
 - Use an MCP client that supports elicitation (like Claude Desktop)
-- Use the MCP Inspector with extended timeout: `npx @modelcontextprotocol/inspector go run ./examples/cli_elicitation/` then add `?timeout=30000` to the URL for 30 seconds
+- Use the MCP Inspector with extended timeout: `npx @modelcontextprotocol/inspector go run -C examples/cli_elicitation .` then add `?timeout=30000` to the URL for 30 seconds
 - Write integration tests with mock elicitation handlers
 - Use the HTTP version with a custom client that handles elicitation requests
 

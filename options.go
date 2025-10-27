@@ -1,12 +1,15 @@
 package mcpio
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/robbyt/mcp-io/schema"
+	"github.com/robbyt/mcp-io/capabilities"
+	"github.com/robbyt/mcp-io/primitives/tool"
 )
 
 // Option is a functional option for configuring handlers
@@ -120,7 +123,7 @@ func WithTypedPrompt[TArgs any](name, description string, fn TypedPromptFunc[TAr
 		}
 
 		// Generate schema from the TArgs type
-		s, err := schema.New[TArgs]()
+		s, err := jsonschema.For[TArgs](nil)
 		if err != nil {
 			return fmt.Errorf("failed to generate schema for prompt %s: %w", name, err)
 		}
@@ -193,53 +196,99 @@ func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Opti
 	}
 }
 
-// WithToolWithSchema adds a type-safe tool with automatic schema generation from Go types.
-// Optional schemas parameter overrides the auto-generated schemas from TIn/TOut types.
+// ToolFunc is the function signature for typed tools with automatic schema generation.
+// The function receives a context and typed input, and returns typed output with an optional error.
+// Schema generation is handled automatically based on the TIn and TOut types.
+type ToolFunc[TIn, TOut any] func(context.Context, TIn) (TOut, error)
+
+// WithTool adds a type-safe tool with automatic schema generation from Go types.
+//
+// The InputSchema is automatically generated from the TIn type parameter.
+// Optional metadata can be provided using functional options from the primitives/tool package.
 //
 // Examples:
 //
-//	// Auto-generated schemas: Uses TIn/TOut struct types
-//	WithToolWithSchema("to_upper", "Convert text to uppercase", toUpperFunc, nil)
+//	// Simple case: Auto-generated schemas only
+//	WithTool("to_upper", "Convert text to uppercase", toUpperFunc)
 //
-//	// Schema override: Replaces auto-generated input/output
-//	customSchemas := &ToolSchemas{
-//	    InputSchema:  `{"type":"object","properties":{"text":{"type":"string"}}}`,
-//	    OutputSchema: json.RawMessage(`{"type":"object"}`),
-//	}
-//	WithToolWithSchema("to_upper", "Convert text", toUpperFunc, customSchemas)
-func WithToolWithSchema[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], schemas *ToolSchemas) Option {
+//	// With metadata options (recommended import alias: import toolOption "github.com/robbyt/mcp-io/primitives/tool")
+//	WithTool("to_upper", "Convert text to uppercase", toUpperFunc,
+//	    toolOption.WithTitle("Text Uppercaser"),
+//	    toolOption.WithReadOnly(),
+//	    toolOption.WithIdempotent(),
+//	)
+func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], opts ...tool.Option) Option {
 	return func(cfg *handlerConfig) error {
 		if name == "" {
 			return fmt.Errorf("tool name cannot be empty: %w", ErrEmptyValue)
 		}
 
-		// Create registration function that uses the generic AddTool
 		registerFunc := func(server *mcp.Server) error {
-			tool := &mcp.Tool{
+			// Create tool with metadata
+			mcpTool := &mcp.Tool{
 				Name:        name,
 				Description: description,
 			}
 
-			// Apply custom schemas if provided
-			if schemas != nil {
-				if schemas.InputSchema != nil {
-					converted, err := schema.ConvertToRawMessage(schemas.InputSchema)
-					if err != nil {
-						return fmt.Errorf("tool %q: %w", name, errors.Join(ErrInvalidJSONSchema, err))
-					}
-					tool.InputSchema = converted
-				}
-				if schemas.OutputSchema != nil {
-					converted, err := schema.ConvertToRawMessage(schemas.OutputSchema)
-					if err != nil {
-						return fmt.Errorf("tool %q: %w", name, errors.Join(ErrInvalidJSONSchema, err))
-					}
-					tool.OutputSchema = converted
+			// Apply metadata options directly to the tool
+			for _, opt := range opts {
+				if err := opt(mcpTool); err != nil {
+					return err
 				}
 			}
 
 			handler := createTypedHandler(fn)
-			mcp.AddTool(server, tool, handler)
+			mcp.AddTool(server, mcpTool, handler) // Auto-generates InputSchema from TIn
+			return nil
+		}
+
+		cfg.tools = append(cfg.tools, registerFunc)
+		return nil
+	}
+}
+
+// RawToolFunc is the function signature for raw JSON tools.
+// The function receives a context and raw JSON bytes as input, and returns JSON bytes as output.
+// Schema must be provided explicitly when using WithRawTool.
+type RawToolFunc func(context.Context, []byte) ([]byte, error)
+
+// WithRawTool adds a tool with manual JSON handling and explicit schema.
+// Use this when you need direct control over JSON processing or dynamic schemas.
+// Optional metadata can be provided via functional options from primitives/tool package.
+//
+// Examples:
+//
+//	rawFunc := func(ctx context.Context, input []byte) ([]byte, error) { return input, nil }
+//	WithRawTool("process", "Process JSON", `{"type":"object"}`, rawFunc)
+//
+//	// With metadata (recommended import alias: import toolOption "github.com/robbyt/mcp-io/primitives/tool")
+//	WithRawTool("process", "Process JSON", inputSchema, rawFunc,
+//	    toolOption.WithTitle("JSON Processor"),
+//	    toolOption.WithReadOnly(),
+//	)
+func WithRawTool(name, description string, inputSchema any, fn RawToolFunc, opts ...tool.Option) Option {
+	return func(cfg *handlerConfig) error {
+		if name == "" {
+			return fmt.Errorf("tool name cannot be empty: %w", ErrEmptyValue)
+		}
+		if inputSchema == nil {
+			return fmt.Errorf("input schema cannot be nil: %w", ErrNilValue)
+		}
+		// Check for typed nil pointers
+		if s, ok := inputSchema.(*jsonschema.Schema); ok && s == nil {
+			return fmt.Errorf("input schema cannot be nil: %w", ErrNilValue)
+		}
+
+		// Create registration function
+		registerFunc := func(server *mcp.Server) error {
+			// Use primitives/tool to construct the tool
+			mcpTool, err := tool.New(name, description, inputSchema, opts...)
+			if err != nil {
+				return err
+			}
+
+			handler := createRawToolHandler(fn)
+			server.AddTool(mcpTool, handler)
 			return nil
 		}
 
@@ -249,53 +298,54 @@ func WithToolWithSchema[TIn, TOut any](name, description string, fn ToolFunc[TIn
 	}
 }
 
-// WithTool adds a type-safe tool with automatic schema generation from Go types.
-// This is a convenience wrapper around WithToolWithSchema with nil schemas.
-//
-// Example:
-//
-//	WithTool("to_upper", "Convert text to uppercase", toUpperFunc)
-func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut]) Option {
-	return WithToolWithSchema(name, description, fn, nil)
-}
+// createRawToolHandler wraps a raw function to match the MCP ToolHandler signature
+func createRawToolHandler(fn RawToolFunc) mcp.ToolHandler {
+	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		// Inject session into context so the user function can access it
+		session := capabilities.NewSessionCapability(req.Session)
+		ctx = injectSession(ctx, session)
 
-// WithRawTool adds a tool with manual JSON handling and explicit schema.
-// Use this when you need direct control over JSON processing or dynamic schemas.
-//
-//	rawFunc := func(ctx context.Context, input []byte) ([]byte, error) { return input, nil }
-//	WithRawTool("process", "Process JSON", `{"type":"object"}`, rawFunc)
-func WithRawTool(name, description string, inputSchema any, fn RawToolFunc) Option {
-	return func(cfg *handlerConfig) error {
-		if name == "" {
-			return fmt.Errorf("tool name cannot be empty: %w", ErrEmptyValue)
-		}
-		if inputSchema == nil {
-			return fmt.Errorf("input schema cannot be nil: %w", ErrNilValue)
-		}
-		// Check for typed nil pointers
-		if schema, ok := inputSchema.(*jsonschema.Schema); ok && schema == nil {
-			return fmt.Errorf("input schema cannot be nil: %w", ErrNilValue)
+		// Marshal input arguments to JSON bytes
+		inputJSON, err := json.Marshal(req.Params.Arguments)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: fmt.Sprintf("Failed to marshal input: %v", err)},
+				},
+				IsError: true,
+			}, nil
 		}
 
-		// Create registration function that uses the low-level AddTool
-		registerFunc := func(server *mcp.Server) error {
-			converted, err := schema.ConvertToRawMessage(inputSchema)
-			if err != nil {
-				return fmt.Errorf("tool %q: %w", name, errors.Join(ErrInvalidJSONSchema, err))
+		// Execute raw function
+		outputJSON, err := fn(ctx, inputJSON)
+		if err != nil {
+			// Check if it's a tool error
+			var toolErr *ToolError
+			if errors.As(err, &toolErr) {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{
+						&mcp.TextContent{Text: toolErr.Error()},
+					},
+					IsError: true,
+				}, nil
 			}
-
-			tool := &mcp.Tool{
-				Name:        name,
-				Description: description,
-				InputSchema: converted,
-			}
-			handler := createRawToolHandler(fn)
-			server.AddTool(tool, handler)
-			return nil
+			// Protocol error
+			return nil, err
 		}
 
-		cfg.tools = append(cfg.tools, registerFunc)
+		// Parse output for structured response
+		var output any
+		if err := json.Unmarshal(outputJSON, &output); err != nil {
+			// Raw tools must return valid JSON
+			return nil, errors.Join(ErrInvalidJSON, err)
+		}
 
-		return nil
+		// Return structured output
+		outputJSONStr := string(outputJSON)
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: outputJSONStr},
+			},
+		}, nil
 	}
 }
