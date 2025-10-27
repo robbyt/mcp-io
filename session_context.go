@@ -40,6 +40,13 @@ func injectSession(ctx context.Context, session *capabilities.Session) context.C
 	return context.WithValue(ctx, sessionContextKey{}, session)
 }
 
+// injectMCPSession creates a Session from an MCP ServerSession and injects it into the context.
+// This helper combines Session creation and context injection in one call.
+func injectMCPSession(ctx context.Context, mcpSession *mcp.ServerSession) context.Context {
+	session := capabilities.NewSessionCapability(mcpSession)
+	return injectSession(ctx, session)
+}
+
 // CreateMessage asks the client's LLM to generate a response to the provided messages.
 // This enables servers to use the client's LLM for analysis, suggestions, or processing.
 // Returns an error if the session is not available or the client doesn't support sampling.
