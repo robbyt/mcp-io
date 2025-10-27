@@ -535,11 +535,9 @@ func TestSessionCapabilities(t *testing.T) {
 				// Use sampling...
 			}
 
-			// Access client capabilities for detailed information
-			caps := session.ClientCapabilities()
-			assert.NotNil(t, caps)
-			if caps.Roots != nil && caps.Roots.ListChanged {
-				// Client supports notifications for roots list changes
+			// Check client capabilities
+			if session.SupportsRoots() {
+				// Client supports filesystem roots
 				roots, err := session.ListRoots(ctx)
 				if err == nil {
 					// Use roots...

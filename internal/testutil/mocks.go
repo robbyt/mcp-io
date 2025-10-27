@@ -71,20 +71,17 @@ func (m *MockSessionCapability) SessionID() string {
 	return args.String(0)
 }
 
-func (m *MockSessionCapability) ClientCapabilities() *capabilities.ClientCapabilities {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil
-	}
-	return args.Get(0).(*capabilities.ClientCapabilities)
-}
-
 func (m *MockSessionCapability) SupportsElicitation() bool {
 	args := m.Called()
 	return args.Bool(0)
 }
 
 func (m *MockSessionCapability) SupportsSampling() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockSessionCapability) SupportsRoots() bool {
 	args := m.Called()
 	return args.Bool(0)
 }
@@ -137,16 +134,16 @@ func (m *MockSamplingSession) SessionID() string {
 	return "test-sampling-session"
 }
 
-func (m *MockSamplingSession) ClientCapabilities() *capabilities.ClientCapabilities {
-	return &capabilities.ClientCapabilities{}
-}
-
 func (m *MockSamplingSession) SupportsElicitation() bool {
 	return false
 }
 
 func (m *MockSamplingSession) SupportsSampling() bool {
 	return m.samplingSupported
+}
+
+func (m *MockSamplingSession) SupportsRoots() bool {
+	return false
 }
 
 func (m *MockSamplingSession) Wait() error {

@@ -34,8 +34,8 @@ type SessionCapability interface {
 	// Use this when you need to specify model preferences, temperature, system prompts, or other advanced options.
 	CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error)
 
-	// ListRoots queries the client's workspace roots (directories, files, etc.).
-	// Servers can use this to discover what the client has access to.
+	// ListRoots retrieves the filesystem roots exposed by the client.
+	// Roots define the boundaries of where servers can operate within the filesystem.
 	ListRoots(ctx context.Context) ([]*Root, error)
 
 	// Log sends a structured log message to the client.
@@ -53,14 +53,14 @@ type SessionCapability interface {
 	// SessionID returns the unique identifier for this session.
 	SessionID() string
 
-	// ClientCapabilities returns the capabilities the client declared during initialization.
-	ClientCapabilities() *ClientCapabilities
-
 	// SupportsElicitation returns true if the client supports elicitation (user input requests).
 	SupportsElicitation() bool
 
 	// SupportsSampling returns true if the client supports LLM sampling (CreateMessage).
 	SupportsSampling() bool
+
+	// SupportsRoots returns true if the client supports filesystem roots.
+	SupportsRoots() bool
 
 	// Wait blocks until the client disconnects or the session is closed.
 	Wait() error
@@ -88,27 +88,6 @@ func (s *sessionCapability) Logger() *slog.Logger {
 // SessionID returns the unique identifier for this session.
 func (s *sessionCapability) SessionID() string {
 	return s.session.ID()
-}
-
-// ClientCapabilities returns the capabilities the client declared during initialization.
-func (s *sessionCapability) ClientCapabilities() *ClientCapabilities {
-	initParams := s.session.InitializeParams()
-	caps := &ClientCapabilities{}
-
-	if initParams.Capabilities.Elicitation != nil {
-		caps.Elicitation = &ElicitationCapabilities{}
-	}
-	if initParams.Capabilities.Sampling != nil {
-		caps.Sampling = &SamplingCapabilities{}
-	}
-	// Roots capability - check if ListChanged is supported
-	if initParams.Capabilities.Roots.ListChanged {
-		caps.Roots = &RootsCapabilities{
-			ListChanged: true,
-		}
-	}
-
-	return caps
 }
 
 // Wait blocks until the client disconnects or the session is closed.

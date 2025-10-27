@@ -6,6 +6,23 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// Message represents a message for LLM sampling.
+type Message struct {
+	Role    string
+	Content string
+}
+
+// MessageResult represents the result of an LLM sampling request.
+type MessageResult struct {
+	Role    string
+	Content TextContent
+}
+
+// TextContent represents text content in a message.
+type TextContent struct {
+	Text string
+}
+
 // SupportsSampling returns true if the client supports LLM sampling (CreateMessage).
 func (s *sessionCapability) SupportsSampling() bool {
 	return s.session.InitializeParams().Capabilities.Sampling != nil

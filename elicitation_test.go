@@ -57,17 +57,15 @@ func (m *TestMockSession) SessionID() string {
 	return "test-session"
 }
 
-func (m *TestMockSession) ClientCapabilities() *capabilities.ClientCapabilities {
-	return &capabilities.ClientCapabilities{
-		Elicitation: &capabilities.ElicitationCapabilities{},
-	}
-}
-
 func (m *TestMockSession) SupportsElicitation() bool {
 	return true
 }
 
 func (m *TestMockSession) SupportsSampling() bool {
+	return false
+}
+
+func (m *TestMockSession) SupportsRoots() bool {
 	return false
 }
 
