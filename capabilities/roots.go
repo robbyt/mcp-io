@@ -23,14 +23,14 @@ type Root struct {
 // client supports roots but not change notifications. Handle the error appropriately.
 //
 // See: https://github.com/modelcontextprotocol/go-sdk/issues/607
-func (s *sessionCapability) SupportsRoots() bool {
+func (s *Session) SupportsRoots() bool {
 	return s.session.InitializeParams().Capabilities.Roots.ListChanged
 }
 
 // ListRoots retrieves the filesystem roots exposed by the client.
 // Roots define the boundaries of where servers can operate within the filesystem,
 // allowing servers to understand which directories and files they have access to.
-func (s *sessionCapability) ListRoots(ctx context.Context) ([]*Root, error) {
+func (s *Session) ListRoots(ctx context.Context) ([]*Root, error) {
 	params := &mcp.ListRootsParams{}
 	result, err := s.session.ListRoots(ctx, params)
 	if err != nil {

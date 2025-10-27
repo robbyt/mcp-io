@@ -142,9 +142,9 @@ func (s *DatabaseTestSuite) TestListRecords() {
 
 func (s *DatabaseTestSuite) TestCreateRecord() {
 	s.Run("AcceptRecordData", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"id":     "user1",
@@ -155,7 +155,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession.Session)
 		result, err := createRecord(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -176,13 +176,13 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 	})
 
 	s.Run("DeclineRecordData", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "decline",
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession.Session)
 		result, err := createRecord(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -193,9 +193,9 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 	})
 
 	s.Run("InvalidIDWithSpaces", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"id":     "user 1",
@@ -206,7 +206,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession.Session)
 		result, err := createRecord(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -220,9 +220,9 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 		// Add existing record
 		database["existing"] = &Record{ID: "existing", Name: "Existing User"}
 
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"id":     "existing",
@@ -233,7 +233,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession.Session)
 		result, err := createRecord(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -254,9 +254,9 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Age:   25,
 		}
 
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"confirm": "UPDATE",
@@ -274,7 +274,7 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Name: "New Name",
 		}
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession.Session)
 		result, err := updateRecord(ctx, input)
 		s.Require().NoError(err)
 
@@ -313,9 +313,9 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Email: "old@example.com",
 		}
 
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "decline",
 		}, nil).Once()
 
@@ -330,7 +330,7 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Name: "New Name",
 		}
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession.Session)
 		result, err := updateRecord(ctx, input)
 		s.Require().NoError(err)
 
@@ -347,9 +347,9 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Email: "old@example.com",
 		}
 
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"confirm": "wrong",
@@ -367,7 +367,7 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Name: "New Name",
 		}
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession.Session)
 		result, err := updateRecord(ctx, input)
 		s.Require().NoError(err)
 
@@ -413,9 +413,9 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 			Age:   30,
 		}
 
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"confirm": "delete1",
@@ -426,7 +426,7 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 			ID string `json:"id" jsonschema:"description:Record ID to delete"`
 		}{ID: "delete1"}
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession.Session)
 		result, err := deleteRecord(ctx, input)
 		s.Require().NoError(err)
 
@@ -460,9 +460,9 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 			Name: "Keep This",
 		}
 
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "decline",
 		}, nil).Once()
 
@@ -470,7 +470,7 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 			ID string `json:"id" jsonschema:"description:Record ID to delete"`
 		}{ID: "keep1"}
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession.Session)
 		result, err := deleteRecord(ctx, input)
 		s.Require().NoError(err)
 
@@ -490,9 +490,9 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 			Name: "Keep This Too",
 		}
 
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"confirm": "wrong_id",
@@ -503,7 +503,7 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 			ID string `json:"id" jsonschema:"description:Record ID to delete"`
 		}{ID: "keep2"}
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession.Session)
 		result, err := deleteRecord(ctx, input)
 		s.Require().NoError(err)
 
@@ -524,9 +524,9 @@ func (s *DatabaseTestSuite) TestDatabaseReport() {
 		database["rec1"] = &Record{ID: "rec1", Status: "active"}
 		database["rec2"] = &Record{ID: "rec2", Status: "inactive"}
 
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"format":       "detailed",
@@ -536,7 +536,7 @@ func (s *DatabaseTestSuite) TestDatabaseReport() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession.Session)
 		result, err := databaseReport(ctx, map[string]any{})
 		s.Require().NoError(err)
 
@@ -549,13 +549,13 @@ func (s *DatabaseTestSuite) TestDatabaseReport() {
 	})
 
 	s.Run("DeclineReportPreferences", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "decline",
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession.Session)
 		result, err := databaseReport(ctx, map[string]any{})
 		s.Require().NoError(err)
 

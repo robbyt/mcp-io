@@ -7,13 +7,13 @@ import (
 )
 
 // SupportsElicitation returns true if the client supports elicitation (user input requests).
-func (s *sessionCapability) SupportsElicitation() bool {
+func (s *Session) SupportsElicitation() bool {
 	return s.session.InitializeParams().Capabilities.Elicitation != nil
 }
 
 // Elicit sends an elicitation request to the client asking for user input.
 // Returns an ElicitResult containing the user's action and optionally submitted data.
-func (s *sessionCapability) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
+func (s *Session) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
 	params := &mcp.ElicitParams{
 		Message:         message,
 		RequestedSchema: requestedSchema,

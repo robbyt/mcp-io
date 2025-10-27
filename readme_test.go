@@ -11,12 +11,13 @@ import (
 	"strings"
 	"testing"
 
-	mcpSDK "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
 	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	toolOption "github.com/robbyt/mcp-io/primitives/tool"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -288,7 +289,7 @@ func TestErrorTypes(t *testing.T) {
 
 	t.Run("MCPSDKPanics", func(t *testing.T) {
 		assert.Panics(t, func() {
-			mcpSDK.NewServer(nil, nil)
+			mcp.NewServer(nil, nil)
 		}, "MCP SDK should panic when given nil Implementation")
 	})
 }
@@ -422,12 +423,14 @@ func TestSessionCapabilities(t *testing.T) {
 		}
 
 		// Create a mock session that supports sampling
-		mockSession := testutil.NewMockSamplingSession(true, &capabilities.MessageResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupSampling()
+		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(&mcp.CreateMessageResult{
 			Role:    "assistant",
-			Content: capabilities.TextContent{Text: "This code looks good. No issues found."},
-		})
+			Content: &mcp.TextContent{Text: "This code looks good. No issues found."},
+		}, nil)
 
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession.Session)
 
 		// Execute the tool
 		result, err := analyzeTool(ctx, struct{ Code string }{Code: "func test() {}"})
@@ -468,14 +471,16 @@ func TestSessionCapabilities(t *testing.T) {
 		assert.NotNil(t, handler)
 
 		// Test execution with mock
-		mockSession := testutil.NewMockSamplingSession(true, &capabilities.MessageResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupSampling()
+		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(&mcp.CreateMessageResult{
 			Role: "assistant",
-			Content: capabilities.TextContent{
+			Content: &mcp.TextContent{
 				Text: "The ancient door creaks open, revealing a dimly lit corridor filled with mysterious glowing runes. A cold wind rushes past you, carrying whispers of forgotten secrets!",
 			},
-		})
+		}, nil)
 
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession.Session)
 		result, err := dungeonMaster(ctx, AdventureInput{Action: "I open the mysterious door"})
 		require.NoError(t, err)
 		assert.Contains(t, result, "narrative")

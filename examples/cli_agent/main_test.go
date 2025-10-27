@@ -10,7 +10,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
-	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -37,20 +36,20 @@ func TestAgentSuite(t *testing.T) {
 
 func (s *AgentTestSuite) TestAnalyzeToolWithSampling() {
 	s.Run("SuccessfulAnalysis", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsSampling").Return(true)
-		mockSession.On("NotifyProgress", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-		mockSession.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupSampling()
+		mockSession.On("NotifyProgress", mock.Anything, mock.Anything).Return(nil)
+		mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
 		// Mock the sampling response
-		mockSession.On("CreateMessage", mock.Anything, mock.Anything, mock.Anything).Return(&capabilities.MessageResult{
+		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(&mcp.CreateMessageResult{
 			Role: "assistant",
-			Content: capabilities.TextContent{
+			Content: &mcp.TextContent{
 				Text: "This code contains a potential bug in the error handling. Suggestions: 1. Add proper error checking. 2. Use defer for cleanup.",
 			},
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession.Session)
 		result, err := analyzeTool(ctx, AnalyzeInput{
 			Code:     "func test() { return }",
 			Language: "go",
@@ -67,10 +66,10 @@ func (s *AgentTestSuite) TestAnalyzeToolWithSampling() {
 	})
 
 	s.Run("SamplingNotSupported", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsSampling").Return(false)
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupNoCapabilities()
 
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession.Session)
 		result, err := analyzeTool(ctx, AnalyzeInput{
 			Code: "func test() {}",
 		})
@@ -86,17 +85,17 @@ func (s *AgentTestSuite) TestAnalyzeToolWithSampling() {
 
 func (s *AgentTestSuite) TestImproveToolWithSampling() {
 	s.Run("SuccessfulImprovement", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsSampling").Return(true)
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupSampling()
 
-		mockSession.On("CreateMessage", mock.Anything, mock.Anything, mock.Anything).Return(&capabilities.MessageResult{
+		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(&mcp.CreateMessageResult{
 			Role: "assistant",
-			Content: capabilities.TextContent{
+			Content: &mcp.TextContent{
 				Text: "func test() error {\n    // Add error handling\n    return nil\n}\n\nChanges: Added error return type and handling",
 			},
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession.Session)
 		result, err := improveTool(ctx, ImproveInput{
 			Code:     "func test() {}",
 			Focus:    "security",
@@ -112,10 +111,10 @@ func (s *AgentTestSuite) TestImproveToolWithSampling() {
 	})
 
 	s.Run("SamplingNotSupported", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsSampling").Return(false)
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupNoCapabilities()
 
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession)
+		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession.Session)
 		originalCode := "func test() {}"
 		result, err := improveTool(ctx, ImproveInput{
 			Code: originalCode,

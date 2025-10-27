@@ -8,10 +8,10 @@ import (
 	"github.com/robbyt/mcp-io/capabilities"
 )
 
-// sessionContextKey is the private key for storing SessionCapability in context
+// sessionContextKey is the private key for storing Session in context
 type sessionContextKey struct{}
 
-// GetSession extracts the SessionCapability from the context.
+// GetSession extracts the Session from the context.
 // Returns nil if no session is available (e.g., in tests or non-session contexts).
 //
 // Example:
@@ -23,16 +23,20 @@ type sessionContextKey struct{}
 //	    }
 //	    return output, nil
 //	}
-func GetSession(ctx context.Context) capabilities.SessionCapability {
-	if session, ok := ctx.Value(sessionContextKey{}).(capabilities.SessionCapability); ok {
+func GetSession(ctx context.Context) *capabilities.Session {
+	val := ctx.Value(sessionContextKey{})
+	if val == nil {
+		return nil
+	}
+	if session, ok := val.(*capabilities.Session); ok {
 		return session
 	}
 	return nil
 }
 
-// injectSession adds a SessionCapability to the context.
+// injectSession adds a session to the context.
 // This is called internally by the handler before invoking user functions.
-func injectSession(ctx context.Context, session capabilities.SessionCapability) context.Context {
+func injectSession(ctx context.Context, session *capabilities.Session) context.Context {
 	return context.WithValue(ctx, sessionContextKey{}, session)
 }
 
@@ -195,14 +199,14 @@ func GetSessionID(ctx context.Context) string {
 	return session.SessionID()
 }
 
-// InjectSessionForTesting injects a SessionCapability into the context for testing purposes.
-// This allows tests to provide mock sessions without going through the full MCP handler.
+// InjectSessionForTesting injects a Session into the context for testing purposes.
+// This allows tests to provide sessions without going through the full MCP handler.
 //
 // Example:
 //
-//	// In tests, inject your session implementation:
-//	ctx := mcpio.InjectSessionForTesting(context.Background(), yourSessionImpl)
+//	// In tests, inject a session:
+//	ctx := mcpio.InjectSessionForTesting(context.Background(), session)
 //	result, err := myTool(ctx, input)
-func InjectSessionForTesting(ctx context.Context, session capabilities.SessionCapability) context.Context {
+func InjectSessionForTesting(ctx context.Context, session *capabilities.Session) context.Context {
 	return injectSession(ctx, session)
 }
