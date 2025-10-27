@@ -3,7 +3,6 @@ package capabilities
 import (
 	"context"
 	"log/slog"
-	"maps"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -80,108 +79,18 @@ func NewSessionCapability(session *mcp.ServerSession) SessionCapability {
 	return &sessionCapability{session: session}
 }
 
-func (s *sessionCapability) SupportsElicitation() bool {
-	return s.session.InitializeParams().Capabilities.Elicitation != nil
-}
-
-func (s *sessionCapability) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
-	params := &mcp.ElicitParams{
-		Message:         message,
-		RequestedSchema: requestedSchema,
-	}
-	return s.session.Elicit(ctx, params)
-}
-
-func (s *sessionCapability) SupportsSampling() bool {
-	return s.session.InitializeParams().Capabilities.Sampling != nil
-}
-
-func (s *sessionCapability) CreateMessage(ctx context.Context, messages []*Message, maxTokens int) (*MessageResult, error) {
-	// Convert our Message type to mcp.SamplingMessage
-	mcpMessages := make([]*mcp.SamplingMessage, len(messages))
-	for i, msg := range messages {
-		mcpMessages[i] = &mcp.SamplingMessage{
-			Role:    mcp.Role(msg.Role),
-			Content: &mcp.TextContent{Text: msg.Content},
-		}
-	}
-
-	params := &mcp.CreateMessageParams{
-		Messages:  mcpMessages,
-		MaxTokens: int64(maxTokens),
-	}
-
-	result, err := s.session.CreateMessage(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert result back to our types
-	mcpContent, ok := result.Content.(*mcp.TextContent)
-	if !ok {
-		return &MessageResult{
-			Role:    string(result.Role),
-			Content: TextContent{Text: ""},
-		}, nil
-	}
-
-	return &MessageResult{
-		Role:    string(result.Role),
-		Content: TextContent{Text: mcpContent.Text},
-	}, nil
-}
-
-func (s *sessionCapability) CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
-	return s.session.CreateMessage(ctx, params)
-}
-
-func (s *sessionCapability) ListRoots(ctx context.Context) ([]*Root, error) {
-	params := &mcp.ListRootsParams{}
-	result, err := s.session.ListRoots(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-
-	roots := make([]*Root, len(result.Roots))
-	for i, r := range result.Roots {
-		roots[i] = &Root{
-			URI:  r.URI,
-			Name: r.Name,
-		}
-	}
-	return roots, nil
-}
-
-func (s *sessionCapability) Log(ctx context.Context, level LogLevel, message string, data map[string]any) error {
-	logData := make(map[string]any)
-	if data != nil {
-		maps.Copy(logData, data)
-	}
-	logData["message"] = message
-
-	params := &mcp.LoggingMessageParams{
-		Level: mcp.LoggingLevel(level),
-		Data:  logData,
-	}
-	return s.session.Log(ctx, params)
-}
-
+// Logger returns a slog.Logger that sends logs to the client.
+// This provides standard Go logging integration with MCP client logging.
 func (s *sessionCapability) Logger() *slog.Logger {
 	return slog.New(mcp.NewLoggingHandler(s.session, nil))
 }
 
-func (s *sessionCapability) NotifyProgress(ctx context.Context, progress, total float64) error {
-	params := &mcp.ProgressNotificationParams{
-		Progress: progress,
-		Total:    total,
-	}
-	return s.session.NotifyProgress(ctx, params)
-}
-
+// SessionID returns the unique identifier for this session.
 func (s *sessionCapability) SessionID() string {
 	return s.session.ID()
 }
 
+// ClientCapabilities returns the capabilities the client declared during initialization.
 func (s *sessionCapability) ClientCapabilities() *ClientCapabilities {
 	initParams := s.session.InitializeParams()
 	caps := &ClientCapabilities{}
@@ -202,10 +111,12 @@ func (s *sessionCapability) ClientCapabilities() *ClientCapabilities {
 	return caps
 }
 
+// Wait blocks until the client disconnects or the session is closed.
 func (s *sessionCapability) Wait() error {
 	return s.session.Wait()
 }
 
+// Close closes this session and the underlying connection.
 func (s *sessionCapability) Close() error {
 	return s.session.Close()
 }
