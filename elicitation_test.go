@@ -2,7 +2,6 @@ package mcpio
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -17,71 +16,57 @@ type TestConfig struct {
 	Value int    `json:"value" jsonschema:"Test value"`
 }
 
-// MockSessionCapability for testing
-type TestMockSession struct {
-	ElicitFunc func(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error)
+// TestMockServerSession implements the serverSession interface for testing
+type TestMockServerSession struct {
+	ElicitFunc func(ctx context.Context, params *mcp.ElicitParams) (*mcp.ElicitResult, error)
 }
 
-func (m *TestMockSession) Elicit(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
+func (m *TestMockServerSession) InitializeParams() *mcp.InitializeParams {
+	return &mcp.InitializeParams{
+		Capabilities: &mcp.ClientCapabilities{
+			Elicitation: &mcp.ElicitationCapabilities{},
+		},
+	}
+}
+
+func (m *TestMockServerSession) Elicit(ctx context.Context, params *mcp.ElicitParams) (*mcp.ElicitResult, error) {
 	if m.ElicitFunc != nil {
-		return m.ElicitFunc(ctx, message, requestedSchema)
+		return m.ElicitFunc(ctx, params)
 	}
 	return &mcp.ElicitResult{Action: "accept", Content: map[string]any{}}, nil
 }
 
-func (m *TestMockSession) CreateMessage(ctx context.Context, messages []*capabilities.Message, maxTokens int) (*capabilities.MessageResult, error) {
-	return nil, nil
-}
-
-func (m *TestMockSession) CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
-	return nil, nil
-}
-
-func (m *TestMockSession) ListRoots(ctx context.Context) ([]*capabilities.Root, error) {
-	return nil, nil
-}
-
-func (m *TestMockSession) Log(ctx context.Context, level capabilities.LogLevel, message string, data map[string]any) error {
+func (m *TestMockServerSession) Log(ctx context.Context, params *mcp.LoggingMessageParams) error {
 	return nil
 }
 
-func (m *TestMockSession) Logger() *slog.Logger {
+func (m *TestMockServerSession) NotifyProgress(ctx context.Context, params *mcp.ProgressNotificationParams) error {
 	return nil
 }
 
-func (m *TestMockSession) NotifyProgress(ctx context.Context, progress, total float64) error {
-	return nil
+func (m *TestMockServerSession) ListRoots(ctx context.Context, params *mcp.ListRootsParams) (*mcp.ListRootsResult, error) {
+	return nil, nil
 }
 
-func (m *TestMockSession) SessionID() string {
+func (m *TestMockServerSession) CreateMessage(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
+	return nil, nil
+}
+
+func (m *TestMockServerSession) ID() string {
 	return "test-session"
 }
 
-func (m *TestMockSession) ClientCapabilities() *capabilities.ClientCapabilities {
-	return &capabilities.ClientCapabilities{
-		Elicitation: &capabilities.ElicitationCapabilities{},
-	}
-}
-
-func (m *TestMockSession) SupportsElicitation() bool {
-	return true
-}
-
-func (m *TestMockSession) SupportsSampling() bool {
-	return false
-}
-
-func (m *TestMockSession) Wait() error {
+func (m *TestMockServerSession) Wait() error {
 	return nil
 }
 
-func (m *TestMockSession) Close() error {
+func (m *TestMockServerSession) Close() error {
 	return nil
 }
 
 func TestElicitTyped_Success(t *testing.T) {
-	mockSession := &TestMockSession{
-		ElicitFunc: func(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
+	mockServerSession := &TestMockServerSession{
+		ElicitFunc: func(ctx context.Context, params *mcp.ElicitParams) (*mcp.ElicitResult, error) {
 			return &mcp.ElicitResult{
 				Action: "accept",
 				Content: map[string]any{
@@ -92,7 +77,8 @@ func TestElicitTyped_Success(t *testing.T) {
 		},
 	}
 
-	ctx := injectSession(t.Context(), mockSession)
+	session := capabilities.NewSession(mockServerSession)
+	ctx := capabilities.WithSession(t.Context(), session)
 	result, err := ElicitTyped[TestConfig](ctx, "Test message")
 
 	require.NoError(t, err)
@@ -103,14 +89,15 @@ func TestElicitTyped_Success(t *testing.T) {
 
 func TestElicitTyped_SchemaGeneration(t *testing.T) {
 	var capturedSchema any
-	mockSession := &TestMockSession{
-		ElicitFunc: func(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
-			capturedSchema = requestedSchema
+	mockServerSession := &TestMockServerSession{
+		ElicitFunc: func(ctx context.Context, params *mcp.ElicitParams) (*mcp.ElicitResult, error) {
+			capturedSchema = params.RequestedSchema
 			return &mcp.ElicitResult{Action: "decline"}, nil
 		},
 	}
 
-	ctx := injectSession(t.Context(), mockSession)
+	session := capabilities.NewSession(mockServerSession)
+	ctx := capabilities.WithSession(t.Context(), session)
 	result, err := ElicitTyped[TestConfig](ctx, "Test message")
 
 	require.NoError(t, err)
@@ -128,10 +115,11 @@ func TestElicitTyped_NoSession(t *testing.T) {
 }
 
 func TestElicitTyped_ElicitationNotSupported(t *testing.T) {
-	// Create a mock session that doesn't support elicitation
-	mockSession := &TestMockNoElicitation{}
+	// Create a mock server session that doesn't support elicitation
+	mockServerSession := &TestMockNoElicitation{}
+	session := capabilities.NewSession(mockServerSession)
 
-	ctx := injectSession(t.Context(), mockSession)
+	ctx := capabilities.WithSession(t.Context(), session)
 	result, err := ElicitTyped[TestConfig](ctx, "Test message")
 
 	require.Error(t, err)
@@ -139,13 +127,16 @@ func TestElicitTyped_ElicitationNotSupported(t *testing.T) {
 	assert.Nil(t, result)
 }
 
-// TestMockNoElicitation is a mock session that doesn't support elicitation
+// TestMockNoElicitation is a mock server session that doesn't support elicitation
 type TestMockNoElicitation struct {
-	TestMockSession
+	TestMockServerSession
 }
 
-func (m *TestMockNoElicitation) SupportsElicitation() bool {
-	return false
+func (m *TestMockNoElicitation) InitializeParams() *mcp.InitializeParams {
+	// Return params without Elicitation capability
+	return &mcp.InitializeParams{
+		Capabilities: &mcp.ClientCapabilities{},
+	}
 }
 
 func TestElicitationResult_IsAccepted(t *testing.T) {
@@ -209,8 +200,8 @@ func TestElicitationResult_DecodeContent_NoContent(t *testing.T) {
 }
 
 func TestElicitSimple_Success(t *testing.T) {
-	mockSession := &TestMockSession{
-		ElicitFunc: func(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
+	mockServerSession := &TestMockServerSession{
+		ElicitFunc: func(ctx context.Context, params *mcp.ElicitParams) (*mcp.ElicitResult, error) {
 			return &mcp.ElicitResult{
 				Action:  "accept",
 				Content: map[string]any{"username": "testuser"},
@@ -218,7 +209,8 @@ func TestElicitSimple_Success(t *testing.T) {
 		},
 	}
 
-	ctx := injectSession(t.Context(), mockSession)
+	session := capabilities.NewSession(mockServerSession)
+	ctx := capabilities.WithSession(t.Context(), session)
 	result, err := ElicitSimple(ctx, "Enter username:", "username", "Your username")
 
 	require.NoError(t, err)
@@ -227,13 +219,14 @@ func TestElicitSimple_Success(t *testing.T) {
 }
 
 func TestElicitSimple_Decline(t *testing.T) {
-	mockSession := &TestMockSession{
-		ElicitFunc: func(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
+	mockServerSession := &TestMockServerSession{
+		ElicitFunc: func(ctx context.Context, params *mcp.ElicitParams) (*mcp.ElicitResult, error) {
 			return &mcp.ElicitResult{Action: "decline"}, nil
 		},
 	}
 
-	ctx := injectSession(t.Context(), mockSession)
+	session := capabilities.NewSession(mockServerSession)
+	ctx := capabilities.WithSession(t.Context(), session)
 	result, err := ElicitSimple(ctx, "Enter username:", "username", "Your username")
 
 	require.NoError(t, err)
@@ -266,8 +259,8 @@ func TestMultiStepElicitation(t *testing.T) {
 	t.Parallel()
 
 	callCount := 0
-	mockSession := &TestMockSession{
-		ElicitFunc: func(ctx context.Context, message string, requestedSchema any) (*mcp.ElicitResult, error) {
+	mockServerSession := &TestMockServerSession{
+		ElicitFunc: func(ctx context.Context, params *mcp.ElicitParams) (*mcp.ElicitResult, error) {
 			callCount++
 			switch callCount {
 			case 1:
@@ -297,7 +290,8 @@ func TestMultiStepElicitation(t *testing.T) {
 		},
 	}
 
-	ctx := injectSession(t.Context(), mockSession)
+	session := capabilities.NewSession(mockServerSession)
+	ctx := capabilities.WithSession(t.Context(), session)
 
 	result1, err := ElicitTyped[TestConfig](ctx, "First config:")
 	require.NoError(t, err)

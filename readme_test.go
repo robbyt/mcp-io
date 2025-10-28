@@ -11,12 +11,13 @@ import (
 	"strings"
 	"testing"
 
-	mcpSDK "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
 	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	toolOption "github.com/robbyt/mcp-io/primitives/tool"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -288,7 +289,7 @@ func TestErrorTypes(t *testing.T) {
 
 	t.Run("MCPSDKPanics", func(t *testing.T) {
 		assert.Panics(t, func() {
-			mcpSDK.NewServer(nil, nil)
+			mcp.NewServer(nil, nil)
 		}, "MCP SDK should panic when given nil Implementation")
 	})
 }
@@ -387,54 +388,6 @@ func TestSessionCapabilities(t *testing.T) {
 		assert.NotNil(t, handler)
 	})
 
-	t.Run("ProgressNotifications", func(t *testing.T) {
-		// Tool from README
-		processDataTool := func(ctx context.Context, input struct{ Files []string }) (map[string]any, error) {
-			total := float64(len(input.Files))
-			for i := range input.Files {
-				mcpio.NotifyProgress(ctx, float64(i), total) //nolint:errcheck
-				// Process file...
-			}
-			mcpio.NotifyProgress(ctx, total, total) //nolint:errcheck // Mark complete
-			return map[string]any{"status": "done"}, nil
-		}
-
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("progress-server"),
-			mcpio.WithTool("process", "Process files", processDataTool),
-		)
-		require.NoError(t, err)
-		assert.NotNil(t, handler)
-	})
-
-	t.Run("SamplingExampleWithExecution", func(t *testing.T) {
-		// Actually test the sampling functionality with a mock
-		analyzeTool := func(ctx context.Context, input struct{ Code string }) (map[string]any, error) {
-			result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
-				Role:    "user",
-				Content: "Analyze this code and suggest improvements:\n" + input.Code,
-			}}, 2000)
-			if err != nil {
-				return nil, err
-			}
-
-			return map[string]any{"analysis": result.Content.Text}, nil
-		}
-
-		// Create a mock session that supports sampling
-		mockSession := testutil.NewMockSamplingSession(true, &capabilities.MessageResult{
-			Role:    "assistant",
-			Content: capabilities.TextContent{Text: "This code looks good. No issues found."},
-		})
-
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession)
-
-		// Execute the tool
-		result, err := analyzeTool(ctx, struct{ Code string }{Code: "func test() {}"})
-		require.NoError(t, err)
-		assert.Contains(t, result["analysis"], "looks good")
-	})
-
 	t.Run("DungeonMasterExample", func(t *testing.T) {
 		// Test dungeon_master example from README Sampling section
 		type AdventureInput struct {
@@ -442,11 +395,16 @@ func TestSessionCapabilities(t *testing.T) {
 		}
 
 		dungeonMaster := func(ctx context.Context, input AdventureInput) (map[string]any, error) {
+			session := mcpio.GetSession(ctx)
+			if session == nil {
+				return nil, fmt.Errorf("no session available")
+			}
+
 			// Delegate storytelling to the client's LLM
 			prompt := "You are a dungeon master. The player: \"" + input.Action +
 				"\". Narrate what happens next in 2 sentences. Be dramatic!"
 
-			result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
+			result, err := session.CreateMessage(ctx, []*capabilities.Message{{
 				Role:    "user",
 				Content: prompt,
 			}}, 300)
@@ -468,18 +426,78 @@ func TestSessionCapabilities(t *testing.T) {
 		assert.NotNil(t, handler)
 
 		// Test execution with mock
-		mockSession := testutil.NewMockSamplingSession(true, &capabilities.MessageResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupSampling()
+		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(&mcp.CreateMessageResult{
 			Role: "assistant",
-			Content: capabilities.TextContent{
+			Content: &mcp.TextContent{
 				Text: "The ancient door creaks open, revealing a dimly lit corridor filled with mysterious glowing runes. A cold wind rushes past you, carrying whispers of forgotten secrets!",
 			},
-		})
+		}, nil)
 
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession)
+		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 		result, err := dungeonMaster(ctx, AdventureInput{Action: "I open the mysterious door"})
 		require.NoError(t, err)
 		assert.Contains(t, result, "narrative")
 		assert.Contains(t, result["narrative"], "door")
+	})
+
+	t.Run("SamplingExampleWithExecution", func(t *testing.T) {
+		// Actually test the sampling functionality with a mock
+		analyzeTool := func(ctx context.Context, input struct{ Code string }) (map[string]any, error) {
+			session := mcpio.GetSession(ctx)
+			if session == nil {
+				return nil, fmt.Errorf("no session available")
+			}
+			result, err := session.CreateMessage(ctx, []*capabilities.Message{{
+				Role:    "user",
+				Content: "Analyze this code and suggest improvements:\n" + input.Code,
+			}}, 2000)
+			if err != nil {
+				return nil, err
+			}
+
+			return map[string]any{"analysis": result.Content.Text}, nil
+		}
+
+		// Create a mock session that supports sampling
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupSampling()
+		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(&mcp.CreateMessageResult{
+			Role:    "assistant",
+			Content: &mcp.TextContent{Text: "This code looks good. No issues found."},
+		}, nil)
+
+		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
+
+		// Execute the tool
+		result, err := analyzeTool(ctx, struct{ Code string }{Code: "func test() {}"})
+		require.NoError(t, err)
+		assert.Contains(t, result["analysis"], "looks good")
+	})
+
+	t.Run("ProgressNotifications", func(t *testing.T) {
+		// Tool from README
+		processDataTool := func(ctx context.Context, input struct{ Files []string }) (map[string]any, error) {
+			session := mcpio.GetSession(ctx)
+			if session == nil {
+				return nil, fmt.Errorf("no session available")
+			}
+			total := float64(len(input.Files))
+			for i := range input.Files {
+				session.NotifyProgress(ctx, float64(i), total) //nolint:errcheck
+				// Process file...
+			}
+			session.NotifyProgress(ctx, total, total) //nolint:errcheck // Mark complete
+			return map[string]any{"status": "done"}, nil
+		}
+
+		handler, err := mcpio.NewHandler(
+			mcpio.WithName("progress-server"),
+			mcpio.WithTool("process", "Process files", processDataTool),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler)
 	})
 
 	t.Run("LoggingExample", func(t *testing.T) {
@@ -535,11 +553,9 @@ func TestSessionCapabilities(t *testing.T) {
 				// Use sampling...
 			}
 
-			// Access client capabilities for detailed information
-			caps := session.ClientCapabilities()
-			assert.NotNil(t, caps)
-			if caps.Roots != nil && caps.Roots.ListChanged {
-				// Client supports notifications for roots list changes
+			// Check client capabilities
+			if session.SupportsRoots() {
+				// Client supports filesystem roots
 				roots, err := session.ListRoots(ctx)
 				if err == nil {
 					// Use roots...

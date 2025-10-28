@@ -7,6 +7,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -35,11 +36,11 @@ func TestHttpMultistepSuite(t *testing.T) {
 func (s *HttpMultistepTestSuite) TestDevelopmentFlow() {
 	// Test development environment (basic config only)
 	s.Run("DevelopmentEnvironment", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
 
 		// Expect two elicit calls: basic config and confirmation
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"systemName":       "TestApp",
@@ -48,14 +49,14 @@ func (s *HttpMultistepTestSuite) TestDevelopmentFlow() {
 			},
 		}, nil).Once()
 
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"confirm": "yes",
 			},
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -80,11 +81,11 @@ func (s *HttpMultistepTestSuite) TestDevelopmentFlow() {
 func (s *HttpMultistepTestSuite) TestStagingFlow() {
 	// Test staging environment (basic + advanced config)
 	s.Run("StagingEnvironment", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
 
 		// Expect three elicit calls: basic, advanced, and confirmation
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"systemName":       "StagingApp",
@@ -93,7 +94,7 @@ func (s *HttpMultistepTestSuite) TestStagingFlow() {
 			},
 		}, nil).Once()
 
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"databaseURL":    "postgres://localhost:5432/staging",
@@ -103,14 +104,14 @@ func (s *HttpMultistepTestSuite) TestStagingFlow() {
 			},
 		}, nil).Once()
 
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"confirm": "yes",
 			},
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -140,11 +141,11 @@ func (s *HttpMultistepTestSuite) TestStagingFlow() {
 func (s *HttpMultistepTestSuite) TestProductionFlow() {
 	// Test production environment (all three configs)
 	s.Run("ProductionEnvironment", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
 
 		// Expect four elicit calls: basic, advanced, deployment, and confirmation
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"systemName":       "ProdApp",
@@ -153,7 +154,7 @@ func (s *HttpMultistepTestSuite) TestProductionFlow() {
 			},
 		}, nil).Once()
 
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"databaseURL":    "postgres://prod.db.example.com:5432/production",
@@ -163,7 +164,7 @@ func (s *HttpMultistepTestSuite) TestProductionFlow() {
 			},
 		}, nil).Once()
 
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"region":       "us-west-2",
@@ -174,14 +175,14 @@ func (s *HttpMultistepTestSuite) TestProductionFlow() {
 			},
 		}, nil).Once()
 
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"confirm": "yes",
 			},
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -206,13 +207,13 @@ func (s *HttpMultistepTestSuite) TestProductionFlow() {
 
 func (s *HttpMultistepTestSuite) TestErrorHandling() {
 	s.Run("UserCancelsBasicConfig", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "decline",
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -224,10 +225,10 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 	})
 
 	s.Run("UserCancelsAdvancedConfig", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
 
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"systemName":       "TestApp",
@@ -236,11 +237,11 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			},
 		}, nil).Once()
 
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "decline",
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -253,10 +254,10 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 	})
 
 	s.Run("InvalidDeploymentConfig", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
 
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"systemName":       "TestApp",
@@ -265,7 +266,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			},
 		}, nil).Once()
 
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"databaseURL":    "postgres://example.com/db",
@@ -275,7 +276,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			},
 		}, nil).Once()
 
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"region":       "us-east-1",
@@ -286,7 +287,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -297,10 +298,10 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 	})
 
 	s.Run("UserDoesNotConfirm", func() {
-		mockSession := new(testutil.MockSessionCapability)
-		mockSession.On("SupportsElicitation").Return(true)
+		mockSession := testutil.NewMockSession()
+		mockSession.SetupElicitation()
 
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"systemName":       "TestApp",
@@ -309,14 +310,14 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			},
 		}, nil).Once()
 
-		mockSession.On("Elicit", mock.Anything, mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
+		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(&mcp.ElicitResult{
 			Action: "accept",
 			Content: map[string]any{
 				"confirm": "no",
 			},
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(s.T().Context(), mockSession)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 

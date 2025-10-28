@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/primitives/tool"
 )
 
@@ -302,8 +301,7 @@ func WithRawTool(name, description string, inputSchema any, fn RawToolFunc, opts
 func createRawToolHandler(fn RawToolFunc) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		// Inject session into context so the user function can access it
-		session := capabilities.NewSessionCapability(req.Session)
-		ctx = injectSession(ctx, session)
+		ctx = withMCPSession(ctx, req.Session)
 
 		// Marshal input arguments to JSON bytes
 		inputJSON, err := json.Marshal(req.Params.Arguments)

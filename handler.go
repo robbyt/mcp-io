@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/robbyt/mcp-io/capabilities"
 )
 
 // Resource registration function types
@@ -155,8 +154,7 @@ func (h *Handler) ServeStdio(ctx context.Context, _ io.Reader, _ io.Writer) erro
 func createTypedHandler[TIn, TOut any](fn ToolFunc[TIn, TOut]) mcp.ToolHandlerFor[TIn, TOut] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, input TIn) (*mcp.CallToolResult, TOut, error) {
 		// Inject session into context so the user function can access it
-		session := capabilities.NewSessionCapability(req.Session)
-		ctx = injectSession(ctx, session)
+		ctx = withMCPSession(ctx, req.Session)
 
 		// Execute the user-provided tool function
 		output, err := fn(ctx, input)

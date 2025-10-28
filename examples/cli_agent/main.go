@@ -42,7 +42,7 @@ func analyzeTool(ctx context.Context, input AnalyzeInput) (AnalyzeOutput, error)
 	}
 
 	// Send progress notification
-	_ = mcpio.NotifyProgress(ctx, 0.0, 1.0) //nolint:errcheck
+	_ = session.NotifyProgress(ctx, 0.0, 1.0) //nolint:errcheck
 
 	// Log analysis start
 	_ = mcpio.LogInfo(ctx, "Starting code analysis", map[string]any{ //nolint:errcheck
@@ -59,7 +59,7 @@ func analyzeTool(ctx context.Context, input AnalyzeInput) (AnalyzeOutput, error)
 	prompt += "Provide:\n1. A summary of what the code does\n2. Any issues found (bugs, security, performance)\n3. Specific suggestions for improvement"
 
 	// Send message to client's LLM
-	result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
+	result, err := session.CreateMessage(ctx, []*capabilities.Message{{
 		Role:    "user",
 		Content: prompt,
 	}}, 2000)
@@ -68,7 +68,7 @@ func analyzeTool(ctx context.Context, input AnalyzeInput) (AnalyzeOutput, error)
 		return AnalyzeOutput{}, fmt.Errorf("sampling failed: %w", err)
 	}
 
-	_ = mcpio.NotifyProgress(ctx, 0.5, 1.0) //nolint:errcheck
+	_ = session.NotifyProgress(ctx, 0.5, 1.0) //nolint:errcheck
 
 	// Parse the response to extract suggestions
 	analysis := result.Content.Text
@@ -81,7 +81,7 @@ func analyzeTool(ctx context.Context, input AnalyzeInput) (AnalyzeOutput, error)
 		"suggestions":  len(suggestions),
 	})
 
-	_ = mcpio.NotifyProgress(ctx, 1.0, 1.0) //nolint:errcheck
+	_ = session.NotifyProgress(ctx, 1.0, 1.0) //nolint:errcheck
 
 	return AnalyzeOutput{
 		Analysis:     analysis,
@@ -128,7 +128,7 @@ func improveTool(ctx context.Context, input ImproveInput) (ImproveOutput, error)
 	prompt += "```\n" + input.Code + "\n```\n\n"
 	prompt += "Provide the improved code and explain what changes were made."
 
-	result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
+	result, err := session.CreateMessage(ctx, []*capabilities.Message{{
 		Role:    "user",
 		Content: prompt,
 	}}, 3000)
