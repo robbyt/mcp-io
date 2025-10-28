@@ -19,7 +19,7 @@ func TestSupportsElicitation(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupElicitation()
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		supported := session.SupportsElicitation()
 
 		assert.True(t, supported)
@@ -30,7 +30,7 @@ func TestSupportsElicitation(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupNoCapabilities()
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		supported := session.SupportsElicitation()
 
 		assert.False(t, supported)
@@ -49,7 +49,7 @@ func TestElicit(t *testing.T) {
 		}
 		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		result, err := session.Elicit(context.Background(), "Enter data", map[string]any{"type": "object"})
 
 		require.NoError(t, err)
@@ -66,7 +66,7 @@ func TestElicit(t *testing.T) {
 		}
 		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		result, err := session.Elicit(context.Background(), "Enter data", map[string]any{"type": "object"})
 
 		require.NoError(t, err)
@@ -83,7 +83,7 @@ func TestElicit(t *testing.T) {
 		}
 		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		result, err := session.Elicit(context.Background(), "Enter data", map[string]any{"type": "object"})
 
 		require.NoError(t, err)
@@ -97,7 +97,7 @@ func TestElicit(t *testing.T) {
 		expectedErr := assert.AnError
 		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(nil, expectedErr)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		result, err := session.Elicit(context.Background(), "Enter data", map[string]any{"type": "object"})
 
 		require.Error(t, err)

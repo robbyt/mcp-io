@@ -18,7 +18,7 @@ func TestNotifyProgress(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("NotifyProgress", mock.Anything, mock.Anything).Return(nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		err := session.NotifyProgress(context.Background(), 0.5, 1.0)
 
 		require.NoError(t, err)
@@ -29,7 +29,7 @@ func TestNotifyProgress(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("NotifyProgress", mock.Anything, mock.Anything).Return(nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		err := session.NotifyProgress(context.Background(), 0.0, 1.0)
 
 		require.NoError(t, err)
@@ -40,7 +40,7 @@ func TestNotifyProgress(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("NotifyProgress", mock.Anything, mock.Anything).Return(nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		err := session.NotifyProgress(context.Background(), 1.0, 1.0)
 
 		require.NoError(t, err)
@@ -52,7 +52,7 @@ func TestNotifyProgress(t *testing.T) {
 		expectedErr := assert.AnError
 		mockSession.On("NotifyProgress", mock.Anything, mock.Anything).Return(expectedErr)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		err := session.NotifyProgress(context.Background(), 0.5, 1.0)
 
 		require.Error(t, err)

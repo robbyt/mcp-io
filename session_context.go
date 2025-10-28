@@ -8,9 +8,6 @@ import (
 	"github.com/robbyt/mcp-io/capabilities"
 )
 
-// sessionContextKey is the private key for storing Session in context
-type sessionContextKey struct{}
-
 // GetSession extracts the Session from the context.
 // Returns nil if no session is available (e.g., in tests or non-session contexts).
 //
@@ -23,117 +20,13 @@ type sessionContextKey struct{}
 //	    }
 //	    return output, nil
 //	}
-func GetSession(ctx context.Context) *capabilities.Session {
-	val := ctx.Value(sessionContextKey{})
-	if val == nil {
-		return nil
-	}
-	if session, ok := val.(*capabilities.Session); ok {
-		return session
-	}
-	return nil
-}
-
-// withSession adds a session to the context.
-// This is called internally by the handler before invoking user functions.
-func withSession(ctx context.Context, session *capabilities.Session) context.Context {
-	return context.WithValue(ctx, sessionContextKey{}, session)
-}
+var GetSession = capabilities.GetSession
 
 // withMCPSession creates a Session from an MCP ServerSession and adds it to the context.
 // This helper combines Session creation and context injection in one call.
 func withMCPSession(ctx context.Context, mcpSession *mcp.ServerSession) context.Context {
-	session := capabilities.NewSessionCapability(mcpSession)
-	return withSession(ctx, session)
-}
-
-// CreateMessage asks the client's LLM to generate a response to the provided messages.
-// This enables servers to use the client's LLM for analysis, suggestions, or processing.
-// Returns an error if the session is not available or the client doesn't support sampling.
-//
-// Example:
-//
-//	result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
-//	    Role:    "user",
-//	    Content: "Analyze this code",
-//	}}, 2000)
-//	if err != nil {
-//	    return nil, err
-//	}
-//	analysis := result.Content.Text
-func CreateMessage(ctx context.Context, messages []*capabilities.Message, maxTokens int) (*capabilities.MessageResult, error) {
-	session := GetSession(ctx)
-	if session == nil {
-		return nil, ErrNoSession
-	}
-	if !session.SupportsSampling() {
-		return nil, ErrSamplingNotSupported
-	}
-	return session.CreateMessage(ctx, messages, maxTokens)
-}
-
-// CreateMessageRaw provides direct access to the MCP CreateMessage API with full control over parameters.
-// Use this when you need to specify model preferences, temperature, system prompts, or other advanced options.
-// Returns an error if the session is not available or doesn't support sampling.
-//
-// Example:
-//
-//	params := &mcp.CreateMessageParams{
-//	    Messages: []*mcp.SamplingMessage{{
-//	        Role: "user",
-//	        Content: &mcp.TextContent{Text: "Analyze this code"},
-//	    }},
-//	    MaxTokens: 1000,
-//	    ModelPreferences: &mcp.ModelPreferences{
-//	        Hints: []*mcp.ModelHint{{Name: "llama3.1"}},
-//	    },
-//	}
-//	result, err := mcpio.CreateMessageRaw(ctx, params)
-func CreateMessageRaw(ctx context.Context, params *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
-	session := GetSession(ctx)
-	if session == nil {
-		return nil, ErrNoSession
-	}
-	if !session.SupportsSampling() {
-		return nil, ErrSamplingNotSupported
-	}
-	return session.CreateMessageRaw(ctx, params)
-}
-
-// ListRoots queries the client's workspace roots (directories, files, etc.).
-// Returns an error if the session is not available.
-//
-// Example:
-//
-//	roots, err := mcpio.ListRoots(ctx)
-//	if err != nil {
-//	    return nil, err
-//	}
-func ListRoots(ctx context.Context) ([]*capabilities.Root, error) {
-	session := GetSession(ctx)
-	if session == nil {
-		return nil, ErrNoSession
-	}
-	return session.ListRoots(ctx)
-}
-
-// NotifyProgress sends a progress update for long-running operations.
-// Progress should be between 0.0 and total, where total represents completion.
-// Returns an error if the session is not available.
-//
-// Example:
-//
-//	mcpio.NotifyProgress(ctx, 0.0, 1.0)  // Starting
-//	// ... do work ...
-//	mcpio.NotifyProgress(ctx, 0.5, 1.0)  // Halfway
-//	// ... do more work ...
-//	mcpio.NotifyProgress(ctx, 1.0, 1.0)  // Complete
-func NotifyProgress(ctx context.Context, progress, total float64) error {
-	session := GetSession(ctx)
-	if session == nil {
-		return ErrNoSession
-	}
-	return session.NotifyProgress(ctx, progress, total)
+	session := capabilities.NewSession(mcpSession)
+	return capabilities.WithSession(ctx, session)
 }
 
 // LogInfo sends an info-level log message to the client.
@@ -197,23 +90,22 @@ func GetLogger(ctx context.Context) *slog.Logger {
 	return session.Logger()
 }
 
-// GetSessionID returns the session ID, or empty string if no session is available.
+// GetSessionID returns the session ID for logging, debugging, and request correlation.
+// Returns empty string if no session is available.
+//
+// The session ID is set by the MCP client and uniquely identifies the connection.
+// Use this for audit trails, correlation IDs, or debugging client-specific behavior.
+//
+// Example:
+//
+//	sessionID := mcpio.GetSessionID(ctx)
+//	if sessionID != "" {
+//	    logger.Info("Processing request", "sessionID", sessionID, "operation", "analyze")
+//	}
 func GetSessionID(ctx context.Context) string {
 	session := GetSession(ctx)
 	if session == nil {
 		return ""
 	}
 	return session.SessionID()
-}
-
-// WithSession adds a Session to the context for testing purposes.
-// This allows tests to provide sessions without going through the full MCP handler.
-//
-// Example:
-//
-//	// In tests:
-//	ctx := mcpio.WithSession(context.Background(), session)
-//	result, err := myTool(ctx, input)
-func WithSession(ctx context.Context, session *capabilities.Session) context.Context {
-	return withSession(ctx, session)
 }

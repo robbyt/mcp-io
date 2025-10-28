@@ -23,7 +23,7 @@ func TestSupportsRoots(t *testing.T) {
 			Capabilities: caps,
 		})
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		supported := session.SupportsRoots()
 
 		assert.True(t, supported)
@@ -38,7 +38,7 @@ func TestSupportsRoots(t *testing.T) {
 			Capabilities: caps,
 		})
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		supported := session.SupportsRoots()
 
 		assert.False(t, supported)
@@ -59,7 +59,7 @@ func TestListRoots(t *testing.T) {
 		}
 		mockSession.On("ListRoots", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		roots, err := session.ListRoots(context.Background())
 
 		require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestListRoots(t *testing.T) {
 		}
 		mockSession.On("ListRoots", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		roots, err := session.ListRoots(context.Background())
 
 		require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestListRoots(t *testing.T) {
 		expectedErr := assert.AnError
 		mockSession.On("ListRoots", mock.Anything, mock.Anything).Return(nil, expectedErr)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		roots, err := session.ListRoots(context.Background())
 
 		require.Error(t, err)

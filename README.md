@@ -429,11 +429,16 @@ type AdventureInput struct {
 }
 
 func dungeonMaster(ctx context.Context, input AdventureInput) (map[string]any, error) {
+    session := mcpio.GetSession(ctx)
+    if session == nil {
+        return nil, fmt.Errorf("no session available")
+    }
+
     // Delegate storytelling to the client's LLM
     prompt := "You are a dungeon master. The player: \"" + input.Action +
               "\". Narrate what happens next in 2 sentences. Be dramatic!"
 
-    result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
+    result, err := session.CreateMessage(ctx, []*capabilities.Message{{
         Role:    "user",
         Content: prompt,
     }}, 300)
@@ -486,12 +491,17 @@ Send progress updates to the MCP client, useful for keeping users informed while
 
 ```go
 func processDataTool(ctx context.Context, input struct{ Files []string }) (map[string]any, error) {
+    session := mcpio.GetSession(ctx)
+    if session == nil {
+        return nil, fmt.Errorf("no session available")
+    }
+
     total := float64(len(input.Files))
     for i, file := range input.Files {
-        mcpio.NotifyProgress(ctx, float64(i), total)
+        session.NotifyProgress(ctx, float64(i), total)
         // Process file...
     }
-    mcpio.NotifyProgress(ctx, total, total) // Mark complete
+    session.NotifyProgress(ctx, total, total) // Mark complete
     return map[string]any{"status": "done"}, nil
 }
 ```

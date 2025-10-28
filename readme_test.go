@@ -391,12 +391,16 @@ func TestSessionCapabilities(t *testing.T) {
 	t.Run("ProgressNotifications", func(t *testing.T) {
 		// Tool from README
 		processDataTool := func(ctx context.Context, input struct{ Files []string }) (map[string]any, error) {
+			session := mcpio.GetSession(ctx)
+			if session == nil {
+				return nil, fmt.Errorf("no session available")
+			}
 			total := float64(len(input.Files))
 			for i := range input.Files {
-				mcpio.NotifyProgress(ctx, float64(i), total) //nolint:errcheck
+				session.NotifyProgress(ctx, float64(i), total) //nolint:errcheck
 				// Process file...
 			}
-			mcpio.NotifyProgress(ctx, total, total) //nolint:errcheck // Mark complete
+			session.NotifyProgress(ctx, total, total) //nolint:errcheck // Mark complete
 			return map[string]any{"status": "done"}, nil
 		}
 
@@ -411,7 +415,11 @@ func TestSessionCapabilities(t *testing.T) {
 	t.Run("SamplingExampleWithExecution", func(t *testing.T) {
 		// Actually test the sampling functionality with a mock
 		analyzeTool := func(ctx context.Context, input struct{ Code string }) (map[string]any, error) {
-			result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
+			session := mcpio.GetSession(ctx)
+			if session == nil {
+				return nil, fmt.Errorf("no session available")
+			}
+			result, err := session.CreateMessage(ctx, []*capabilities.Message{{
 				Role:    "user",
 				Content: "Analyze this code and suggest improvements:\n" + input.Code,
 			}}, 2000)
@@ -430,7 +438,7 @@ func TestSessionCapabilities(t *testing.T) {
 			Content: &mcp.TextContent{Text: "This code looks good. No issues found."},
 		}, nil)
 
-		ctx := mcpio.WithSession(context.Background(), mockSession.Session)
+		ctx := testutil.WithSession(t.Context(), mockSession.Session)
 
 		// Execute the tool
 		result, err := analyzeTool(ctx, struct{ Code string }{Code: "func test() {}"})
@@ -445,11 +453,16 @@ func TestSessionCapabilities(t *testing.T) {
 		}
 
 		dungeonMaster := func(ctx context.Context, input AdventureInput) (map[string]any, error) {
+			session := mcpio.GetSession(ctx)
+			if session == nil {
+				return nil, fmt.Errorf("no session available")
+			}
+
 			// Delegate storytelling to the client's LLM
 			prompt := "You are a dungeon master. The player: \"" + input.Action +
 				"\". Narrate what happens next in 2 sentences. Be dramatic!"
 
-			result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
+			result, err := session.CreateMessage(ctx, []*capabilities.Message{{
 				Role:    "user",
 				Content: prompt,
 			}}, 300)
@@ -480,7 +493,7 @@ func TestSessionCapabilities(t *testing.T) {
 			},
 		}, nil)
 
-		ctx := mcpio.WithSession(context.Background(), mockSession.Session)
+		ctx := testutil.WithSession(t.Context(), mockSession.Session)
 		result, err := dungeonMaster(ctx, AdventureInput{Action: "I open the mysterious door"})
 		require.NoError(t, err)
 		assert.Contains(t, result, "narrative")

@@ -19,7 +19,7 @@ func TestSupportsSampling(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupSampling()
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		supported := session.SupportsSampling()
 
 		assert.True(t, supported)
@@ -30,7 +30,7 @@ func TestSupportsSampling(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupNoCapabilities()
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		supported := session.SupportsSampling()
 
 		assert.False(t, supported)
@@ -49,7 +49,7 @@ func TestCreateMessage(t *testing.T) {
 		}
 		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		result, err := session.CreateMessage(context.Background(), []*capabilities.Message{{
 			Role:    "user",
 			Content: "Analyze this code",
@@ -69,7 +69,7 @@ func TestCreateMessage(t *testing.T) {
 		}
 		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		result, err := session.CreateMessage(context.Background(), []*capabilities.Message{
 			{Role: "user", Content: "First message"},
 			{Role: "assistant", Content: "First response"},
@@ -86,7 +86,7 @@ func TestCreateMessage(t *testing.T) {
 		expectedErr := assert.AnError
 		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(nil, expectedErr)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		result, err := session.CreateMessage(context.Background(), []*capabilities.Message{{
 			Role:    "user",
 			Content: "Test",
@@ -110,7 +110,7 @@ func TestCreateMessageRaw(t *testing.T) {
 		}
 		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		params := &mcp.CreateMessageParams{
 			Messages: []*mcp.SamplingMessage{{
 				Role:    "user",
@@ -131,7 +131,7 @@ func TestCreateMessageRaw(t *testing.T) {
 		expectedErr := assert.AnError
 		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(nil, expectedErr)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		params := &mcp.CreateMessageParams{
 			Messages: []*mcp.SamplingMessage{{
 				Role:    "user",

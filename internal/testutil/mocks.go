@@ -81,7 +81,7 @@ type MockSession struct {
 // NewMockSession creates a MockSession with both the low-level mock and the Session wrapper.
 func NewMockSession() *MockSession {
 	mockServerSession := new(MockServerSession)
-	session := capabilities.NewSessionCapability(mockServerSession)
+	session := capabilities.NewSession(mockServerSession)
 	return &MockSession{
 		MockServerSession: mockServerSession,
 		Session:           session,

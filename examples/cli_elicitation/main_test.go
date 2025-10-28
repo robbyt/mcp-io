@@ -155,7 +155,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := createRecord(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -182,7 +182,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 			Action: "decline",
 		}, nil).Once()
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := createRecord(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -206,7 +206,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := createRecord(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -233,7 +233,7 @@ func (s *DatabaseTestSuite) TestCreateRecord() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := createRecord(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -274,7 +274,7 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Name: "New Name",
 		}
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := updateRecord(ctx, input)
 		s.Require().NoError(err)
 
@@ -330,7 +330,7 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Name: "New Name",
 		}
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := updateRecord(ctx, input)
 		s.Require().NoError(err)
 
@@ -367,7 +367,7 @@ func (s *DatabaseTestSuite) TestUpdateRecord() {
 			Name: "New Name",
 		}
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := updateRecord(ctx, input)
 		s.Require().NoError(err)
 
@@ -426,7 +426,7 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 			ID string `json:"id" jsonschema:"description:Record ID to delete"`
 		}{ID: "delete1"}
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := deleteRecord(ctx, input)
 		s.Require().NoError(err)
 
@@ -470,7 +470,7 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 			ID string `json:"id" jsonschema:"description:Record ID to delete"`
 		}{ID: "keep1"}
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := deleteRecord(ctx, input)
 		s.Require().NoError(err)
 
@@ -503,7 +503,7 @@ func (s *DatabaseTestSuite) TestDeleteRecord() {
 			ID string `json:"id" jsonschema:"description:Record ID to delete"`
 		}{ID: "keep2"}
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := deleteRecord(ctx, input)
 		s.Require().NoError(err)
 
@@ -536,7 +536,7 @@ func (s *DatabaseTestSuite) TestDatabaseReport() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := databaseReport(ctx, map[string]any{})
 		s.Require().NoError(err)
 
@@ -555,7 +555,7 @@ func (s *DatabaseTestSuite) TestDatabaseReport() {
 			Action: "decline",
 		}, nil).Once()
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := databaseReport(ctx, map[string]any{})
 		s.Require().NoError(err)
 

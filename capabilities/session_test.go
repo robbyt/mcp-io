@@ -15,7 +15,7 @@ func TestNewSessionCapability(t *testing.T) {
 	t.Run("WithMockSession", func(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 
 		assert.NotNil(t, session)
 		assert.NotNil(t, session.Logger())
@@ -27,7 +27,7 @@ func TestSession_Logger(t *testing.T) {
 
 	t.Run("WithMockSession", func(t *testing.T) {
 		mockSession := testutil.NewMockSession()
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 
 		logger := session.Logger()
 
@@ -42,7 +42,7 @@ func TestSession_SessionID(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("ID").Return("test-session-123")
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		sessionID := session.SessionID()
 
 		assert.Equal(t, "test-session-123", sessionID)
@@ -57,7 +57,7 @@ func TestSession_Wait(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Wait").Return(nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		err := session.Wait()
 
 		require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestSession_Wait(t *testing.T) {
 		expectedErr := assert.AnError
 		mockSession.On("Wait").Return(expectedErr)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		err := session.Wait()
 
 		require.ErrorIs(t, err, expectedErr)
@@ -84,7 +84,7 @@ func TestSession_Close(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Close").Return(nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		err := session.Close()
 
 		require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestSession_Close(t *testing.T) {
 		expectedErr := assert.AnError
 		mockSession.On("Close").Return(expectedErr)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		err := session.Close()
 
 		require.ErrorIs(t, err, expectedErr)

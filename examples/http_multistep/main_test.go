@@ -55,7 +55,7 @@ func (s *HttpMultistepTestSuite) TestDevelopmentFlow() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -110,7 +110,7 @@ func (s *HttpMultistepTestSuite) TestStagingFlow() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -181,7 +181,7 @@ func (s *HttpMultistepTestSuite) TestProductionFlow() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -212,7 +212,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			Action: "decline",
 		}, nil).Once()
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -240,7 +240,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			Action: "decline",
 		}, nil).Once()
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -286,7 +286,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -316,7 +316,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.WithSession(s.T().Context(), mockSession.Session)
+		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 

@@ -7,6 +7,24 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// sessionContextKey is the context key for storing Session instances.
+type sessionContextKey struct{}
+
+// WithSession injects a Session into the context.
+// This is used by both production code (via handlers) and test code.
+func WithSession(ctx context.Context, session *Session) context.Context {
+	return context.WithValue(ctx, sessionContextKey{}, session)
+}
+
+// GetSession extracts the Session from the context.
+// Returns nil if no session is available in the context.
+func GetSession(ctx context.Context) *Session {
+	if session, ok := ctx.Value(sessionContextKey{}).(*Session); ok {
+		return session
+	}
+	return nil
+}
+
 // serverSession defines the interface for MCP server session operations.
 // This interface abstracts *mcp.ServerSession to enable testing with mocks.
 type serverSession interface {
@@ -41,9 +59,9 @@ type Session struct {
 	logger  *slog.Logger
 }
 
-// NewSessionCapability creates a Session from a serverSession interface.
+// NewSession creates a Session from a serverSession interface.
 // In production, pass *mcp.ServerSession. In tests, pass a mock implementing serverSession.
-func NewSessionCapability(session serverSession) *Session {
+func NewSession(session serverSession) *Session {
 	var logger *slog.Logger
 	// Try to create MCP logging handler if we have a concrete ServerSession
 	if ss, ok := session.(*mcp.ServerSession); ok {

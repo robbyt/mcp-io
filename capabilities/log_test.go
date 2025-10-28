@@ -31,7 +31,7 @@ func TestLog(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		err := session.Log(context.Background(), capabilities.LogLevelInfo, "test message", map[string]any{"key": "value"})
 
 		require.NoError(t, err)
@@ -42,7 +42,7 @@ func TestLog(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		err := session.Log(context.Background(), capabilities.LogLevelInfo, "test message", nil)
 
 		require.NoError(t, err)
@@ -65,7 +65,7 @@ func TestLog(t *testing.T) {
 			mockSession := testutil.NewMockSession()
 			mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
-			session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+			session := capabilities.NewSession(mockSession.MockServerSession)
 			err := session.Log(context.Background(), level, "test message", nil)
 
 			require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestLog(t *testing.T) {
 		expectedErr := assert.AnError
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(expectedErr)
 
-		session := capabilities.NewSessionCapability(mockSession.MockServerSession)
+		session := capabilities.NewSession(mockSession.MockServerSession)
 		err := session.Log(context.Background(), capabilities.LogLevelError, "error message", nil)
 
 		require.Error(t, err)
