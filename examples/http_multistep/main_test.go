@@ -7,6 +7,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -55,7 +56,7 @@ func (s *HttpMultistepTestSuite) TestDevelopmentFlow() {
 			},
 		}, nil).Once()
 
-		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -110,7 +111,7 @@ func (s *HttpMultistepTestSuite) TestStagingFlow() {
 			},
 		}, nil).Once()
 
-		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -181,7 +182,7 @@ func (s *HttpMultistepTestSuite) TestProductionFlow() {
 			},
 		}, nil).Once()
 
-		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -212,7 +213,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			Action: "decline",
 		}, nil).Once()
 
-		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -240,7 +241,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			Action: "decline",
 		}, nil).Once()
 
-		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -286,7 +287,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			},
 		}, nil).Once()
 
-		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 
@@ -316,7 +317,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			},
 		}, nil).Once()
 
-		ctx := testutil.WithSession(s.T().Context(), mockSession.Session)
+		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
 		result, err := configureSystem(ctx, struct{}{})
 		s.Require().NoError(err)
 

@@ -435,7 +435,7 @@ func TestSessionCapabilities(t *testing.T) {
 			},
 		}, nil)
 
-		ctx := testutil.WithSession(t.Context(), mockSession.Session)
+		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 		result, err := dungeonMaster(ctx, AdventureInput{Action: "I open the mysterious door"})
 		require.NoError(t, err)
 		assert.Contains(t, result, "narrative")
@@ -468,7 +468,7 @@ func TestSessionCapabilities(t *testing.T) {
 			Content: &mcp.TextContent{Text: "This code looks good. No issues found."},
 		}, nil)
 
-		ctx := testutil.WithSession(t.Context(), mockSession.Session)
+		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 
 		// Execute the tool
 		result, err := analyzeTool(ctx, struct{ Code string }{Code: "func test() {}"})

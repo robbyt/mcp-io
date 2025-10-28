@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -15,7 +16,7 @@ func TestGetSession(t *testing.T) {
 
 	t.Run("WithSession", func(t *testing.T) {
 		mockSession := testutil.NewMockSession()
-		ctx := testutil.WithSession(t.Context(), mockSession.Session)
+		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 
 		session := mcpio.GetSession(ctx)
 		assert.NotNil(t, session)
@@ -36,7 +37,7 @@ func TestGetSessionID(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("ID").Return("test-session-123")
 
-		ctx := testutil.WithSession(t.Context(), mockSession.Session)
+		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 		sessionID := mcpio.GetSessionID(ctx)
 
 		assert.Equal(t, "test-session-123", sessionID)
@@ -57,7 +58,7 @@ func TestLogInfo(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
-		ctx := testutil.WithSession(t.Context(), mockSession.Session)
+		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 		err := mcpio.LogInfo(ctx, "test message", map[string]any{"key": "value"})
 
 		require.NoError(t, err)
@@ -80,7 +81,7 @@ func TestLogWarn(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
-		ctx := testutil.WithSession(t.Context(), mockSession.Session)
+		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 		err := mcpio.LogWarn(ctx, "warning", nil)
 
 		require.NoError(t, err)
@@ -103,7 +104,7 @@ func TestLogError(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
-		ctx := testutil.WithSession(t.Context(), mockSession.Session)
+		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 		err := mcpio.LogError(ctx, "error", nil)
 
 		require.NoError(t, err)
@@ -126,7 +127,7 @@ func TestLogDebug(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
-		ctx := testutil.WithSession(t.Context(), mockSession.Session)
+		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 		err := mcpio.LogDebug(ctx, "debug", nil)
 
 		require.NoError(t, err)
@@ -148,7 +149,7 @@ func TestGetLogger(t *testing.T) {
 	t.Run("WithSession", func(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 
-		ctx := testutil.WithSession(t.Context(), mockSession.Session)
+		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 		logger := mcpio.GetLogger(ctx)
 
 		assert.NotNil(t, logger)
@@ -165,7 +166,7 @@ func TestWithSession(t *testing.T) {
 	t.Parallel()
 
 	mockSession := testutil.NewMockSession()
-	ctx := testutil.WithSession(t.Context(), mockSession.Session)
+	ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 
 	retrieved := mcpio.GetSession(ctx)
 	assert.Equal(t, mockSession.Session, retrieved)
@@ -178,7 +179,7 @@ func TestSupportsSamplingCheck(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupSampling()
 
-		ctx := testutil.WithSession(t.Context(), mockSession.Session)
+		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 		session := mcpio.GetSession(ctx)
 
 		require.NotNil(t, session)
@@ -190,7 +191,7 @@ func TestSupportsSamplingCheck(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupNoCapabilities()
 
-		ctx := testutil.WithSession(t.Context(), mockSession.Session)
+		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 		session := mcpio.GetSession(ctx)
 
 		require.NotNil(t, session)
