@@ -17,7 +17,7 @@ func TestGetSession(t *testing.T) {
 
 	t.Run("WithSession", func(t *testing.T) {
 		mockSession := testutil.NewMockSession()
-		ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+		ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 
 		session := mcpio.GetSession(ctx)
 		assert.NotNil(t, session)
@@ -38,7 +38,7 @@ func TestGetSessionID(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("ID").Return("test-session-123")
 
-		ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+		ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 		sessionID := mcpio.GetSessionID(ctx)
 
 		assert.Equal(t, "test-session-123", sessionID)
@@ -64,7 +64,7 @@ func TestCreateMessage(t *testing.T) {
 				Content: &mcp.TextContent{Text: "Analysis result"},
 			}, nil)
 
-		ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+		ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 
 		result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
 			Role:    "user",
@@ -94,7 +94,7 @@ func TestCreateMessage(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupNoCapabilities()
 
-		ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+		ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 		result, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
 			Role:    "user",
 			Content: "Test",
@@ -119,7 +119,7 @@ func TestListRoots(t *testing.T) {
 			},
 		}, nil)
 
-		ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+		ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 		roots, err := mcpio.ListRoots(ctx)
 
 		require.NoError(t, err)
@@ -146,7 +146,7 @@ func TestNotifyProgress(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("NotifyProgress", mock.Anything, mock.Anything).Return(nil)
 
-		ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+		ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 		err := mcpio.NotifyProgress(ctx, 0.5, 1.0)
 
 		require.NoError(t, err)
@@ -169,7 +169,7 @@ func TestLogInfo(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
-		ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+		ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 		err := mcpio.LogInfo(ctx, "test message", map[string]any{"key": "value"})
 
 		require.NoError(t, err)
@@ -192,7 +192,7 @@ func TestLogWarn(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
-		ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+		ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 		err := mcpio.LogWarn(ctx, "warning", nil)
 
 		require.NoError(t, err)
@@ -215,7 +215,7 @@ func TestLogError(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
-		ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+		ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 		err := mcpio.LogError(ctx, "error", nil)
 
 		require.NoError(t, err)
@@ -238,7 +238,7 @@ func TestLogDebug(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
-		ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+		ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 		err := mcpio.LogDebug(ctx, "debug", nil)
 
 		require.NoError(t, err)
@@ -260,7 +260,7 @@ func TestGetLogger(t *testing.T) {
 	t.Run("WithSession", func(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 
-		ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+		ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 		logger := mcpio.GetLogger(ctx)
 
 		assert.NotNil(t, logger)
@@ -273,11 +273,11 @@ func TestGetLogger(t *testing.T) {
 	})
 }
 
-func TestInjectSessionForTesting(t *testing.T) {
+func TestWithSession(t *testing.T) {
 	t.Parallel()
 
 	mockSession := testutil.NewMockSession()
-	ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+	ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 
 	retrieved := mcpio.GetSession(ctx)
 	assert.Equal(t, mockSession.Session, retrieved)
@@ -304,7 +304,7 @@ func TestMultiTurnSampling(t *testing.T) {
 			Content: &mcp.TextContent{Text: "Third response"},
 		}, nil).Once()
 
-	ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+	ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 
 	result1, err := mcpio.CreateMessage(ctx, []*capabilities.Message{{
 		Role:    "user",
@@ -337,7 +337,7 @@ func TestSupportsSamplingCheck(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupSampling()
 
-		ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+		ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 		session := mcpio.GetSession(ctx)
 
 		require.NotNil(t, session)
@@ -349,7 +349,7 @@ func TestSupportsSamplingCheck(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupNoCapabilities()
 
-		ctx := mcpio.InjectSessionForTesting(t.Context(), mockSession.Session)
+		ctx := mcpio.WithSession(t.Context(), mockSession.Session)
 		session := mcpio.GetSession(ctx)
 
 		require.NotNil(t, session)

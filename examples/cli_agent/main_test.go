@@ -49,7 +49,7 @@ func (s *AgentTestSuite) TestAnalyzeToolWithSampling() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession.Session)
+		ctx := mcpio.WithSession(context.Background(), mockSession.Session)
 		result, err := analyzeTool(ctx, AnalyzeInput{
 			Code:     "func test() { return }",
 			Language: "go",
@@ -69,7 +69,7 @@ func (s *AgentTestSuite) TestAnalyzeToolWithSampling() {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupNoCapabilities()
 
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession.Session)
+		ctx := mcpio.WithSession(context.Background(), mockSession.Session)
 		result, err := analyzeTool(ctx, AnalyzeInput{
 			Code: "func test() {}",
 		})
@@ -95,7 +95,7 @@ func (s *AgentTestSuite) TestImproveToolWithSampling() {
 			},
 		}, nil).Once()
 
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession.Session)
+		ctx := mcpio.WithSession(context.Background(), mockSession.Session)
 		result, err := improveTool(ctx, ImproveInput{
 			Code:     "func test() {}",
 			Focus:    "security",
@@ -114,7 +114,7 @@ func (s *AgentTestSuite) TestImproveToolWithSampling() {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupNoCapabilities()
 
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession.Session)
+		ctx := mcpio.WithSession(context.Background(), mockSession.Session)
 		originalCode := "func test() {}"
 		result, err := improveTool(ctx, ImproveInput{
 			Code: originalCode,

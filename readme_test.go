@@ -430,7 +430,7 @@ func TestSessionCapabilities(t *testing.T) {
 			Content: &mcp.TextContent{Text: "This code looks good. No issues found."},
 		}, nil)
 
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession.Session)
+		ctx := mcpio.WithSession(context.Background(), mockSession.Session)
 
 		// Execute the tool
 		result, err := analyzeTool(ctx, struct{ Code string }{Code: "func test() {}"})
@@ -480,7 +480,7 @@ func TestSessionCapabilities(t *testing.T) {
 			},
 		}, nil)
 
-		ctx := mcpio.InjectSessionForTesting(context.Background(), mockSession.Session)
+		ctx := mcpio.WithSession(context.Background(), mockSession.Session)
 		result, err := dungeonMaster(ctx, AdventureInput{Action: "I open the mysterious door"})
 		require.NoError(t, err)
 		assert.Contains(t, result, "narrative")

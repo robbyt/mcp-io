@@ -34,17 +34,17 @@ func GetSession(ctx context.Context) *capabilities.Session {
 	return nil
 }
 
-// injectSession adds a session to the context.
+// withSession adds a session to the context.
 // This is called internally by the handler before invoking user functions.
-func injectSession(ctx context.Context, session *capabilities.Session) context.Context {
+func withSession(ctx context.Context, session *capabilities.Session) context.Context {
 	return context.WithValue(ctx, sessionContextKey{}, session)
 }
 
-// injectMCPSession creates a Session from an MCP ServerSession and injects it into the context.
+// withMCPSession creates a Session from an MCP ServerSession and adds it to the context.
 // This helper combines Session creation and context injection in one call.
-func injectMCPSession(ctx context.Context, mcpSession *mcp.ServerSession) context.Context {
+func withMCPSession(ctx context.Context, mcpSession *mcp.ServerSession) context.Context {
 	session := capabilities.NewSessionCapability(mcpSession)
-	return injectSession(ctx, session)
+	return withSession(ctx, session)
 }
 
 // CreateMessage asks the client's LLM to generate a response to the provided messages.
@@ -206,14 +206,14 @@ func GetSessionID(ctx context.Context) string {
 	return session.SessionID()
 }
 
-// InjectSessionForTesting injects a Session into the context for testing purposes.
+// WithSession adds a Session to the context for testing purposes.
 // This allows tests to provide sessions without going through the full MCP handler.
 //
 // Example:
 //
-//	// In tests, inject a session:
-//	ctx := mcpio.InjectSessionForTesting(context.Background(), session)
+//	// In tests:
+//	ctx := mcpio.WithSession(context.Background(), session)
 //	result, err := myTool(ctx, input)
-func InjectSessionForTesting(ctx context.Context, session *capabilities.Session) context.Context {
-	return injectSession(ctx, session)
+func WithSession(ctx context.Context, session *capabilities.Session) context.Context {
+	return withSession(ctx, session)
 }

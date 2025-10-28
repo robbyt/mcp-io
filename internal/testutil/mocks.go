@@ -72,7 +72,7 @@ func (m *MockServerSession) Close() error {
 }
 
 // MockSession is a backwards-compatible wrapper that provides both the mock
-// and the Session for tests. Tests should use the Session field for InjectSessionForTesting.
+// and the Session for tests. Tests should use the Session field for WithSession.
 type MockSession struct {
 	*MockServerSession
 	Session *capabilities.Session

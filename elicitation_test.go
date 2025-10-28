@@ -78,7 +78,7 @@ func TestElicitTyped_Success(t *testing.T) {
 	}
 
 	session := capabilities.NewSessionCapability(mockServerSession)
-	ctx := injectSession(t.Context(), session)
+	ctx := withSession(t.Context(), session)
 	result, err := ElicitTyped[TestConfig](ctx, "Test message")
 
 	require.NoError(t, err)
@@ -97,7 +97,7 @@ func TestElicitTyped_SchemaGeneration(t *testing.T) {
 	}
 
 	session := capabilities.NewSessionCapability(mockServerSession)
-	ctx := injectSession(t.Context(), session)
+	ctx := withSession(t.Context(), session)
 	result, err := ElicitTyped[TestConfig](ctx, "Test message")
 
 	require.NoError(t, err)
@@ -119,7 +119,7 @@ func TestElicitTyped_ElicitationNotSupported(t *testing.T) {
 	mockServerSession := &TestMockNoElicitation{}
 	session := capabilities.NewSessionCapability(mockServerSession)
 
-	ctx := injectSession(t.Context(), session)
+	ctx := withSession(t.Context(), session)
 	result, err := ElicitTyped[TestConfig](ctx, "Test message")
 
 	require.Error(t, err)
@@ -210,7 +210,7 @@ func TestElicitSimple_Success(t *testing.T) {
 	}
 
 	session := capabilities.NewSessionCapability(mockServerSession)
-	ctx := injectSession(t.Context(), session)
+	ctx := withSession(t.Context(), session)
 	result, err := ElicitSimple(ctx, "Enter username:", "username", "Your username")
 
 	require.NoError(t, err)
@@ -226,7 +226,7 @@ func TestElicitSimple_Decline(t *testing.T) {
 	}
 
 	session := capabilities.NewSessionCapability(mockServerSession)
-	ctx := injectSession(t.Context(), session)
+	ctx := withSession(t.Context(), session)
 	result, err := ElicitSimple(ctx, "Enter username:", "username", "Your username")
 
 	require.NoError(t, err)
@@ -291,7 +291,7 @@ func TestMultiStepElicitation(t *testing.T) {
 	}
 
 	session := capabilities.NewSessionCapability(mockServerSession)
-	ctx := injectSession(t.Context(), session)
+	ctx := withSession(t.Context(), session)
 
 	result1, err := ElicitTyped[TestConfig](ctx, "First config:")
 	require.NoError(t, err)
