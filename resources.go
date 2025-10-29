@@ -21,7 +21,7 @@ type ResourceContent struct {
 func createResourceHandler(fn ResourceFunc) mcp.ResourceHandler {
 	return func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 		// Inject request context (session + metadata)
-		ctx = withMCPContext(ctx, req.Params.URI, req.Session, req.Extra)
+		ctx = withMCPContext(ctx, newRequestContext(req.Params.URI, req.Session, req.Extra))
 
 		// Execute user function
 		content, err := fn(ctx, req.Params.URI)

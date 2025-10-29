@@ -154,7 +154,7 @@ func (h *Handler) ServeStdio(ctx context.Context, _ io.Reader, _ io.Writer) erro
 func createTypedHandler[TIn, TOut any](fn ToolFunc[TIn, TOut]) mcp.ToolHandlerFor[TIn, TOut] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, input TIn) (*mcp.CallToolResult, TOut, error) {
 		// Inject request context (session + metadata)
-		ctx = withMCPContext(ctx, req.Params.Name, req.Session, req.Extra)
+		ctx = withMCPContext(ctx, newRequestContext(req.Params.Name, req.Session, req.Extra))
 
 		// Execute the user-provided tool function
 		output, err := fn(ctx, input)
