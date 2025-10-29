@@ -44,8 +44,8 @@ type PromptMessage struct {
 // createPromptHandler wraps a user function to match MCP PromptHandler signature
 func createPromptHandler(fn PromptFunc) mcp.PromptHandler {
 	return func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-		// Inject session into context so the user function can access it
-		ctx = withMCPSession(ctx, req.Session)
+		// Inject request context (session + metadata)
+		ctx = withMCPContext(ctx, req.Params.Name, req.Session, req.Extra)
 
 		// Convert MCP request to user-friendly args
 		args := make(map[string]any)
@@ -84,8 +84,8 @@ func createPromptHandler(fn PromptFunc) mcp.PromptHandler {
 // createTypedPromptHandler wraps a typed prompt function to match MCP PromptHandler signature
 func createTypedPromptHandler[TArgs any](fn TypedPromptFunc[TArgs]) mcp.PromptHandler {
 	return func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-		// Inject session into context so the user function can access it
-		ctx = withMCPSession(ctx, req.Session)
+		// Inject request context (session + metadata)
+		ctx = withMCPContext(ctx, req.Params.Name, req.Session, req.Extra)
 
 		// Convert MCP request arguments to typed struct
 		var args TArgs

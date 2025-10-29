@@ -300,8 +300,8 @@ func WithRawTool(name, description string, inputSchema any, fn RawToolFunc, opts
 // createRawToolHandler wraps a raw function to match the MCP ToolHandler signature
 func createRawToolHandler(fn RawToolFunc) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// Inject session into context so the user function can access it
-		ctx = withMCPSession(ctx, req.Session)
+		// Inject request context (session + metadata)
+		ctx = withMCPContext(ctx, req.Params.Name, req.Session, req.Extra)
 
 		// Marshal input arguments to JSON bytes
 		inputJSON, err := json.Marshal(req.Params.Arguments)

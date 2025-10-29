@@ -219,7 +219,9 @@ func TestCreateTypedHandlerSuccess(t *testing.T) {
 	t.Parallel()
 	handler := createTypedHandler(simpleEchoFunc)
 
-	req := &mcp.CallToolRequest{}
+	req := &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{Name: "test_tool"},
+	}
 
 	input := SimpleInput{Text: "hello world"}
 	result, output, err := handler(context.Background(), req, input)
@@ -238,7 +240,9 @@ func TestCreateTypedHandlerToolError(t *testing.T) {
 
 	handler := createTypedHandler(errorFunc)
 
-	req := &mcp.CallToolRequest{}
+	req := &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{Name: "test_tool"},
+	}
 
 	input := SimpleInput{Text: "test"}
 	result, output, err := handler(context.Background(), req, input)
@@ -261,7 +265,9 @@ func TestCreateTypedHandlerProtocolError(t *testing.T) {
 
 	handler := createTypedHandler(errorFunc)
 
-	req := &mcp.CallToolRequest{}
+	req := &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{Name: "test_tool"},
+	}
 
 	input := SimpleInput{Text: "test"}
 	result, output, err := handler(context.Background(), req, input)

@@ -153,8 +153,8 @@ func (h *Handler) ServeStdio(ctx context.Context, _ io.Reader, _ io.Writer) erro
 //   - MCP ToolHandlerFor lambda that bridges user code to SDK interface
 func createTypedHandler[TIn, TOut any](fn ToolFunc[TIn, TOut]) mcp.ToolHandlerFor[TIn, TOut] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, input TIn) (*mcp.CallToolResult, TOut, error) {
-		// Inject session into context so the user function can access it
-		ctx = withMCPSession(ctx, req.Session)
+		// Inject request context (session + metadata)
+		ctx = withMCPContext(ctx, req.Params.Name, req.Session, req.Extra)
 
 		// Execute the user-provided tool function
 		output, err := fn(ctx, input)
