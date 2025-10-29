@@ -20,8 +20,8 @@ type ResourceContent struct {
 // createResourceHandler wraps a user function to match MCP ResourceHandler signature
 func createResourceHandler(fn ResourceFunc) mcp.ResourceHandler {
 	return func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-		// Inject session into context so the user function can access it
-		ctx = withMCPSession(ctx, req.Session)
+		// Inject request context (session + metadata)
+		ctx = withMCPContext(ctx, req.Params.URI, req.Session, req.Extra)
 
 		// Execute user function
 		content, err := fn(ctx, req.Params.URI)
