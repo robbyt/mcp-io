@@ -22,19 +22,22 @@ type requestContext struct {
 	identifier string                // Tool name, prompt name, or resource URI
 }
 
-// withMCPContext creates a requestContext and injects it into the context.
-// This is the single allocation point that replaces the previous dual-allocation pattern.
-func withMCPContext(
-	ctx context.Context,
+// newRequestContext creates a new requestContext instance, as a DTO for context storage.
+func newRequestContext(
 	identifier string,
 	mcpSession *mcp.ServerSession,
 	extra *mcp.RequestExtra,
-) context.Context {
-	reqCtx := &requestContext{
+) *requestContext {
+	return &requestContext{
 		session:    capabilities.NewSession(mcpSession),
 		extra:      extra,
 		identifier: identifier,
 	}
+}
+
+// withMCPContext creates a requestContext and injects it into the context.
+// This is the single allocation point that replaces the previous dual-allocation pattern.
+func withMCPContext(ctx context.Context, reqCtx *requestContext) context.Context {
 	return context.WithValue(ctx, mcpContextKey{}, reqCtx)
 }
 
