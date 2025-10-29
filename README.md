@@ -539,6 +539,43 @@ Available logging functions:
 
 **Note**: Future releases will add functional options to support logger names and metadata for complex multi-subsystem tools.
 
+### Request Metadata Access
+
+Access request-specific metadata including OAuth tokens, HTTP headers, and resource identifiers through context helpers. This metadata is automatically injected when handlers are invoked by MCP clients.
+
+**Security Note**: MCP logs (`LogInfo`, `LogDebug`, etc.) are sent to the LLM as context. Never log sensitive data like OAuth tokens, session IDs, or internal identifiers to MCP logs. Use a separate logging backend (slog, standard logger, metrics system) for audit trails and analytics.
+
+Available helpers:
+- `GetIdentifier(ctx)` - Returns the tool name, prompt name, or resource URI for the current request
+- `GetTokenInfo(ctx)` - Returns OAuth token information if the client provided authentication
+- `GetRequestHeader(ctx, key)` - Returns a specific HTTP header value from the request
+- `GetRequestHeaders(ctx)` - Returns all HTTP headers from the request
+
+**Example: Accessing request context**
+
+```go
+import "log/slog"
+
+func myTool(ctx context.Context, input MyInput) (MyOutput, error) {
+    // Get the tool/prompt/resource identifier
+    identifier := mcpio.GetIdentifier(ctx)
+
+    // Read custom HTTP headers from the client
+    clientVersion := mcpio.GetRequestHeader(ctx, "X-Client-Version")
+    deploymentEnv := mcpio.GetRequestHeader(ctx, "X-Deployment-Env")
+
+    // Use backend logger for analytics/audit (NOT MCP logs which go to LLM)
+    slog.Info("Request received",
+        "identifier", identifier,
+        "clientVersion", clientVersion,
+        "env", deploymentEnv,
+    )
+
+    // Process request...
+    return output, nil
+}
+```
+
 ### Session Interface Access
 
 Access the `SessionCapability` interface directly to check capabilities, call session methods, or access features not yet available through convenience helpers.
@@ -777,14 +814,14 @@ handler, err := mcpio.NewHandler(
 | Auto-generate schemas | ✅ Yes | ✅ Yes | ✅ Yes |
 | Simple handler signature | ⚠️ 5 params | ✅ 2 params | ✅ 2 params |
 | Access session capabilities | ✅ Via request param | ✅ Via context | ✅ Via context |
-| Access OAuth tokens | ✅ Via `req.Extra.TokenInfo` | ❌ Not supported | ⚠️ Via context helper |
-| Access HTTP headers | ✅ Via `req.Extra.Header` | ❌ Not supported | ⚠️ Via context helper |
-| Access tool name | ✅ Via `req.Params.Name` | ❌ Not supported | ⚠️ Via context helper |
+| Access OAuth tokens | ✅ Via `req.Extra.TokenInfo` | ✅ Via `GetTokenInfo(ctx)` | N/A |
+| Access HTTP headers | ✅ Via `req.Extra.Header` | ✅ Via `GetRequestHeader(ctx)` | N/A |
+| Access tool name | ✅ Via `req.Params.Name` | ✅ Via `GetIdentifier(ctx)` | N/A |
 | Control output format | ✅ Via `CallToolResult` | ❌ Auto-wrapped | ⚠️ Raw handler option |
 | Escape hatch to MCP SDK | N/A | ⚠️ Via `GetServer()` | ✅ `WithRawToolHandler` |
 
 
-mcp-io currently does not expose request metadata (OAuth tokens, HTTP headers, tool name). Use `handler.GetServer()` to access the raw MCP SDK server.
+Request metadata (OAuth tokens, HTTP headers, tool/prompt/resource identifiers) is accessible via context helpers: `GetTokenInfo(ctx)`, `GetRequestHeader(ctx, key)`, `GetRequestHeaders(ctx)`, and `GetIdentifier(ctx)`. See [Request Metadata Access](#request-metadata-access) for details.
 
 ## License
 

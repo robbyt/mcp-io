@@ -537,6 +537,50 @@ func TestSessionCapabilities(t *testing.T) {
 		assert.NotNil(t, handler)
 	})
 
+	t.Run("RequestMetadataAccess", func(t *testing.T) {
+		// Types for the tool
+		type MyInput struct {
+			Data string `json:"data"`
+		}
+		type MyOutput struct {
+			Result string `json:"result"`
+		}
+
+		// Tool from README
+		myTool := func(ctx context.Context, input MyInput) (MyOutput, error) {
+			// Get the tool/prompt/resource identifier
+			identifier := mcpio.GetIdentifier(ctx)
+
+			// Read custom HTTP headers from the client
+			clientVersion := mcpio.GetRequestHeader(ctx, "X-Client-Version")
+			deploymentEnv := mcpio.GetRequestHeader(ctx, "X-Deployment-Env")
+
+			// Use backend logger for analytics/audit (NOT MCP logs which go to LLM)
+			// Note: slog.Info would log to stderr/stdout, not to MCP client
+
+			// Verify the context helpers work
+			assert.NotNil(t, identifier, "identifier should not be nil")
+			assert.NotNil(t, clientVersion, "header getter should not return nil")
+			assert.NotNil(t, deploymentEnv, "header getter should not return nil")
+
+			// Process request...
+			output := MyOutput{Result: "processed: " + input.Data}
+			return output, nil
+		}
+
+		handler, err := mcpio.NewHandler(
+			mcpio.WithName("metadata-server"),
+			mcpio.WithTool("process", "Process with metadata", myTool),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler)
+
+		// Test the tool function directly
+		result, err := myTool(context.Background(), MyInput{Data: "test"})
+		require.NoError(t, err)
+		assert.Equal(t, "processed: test", result.Result)
+	})
+
 	t.Run("SessionInterfaceAccess", func(t *testing.T) {
 		// Tool from README
 		advancedTool := func(ctx context.Context, _ struct{}) (map[string]any, error) {
