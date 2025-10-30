@@ -22,7 +22,7 @@ type TextOutput struct {
 }
 
 // Tool function
-func toUpper(ctx context.Context, input TextInput) (TextOutput, error) {
+func toUpper(ctx context.Context, toolCtx mcpio.ToolContext, input TextInput) (TextOutput, error) {
 	return TextOutput{Result: strings.ToUpper(input.Text)}, nil
 }
 

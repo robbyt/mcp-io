@@ -33,6 +33,11 @@ func TestHttpMultistepSuite(t *testing.T) {
 	suite.Run(t, new(HttpMultistepTestSuite))
 }
 
+// mockToolContext creates a minimal ToolContext for testing with the given session
+func mockToolContext(session *capabilities.Session) mcpio.ToolContext {
+	return testutil.NewMockToolContext(session)
+}
+
 func (s *HttpMultistepTestSuite) TestDevelopmentFlow() {
 	// Test development environment (basic config only)
 	s.Run("DevelopmentEnvironment", func() {
@@ -57,7 +62,7 @@ func (s *HttpMultistepTestSuite) TestDevelopmentFlow() {
 		}, nil).Once()
 
 		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, struct{}{})
+		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("fully_configured", result["status"])
@@ -112,7 +117,7 @@ func (s *HttpMultistepTestSuite) TestStagingFlow() {
 		}, nil).Once()
 
 		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, struct{}{})
+		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("fully_configured", result["status"])
@@ -183,7 +188,7 @@ func (s *HttpMultistepTestSuite) TestProductionFlow() {
 		}, nil).Once()
 
 		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, struct{}{})
+		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("fully_configured", result["status"])
@@ -214,7 +219,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 		}, nil).Once()
 
 		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, struct{}{})
+		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("cancelled", result["status"])
@@ -242,7 +247,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 		}, nil).Once()
 
 		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, struct{}{})
+		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("partial", result["status"])
@@ -288,7 +293,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 		}, nil).Once()
 
 		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, struct{}{})
+		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("error", result["status"])
@@ -318,7 +323,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 		}, nil).Once()
 
 		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, struct{}{})
+		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("cancelled", result["status"])
@@ -392,23 +397,14 @@ func (s *HttpMultistepTestSuite) TestHelperFunctions() {
 }
 
 func (s *HttpMultistepTestSuite) TestServerCreation() {
-	// Test that we can create the server
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("multistep-config-server"),
-			mcpio.WithVersion("1.0.0"),
-			mcpio.WithTool("configure_system", "Multi-step system configuration with conditional elicitation", configureSystem),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
-
-	// Verify server creation works
-	server, err := serverBuilder()
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("multistep-config-server"),
+		mcpio.WithVersion("1.0.0"),
+		mcpio.WithTool("configure_system", "Multi-step system configuration with conditional elicitation", configureSystem),
+	)
 	s.Require().NoError(err)
-	s.NotNil(server)
+	s.NotNil(handler)
+	s.NotNil(handler.GetServer())
 }
 
 func (s *HttpMultistepTestSuite) TestBinaryBuild() {

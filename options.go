@@ -69,6 +69,28 @@ func WithStreamableHTTPOptions(opts *mcp.StreamableHTTPOptions) Option {
 	}
 }
 
+// WithContextStore configures a custom context storage mechanism.
+// This is useful for testing with isolated context keys.
+//
+// Example:
+//
+//	// Custom test storage with isolated key
+//	testKey := struct{ name string }{"TestFoo"}
+//	store := mcpio.NewContextStore(testKey)
+//	handler, _ := mcpio.NewHandler(
+//	    mcpio.WithContextStore(store),
+//	    mcpio.WithTool("test", "desc", toolFunc),
+//	)
+func WithContextStore(store ContextStore) Option {
+	return func(cfg *handlerConfig) error {
+		if store == nil {
+			return fmt.Errorf("context store cannot be nil: %w", ErrNilValue)
+		}
+		cfg.contextStore = store
+		return nil
+	}
+}
+
 // WithPrompt adds a prompt to the handler
 func WithPrompt(name, description string, fn PromptFunc) Option {
 	return func(cfg *handlerConfig) error {
@@ -196,9 +218,10 @@ func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Opti
 }
 
 // ToolFunc is the function signature for typed tools with automatic schema generation.
-// The function receives a context and typed input, and returns typed output with an optional error.
+// The function receives a context, ToolContext for accessing session/metadata, typed input,
+// and returns typed output with an optional error.
 // Schema generation is handled automatically based on the TIn and TOut types.
-type ToolFunc[TIn, TOut any] func(context.Context, TIn) (TOut, error)
+type ToolFunc[TIn, TOut any] func(context.Context, ToolContext, TIn) (TOut, error)
 
 // WithTool adds a type-safe tool with automatic schema generation from Go types.
 //
@@ -222,7 +245,7 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 			return fmt.Errorf("tool name cannot be empty: %w", ErrEmptyValue)
 		}
 
-		registerFunc := func(server *mcp.Server) error {
+		registerFunc := func(handler *Handler, server *mcp.Server) error {
 			// Create tool with metadata
 			mcpTool := &mcp.Tool{
 				Name:        name,
@@ -236,8 +259,8 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 				}
 			}
 
-			handler := createTypedHandler(fn)
-			mcp.AddTool(server, mcpTool, handler) // Auto-generates InputSchema from TIn
+			handlerFunc := createTypedHandler(handler, fn)
+			mcp.AddTool(server, mcpTool, handlerFunc) // Auto-generates InputSchema from TIn
 			return nil
 		}
 
@@ -247,9 +270,10 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 }
 
 // RawToolFunc is the function signature for raw JSON tools.
-// The function receives a context and raw JSON bytes as input, and returns JSON bytes as output.
+// The function receives a context, ToolContext for accessing session/metadata,
+// and raw JSON bytes as input, and returns JSON bytes as output.
 // Schema must be provided explicitly when using WithRawTool.
-type RawToolFunc func(context.Context, []byte) ([]byte, error)
+type RawToolFunc func(context.Context, ToolContext, []byte) ([]byte, error)
 
 // WithRawTool adds a tool with manual JSON handling and explicit schema.
 // Use this when you need direct control over JSON processing or dynamic schemas.
@@ -279,15 +303,15 @@ func WithRawTool(name, description string, inputSchema any, fn RawToolFunc, opts
 		}
 
 		// Create registration function
-		registerFunc := func(server *mcp.Server) error {
+		registerFunc := func(handler *Handler, server *mcp.Server) error {
 			// Use primitives/tool to construct the tool
 			mcpTool, err := tool.New(name, description, inputSchema, opts...)
 			if err != nil {
 				return err
 			}
 
-			handler := createRawToolHandler(fn)
-			server.AddTool(mcpTool, handler)
+			handlerFunc := createRawToolHandler(handler, fn)
+			server.AddTool(mcpTool, handlerFunc)
 			return nil
 		}
 
@@ -298,10 +322,10 @@ func WithRawTool(name, description string, inputSchema any, fn RawToolFunc, opts
 }
 
 // createRawToolHandler wraps a raw function to match the MCP ToolHandler signature
-func createRawToolHandler(fn RawToolFunc) mcp.ToolHandler {
+func createRawToolHandler(handler *Handler, fn RawToolFunc) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// Inject request context (session + metadata)
-		ctx = withMCPContext(ctx, newRequestContext(req.Params.Name, req.Session, req.Extra))
+		// Create request context with all MCP metadata
+		reqCtx := newRequestContext(req.Params.Name, req.Session, req.Extra)
 
 		// Marshal input arguments to JSON bytes
 		inputJSON, err := json.Marshal(req.Params.Arguments)
@@ -314,8 +338,8 @@ func createRawToolHandler(fn RawToolFunc) mcp.ToolHandler {
 			}, nil
 		}
 
-		// Execute raw function
-		outputJSON, err := fn(ctx, inputJSON)
+		// Execute raw function (pass reqCtx as ToolContext)
+		outputJSON, err := fn(ctx, reqCtx, inputJSON)
 		if err != nil {
 			// Check if it's a tool error
 			var toolErr *ToolError

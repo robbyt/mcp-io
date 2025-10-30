@@ -33,175 +33,152 @@ func TestSchemaFlexibilitySuite(t *testing.T) {
 	suite.Run(t, new(SchemaFlexibilityTestSuite))
 }
 
-// createCalculatorServerBuilder creates a server with only the calculator tool
-func createCalculatorServerBuilder() func() (*mcp.Server, error) {
-	return func() (*mcp.Server, error) {
-		calculatorInputSchema := `{
-			"type": "object",
-			"properties": {
-				"operation": {
-					"type": "string",
-					"enum": ["add", "subtract", "multiply", "divide"],
-					"description": "Arithmetic operation to perform"
-				},
-				"a": {"type": "number", "description": "First number"},
-				"b": {"type": "number", "description": "Second number"}
+// createCalculator creates a handler with only the calculator tool
+func createCalculator() (*mcpio.Handler, error) {
+	calculatorInputSchema := `{
+		"type": "object",
+		"properties": {
+			"operation": {
+				"type": "string",
+				"enum": ["add", "subtract", "multiply", "divide"],
+				"description": "Arithmetic operation to perform"
 			},
-			"required": ["operation", "a", "b"]
-		}`
+			"a": {"type": "number", "description": "First number"},
+			"b": {"type": "number", "description": "Second number"}
+		},
+		"required": ["operation", "a", "b"]
+	}`
 
-		calculator := func(ctx context.Context, input []byte) ([]byte, error) {
-			var params map[string]any
-			if err := json.Unmarshal(input, &params); err != nil {
-				return nil, err
+	calculator := func(ctx context.Context, toolCtx mcpio.ToolContext, input []byte) ([]byte, error) {
+		var params map[string]any
+		if err := json.Unmarshal(input, &params); err != nil {
+			return nil, err
+		}
+
+		op := params["operation"].(string)
+		a := params["a"].(float64)
+		b := params["b"].(float64)
+
+		var result float64
+		switch op {
+		case "add":
+			result = a + b
+		case "subtract":
+			result = a - b
+		case "multiply":
+			result = a * b
+		case "divide":
+			if b == 0 {
+				return nil, mcpio.NewToolError("division by zero")
 			}
-
-			op := params["operation"].(string)
-			a := params["a"].(float64)
-			b := params["b"].(float64)
-
-			var result float64
-			switch op {
-			case "add":
-				result = a + b
-			case "subtract":
-				result = a - b
-			case "multiply":
-				result = a * b
-			case "divide":
-				if b == 0 {
-					return nil, mcpio.NewToolError("division by zero")
-				}
-				result = a / b
-			default:
-				return nil, mcpio.ValidationError("unsupported operation: " + op)
-			}
-
-			return json.Marshal(map[string]any{
-				"result":    result,
-				"operation": op,
-			})
+			result = a / b
+		default:
+			return nil, mcpio.ValidationError("unsupported operation: " + op)
 		}
 
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("schema-flexibility-demo"),
-			mcpio.WithRawTool("calculator", "Perform arithmetic operations", calculatorInputSchema, calculator),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
+		return json.Marshal(map[string]any{
+			"result":    result,
+			"operation": op,
+		})
 	}
+
+	return mcpio.NewHandler(
+		mcpio.WithName("schema-flexibility-demo"),
+		mcpio.WithRawTool("calculator", "Perform arithmetic operations", calculatorInputSchema, calculator),
+	)
 }
 
-// createProcessJsonServerBuilder creates a server with only the process_json tool
-func createProcessJsonServerBuilder() func() (*mcp.Server, error) {
-	return func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("schema-flexibility-demo"),
-			mcpio.WithRawTool("process_json", "Add processed flag to any JSON object",
-				json.RawMessage(`{"type":"object","additionalProperties":true}`), processJSON),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+// createProcessJson creates a handler with only the process_json tool
+func createProcessJson() (*mcpio.Handler, error) {
+	return mcpio.NewHandler(
+		mcpio.WithName("schema-flexibility-demo"),
+		mcpio.WithRawTool("process_json", "Add processed flag to any JSON object",
+			json.RawMessage(`{"type":"object","additionalProperties":true}`), processJSON),
+	)
 }
 
-// createSimpleServerBuilder creates a server with only the to_upper tool
-func createSimpleServerBuilder() func() (*mcp.Server, error) {
-	return func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("schema-flexibility-demo"),
-			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+// createSimple creates a handler with only the to_upper tool
+func createSimple() (*mcpio.Handler, error) {
+	return mcpio.NewHandler(
+		mcpio.WithName("schema-flexibility-demo"),
+		mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
+	)
 }
 
-// createFullServerBuilder creates a server with all tools - helper to reduce duplication
-func createFullServerBuilder() func() (*mcp.Server, error) {
-	return func() (*mcp.Server, error) {
-		// JSON schema string for calculator input (json.RawMessage is optimal)
-		calculatorInputSchema := `{
-			"type": "object",
-			"properties": {
-				"operation": {
-					"type": "string",
-					"enum": ["add", "subtract", "multiply", "divide"],
-					"description": "Arithmetic operation to perform"
-				},
-				"a": {"type": "number", "description": "First number"},
-				"b": {"type": "number", "description": "Second number"}
+// createFull creates a handler with all tools
+func createFull() (*mcpio.Handler, error) {
+	// JSON schema string for calculator input (json.RawMessage is optimal)
+	calculatorInputSchema := `{
+		"type": "object",
+		"properties": {
+			"operation": {
+				"type": "string",
+				"enum": ["add", "subtract", "multiply", "divide"],
+				"description": "Arithmetic operation to perform"
 			},
-			"required": ["operation", "a", "b"]
-		}`
+			"a": {"type": "number", "description": "First number"},
+			"b": {"type": "number", "description": "Second number"}
+		},
+		"required": ["operation", "a", "b"]
+	}`
 
-		// Calculator function - raw version for WithRawTool
-		calculator := func(ctx context.Context, input []byte) ([]byte, error) {
-			var params map[string]any
-			if err := json.Unmarshal(input, &params); err != nil {
-				return nil, err
-			}
-
-			op := params["operation"].(string)
-			a := params["a"].(float64)
-			b := params["b"].(float64)
-
-			var result float64
-			switch op {
-			case "add":
-				result = a + b
-			case "subtract":
-				result = a - b
-			case "multiply":
-				result = a * b
-			case "divide":
-				if b == 0 {
-					return nil, mcpio.NewToolError("division by zero")
-				}
-				result = a / b
-			default:
-				return nil, mcpio.ValidationError("unsupported operation: " + op)
-			}
-
-			return json.Marshal(map[string]any{
-				"result":    result,
-				"operation": op,
-			})
-		}
-
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("schema-flexibility-demo"),
-			mcpio.WithVersion("1.0.0"),
-
-			// Traditional struct-based tool (no schema options needed)
-			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
-
-			// Tool with JSON string schema (converted to json.RawMessage)
-			mcpio.WithRawTool("calculator", "Perform arithmetic operations", calculatorInputSchema, calculator),
-
-			// Tool with json.RawMessage schema (maximum performance)
-			mcpio.WithRawTool("process_json", "Add processed flag to any JSON object",
-				json.RawMessage(`{"type":"object","additionalProperties":true}`), processJSON),
-		)
-		if err != nil {
+	// Calculator function - raw version for WithRawTool
+	calculator := func(ctx context.Context, toolCtx mcpio.ToolContext, input []byte) ([]byte, error) {
+		var params map[string]any
+		if err := json.Unmarshal(input, &params); err != nil {
 			return nil, err
 		}
-		return handler.GetServer(), nil
+
+		op := params["operation"].(string)
+		a := params["a"].(float64)
+		b := params["b"].(float64)
+
+		var result float64
+		switch op {
+		case "add":
+			result = a + b
+		case "subtract":
+			result = a - b
+		case "multiply":
+			result = a * b
+		case "divide":
+			if b == 0 {
+				return nil, mcpio.NewToolError("division by zero")
+			}
+			result = a / b
+		default:
+			return nil, mcpio.ValidationError("unsupported operation: " + op)
+		}
+
+		return json.Marshal(map[string]any{
+			"result":    result,
+			"operation": op,
+		})
 	}
+
+	return mcpio.NewHandler(
+		mcpio.WithName("schema-flexibility-demo"),
+		mcpio.WithVersion("1.0.0"),
+
+		// Traditional struct-based tool (no schema options needed)
+		mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
+
+		// Tool with JSON string schema (converted to json.RawMessage)
+		mcpio.WithRawTool("calculator", "Perform arithmetic operations", calculatorInputSchema, calculator),
+
+		// Tool with json.RawMessage schema (maximum performance)
+		mcpio.WithRawTool("process_json", "Add processed flag to any JSON object",
+			json.RawMessage(`{"type":"object","additionalProperties":true}`), processJSON),
+	)
 }
 
 func (s *SchemaFlexibilityTestSuite) TestToUpperTool() {
 	ctx := s.T().Context()
 
-	serverBuilder := createFullServerBuilder()
+	handler, err := createFull()
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		testCases := []struct {
 			name     string
 			input    string
@@ -236,9 +213,10 @@ func (s *SchemaFlexibilityTestSuite) TestToUpperTool() {
 func (s *SchemaFlexibilityTestSuite) TestCalculatorTool() {
 	ctx := s.T().Context()
 
-	serverBuilder := createCalculatorServerBuilder()
+	handler, err := createCalculator()
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		testCases := []struct {
 			name      string
 			operation string
@@ -318,9 +296,10 @@ func (s *SchemaFlexibilityTestSuite) TestCalculatorTool() {
 func (s *SchemaFlexibilityTestSuite) TestProcessJsonTool() {
 	ctx := s.T().Context()
 
-	serverBuilder := createProcessJsonServerBuilder()
+	handler, err := createProcessJson()
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		testCases := []struct {
 			name     string
 			input    map[string]any
@@ -379,9 +358,10 @@ func (s *SchemaFlexibilityTestSuite) TestProcessJsonTool() {
 func (s *SchemaFlexibilityTestSuite) TestToolListing() {
 	ctx := s.T().Context()
 
-	serverBuilder := createFullServerBuilder()
+	handler, err := createFull()
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		result, err := session.ListTools(ctx, &mcp.ListToolsParams{})
 		s.Require().NoError(err)
 		s.Require().Len(result.Tools, 3)
@@ -410,9 +390,10 @@ func (s *SchemaFlexibilityTestSuite) TestToolListing() {
 func (s *SchemaFlexibilityTestSuite) TestErrorHandling() {
 	ctx := s.T().Context()
 
-	serverBuilder := createSimpleServerBuilder()
+	handler, err := createSimple()
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		// Test calling non-existent tool
 		_, err := session.CallTool(ctx, &mcp.CallToolParams{
 			Name:      "non_existent",

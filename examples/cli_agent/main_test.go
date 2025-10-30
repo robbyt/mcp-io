@@ -50,8 +50,9 @@ func (s *AgentTestSuite) TestAnalyzeToolWithSampling() {
 			},
 		}, nil).Once()
 
+		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
 		ctx := capabilities.WithSession(context.Background(), mockSession.Session)
-		result, err := analyzeTool(ctx, AnalyzeInput{
+		result, err := analyzeTool(ctx, mockToolCtx, AnalyzeInput{
 			Code:     "func test() { return }",
 			Language: "go",
 		})
@@ -70,8 +71,9 @@ func (s *AgentTestSuite) TestAnalyzeToolWithSampling() {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupNoCapabilities()
 
+		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
 		ctx := capabilities.WithSession(context.Background(), mockSession.Session)
-		result, err := analyzeTool(ctx, AnalyzeInput{
+		result, err := analyzeTool(ctx, mockToolCtx, AnalyzeInput{
 			Code: "func test() {}",
 		})
 
@@ -96,8 +98,9 @@ func (s *AgentTestSuite) TestImproveToolWithSampling() {
 			},
 		}, nil).Once()
 
+		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
 		ctx := capabilities.WithSession(context.Background(), mockSession.Session)
-		result, err := improveTool(ctx, ImproveInput{
+		result, err := improveTool(ctx, mockToolCtx, ImproveInput{
 			Code:     "func test() {}",
 			Focus:    "security",
 			Language: "go",
@@ -115,9 +118,10 @@ func (s *AgentTestSuite) TestImproveToolWithSampling() {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupNoCapabilities()
 
+		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
 		ctx := capabilities.WithSession(context.Background(), mockSession.Session)
 		originalCode := "func test() {}"
-		result, err := improveTool(ctx, ImproveInput{
+		result, err := improveTool(ctx, mockToolCtx, ImproveInput{
 			Code: originalCode,
 		})
 
@@ -173,14 +177,16 @@ func (s *AgentTestSuite) TestBinaryBuild() {
 
 func TestAnalyzeToolNoSession(t *testing.T) {
 	ctx := context.Background()
-	_, err := analyzeTool(ctx, AnalyzeInput{Code: "test"})
+	mockToolCtx := testutil.NewMockToolContext(nil)
+	_, err := analyzeTool(ctx, mockToolCtx, AnalyzeInput{Code: "test"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no session")
 }
 
 func TestImproveToolNoSession(t *testing.T) {
 	ctx := context.Background()
-	result, err := improveTool(ctx, ImproveInput{Code: "test"})
+	mockToolCtx := testutil.NewMockToolContext(nil)
+	result, err := improveTool(ctx, mockToolCtx, ImproveInput{Code: "test"})
 	require.NoError(t, err)
 	assert.False(t, result.SamplingUsed)
 }
@@ -188,18 +194,13 @@ func TestImproveToolNoSession(t *testing.T) {
 // TestSamplingWithRealMCPClient tests sampling using real MCP client protocol
 func (s *AgentTestSuite) TestSamplingWithRealMCPClient() {
 	s.Run("AnalyzeCodeWithSampling", func() {
-		// Create server builder
-		serverBuilder := func() (*mcp.Server, error) {
-			handler, err := mcpio.NewHandler(
-				mcpio.WithName("code-agent-test"),
-				mcpio.WithVersion("1.0.0"),
-				mcpio.WithTool("analyze_code", "Analyze code using AI", analyzeTool),
-			)
-			if err != nil {
-				return nil, err
-			}
-			return handler.GetServer(), nil
-		}
+		// Create handler
+		handler, err := mcpio.NewHandler(
+			mcpio.WithName("code-agent-test"),
+			mcpio.WithVersion("1.0.0"),
+			mcpio.WithTool("analyze_code", "Analyze code using AI", analyzeTool),
+		)
+		s.Require().NoError(err)
 
 		// Use real MCP client with sampling support
 		testImpl := &mcp.Implementation{
@@ -223,15 +224,17 @@ func (s *AgentTestSuite) TestSamplingWithRealMCPClient() {
 		}
 
 		ctx := s.T().Context()
-		server, err := serverBuilder()
-		s.Require().NoError(err)
+
+		// Get SDK server for custom client setup
+		sdkServer, ok := handler.GetServer().Unwrap().(*mcp.Server)
+		s.Require().True(ok, "failed to unwrap SDK server")
 
 		// Create in-memory transports
 		clientTransport, serverTransport := mcp.NewInMemoryTransports()
 
 		// Start server
 		go func() {
-			err := server.Run(ctx, serverTransport)
+			err := sdkServer.Run(ctx, serverTransport)
 			if err != nil && !errors.Is(err, context.Canceled) {
 				s.T().Errorf("server run error: %v", err)
 			}

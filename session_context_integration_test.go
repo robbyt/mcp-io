@@ -8,6 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,8 +27,8 @@ func TestTypedToolSessionInjection(t *testing.T) {
 
 	handler, err := mcpio.NewHandler(
 		mcpio.WithName("session-test"),
-		mcpio.WithTool("typed_tool", "Test session injection", func(ctx context.Context, input Input) (Output, error) {
-			session := mcpio.GetSession(ctx)
+		mcpio.WithTool("typed_tool", "Test session injection", func(ctx context.Context, toolCtx mcpio.ToolContext, input Input) (Output, error) {
+			session := toolCtx.GetSession()
 			require.NotNil(t, session, "Session should be injected for typed tools")
 			return Output{SessionID: session.SessionID()}, nil
 		}),
@@ -53,8 +54,8 @@ func TestRawToolSessionInjection(t *testing.T) {
 		mcpio.WithName("session-test"),
 		mcpio.WithRawTool("raw_tool", "Test session injection",
 			`{"type":"object"}`,
-			func(ctx context.Context, input []byte) ([]byte, error) {
-				session := mcpio.GetSession(ctx)
+			func(ctx context.Context, toolCtx mcpio.ToolContext, input []byte) ([]byte, error) {
+				session := toolCtx.GetSession()
 				require.NotNil(t, session, "Session should be injected for raw tools")
 				return []byte(`{"session_id":"` + session.SessionID() + `"}`), nil
 			},
@@ -81,7 +82,7 @@ func TestPromptSessionInjection(t *testing.T) {
 		mcpio.WithName("session-test"),
 		mcpio.WithPrompt("test_prompt", "Test session injection",
 			func(ctx context.Context, args map[string]any) (*mcpio.PromptResult, error) {
-				session := mcpio.GetSession(ctx)
+				session := capabilities.GetSession(ctx)
 				require.NotNil(t, session, "Session should be injected for prompts")
 				return &mcpio.PromptResult{
 					Messages: []mcpio.PromptMessage{{Role: "user", Content: "Session: " + session.SessionID()}},
@@ -111,7 +112,7 @@ func TestTypedPromptSessionInjection(t *testing.T) {
 		mcpio.WithName("session-test"),
 		mcpio.WithTypedPrompt("typed_prompt", "Test session injection",
 			func(ctx context.Context, args PromptArgs) (*mcpio.PromptResult, error) {
-				session := mcpio.GetSession(ctx)
+				session := capabilities.GetSession(ctx)
 				require.NotNil(t, session, "Session should be injected for typed prompts")
 				return &mcpio.PromptResult{
 					Messages: []mcpio.PromptMessage{{Role: "user", Content: "Session: " + session.SessionID()}},
@@ -140,7 +141,7 @@ func TestResourceSessionInjection(t *testing.T) {
 		mcpio.WithName("session-test"),
 		mcpio.WithResource("test://resource", "Test session injection",
 			func(ctx context.Context, uri string) (*mcpio.ResourceContent, error) {
-				session := mcpio.GetSession(ctx)
+				session := capabilities.GetSession(ctx)
 				require.NotNil(t, session, "Session should be injected for resources")
 				return &mcpio.ResourceContent{
 					Content:  []byte("Session: " + session.SessionID()),

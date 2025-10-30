@@ -34,19 +34,13 @@ func TestCliResourceSuite(t *testing.T) {
 func (s *CliResourceTestSuite) TestFunctionality() {
 	ctx := s.T().Context()
 
-	// Create server using the same logic as main()
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("resource-server"),
-			mcpio.WithResourceTemplate("res://kv/{key}", "A simple key-value store", resourceReader),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("resource-server"),
+		mcpio.WithResourceTemplate("res://kv/{key}", "A simple key-value store", resourceReader),
+	)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		testCases := []struct {
 			name        string
 			uri         string
@@ -98,18 +92,13 @@ func (s *CliResourceTestSuite) TestFunctionality() {
 func (s *CliResourceTestSuite) TestListing() {
 	ctx := s.T().Context()
 
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("resource-server"),
-			mcpio.WithResourceTemplate("res://kv/{key}", "A simple key-value store", resourceReader),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("resource-server"),
+		mcpio.WithResourceTemplate("res://kv/{key}", "A simple key-value store", resourceReader),
+	)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		// Resource templates may not appear in regular resource listing
 		result, err := session.ListResources(ctx, &mcp.ListResourcesParams{})
 		s.Require().NoError(err)
@@ -121,18 +110,13 @@ func (s *CliResourceTestSuite) TestListing() {
 func (s *CliResourceTestSuite) TestErrorHandling() {
 	ctx := s.T().Context()
 
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("resource-server"),
-			mcpio.WithResourceTemplate("res://kv/{key}", "A simple key-value store", resourceReader),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("resource-server"),
+		mcpio.WithResourceTemplate("res://kv/{key}", "A simple key-value store", resourceReader),
+	)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		// Test reading non-existent resource
 		_, err := session.ReadResource(ctx, &mcp.ReadResourceParams{
 			URI: "res://invalid/uri",

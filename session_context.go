@@ -1,8 +1,6 @@
 package mcpio
 
 import (
-	"context"
-	"log/slog"
 	"net/http"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
@@ -10,214 +8,89 @@ import (
 	"github.com/robbyt/mcp-io/capabilities"
 )
 
-// mcpContextKey is the context key for storing requestContext instances.
+// mcpContextKey is the context key for storing RequestContext instances.
 type mcpContextKey struct{}
 
-// requestContext holds all MCP request metadata.
-// This allows single-allocation context injection - we store this once instead of
-// storing Session and request metadata separately.
-type requestContext struct {
-	session    *capabilities.Session // MCP session wrapper
-	extra      *mcp.RequestExtra     // OAuth tokens, HTTP headers
-	identifier string                // Tool name, prompt name, or resource URI
+// RequestContext holds all MCP request metadata and implements the ToolContext interface.
+// This struct is created once per request and passed directly to tool functions,
+// eliminating the need for context storage and retrieval.
+//
+// Exported to enable test mocking. Tests construct RequestContext instances
+// with mock sessions when testing elicitation, logging, and other
+// session-dependent functionality.
+type RequestContext struct {
+	// Session provides access to MCP session capabilities (sampling, elicitation, logging, etc).
+	// Never nil - always contains a valid session instance.
+	Session *capabilities.Session
+
+	// Identifier is the name or URI for the current request:
+	//   - Tool requests: tool name
+	//   - Prompt requests: prompt name
+	//   - Resource requests: resource URI
+	Identifier string
+
+	// TokenInfo contains OAuth token information when the request includes authentication.
+	// Nil if no token is present in the request.
+	TokenInfo *auth.TokenInfo
+
+	// Headers contains HTTP headers when the request was made via HTTP transport.
+	// Never nil - always contains a valid (possibly empty) http.Header map.
+	Headers http.Header
 }
 
-// newRequestContext creates a new requestContext instance, as a DTO for context storage.
+// newRequestContext creates a new RequestContext instance by extracting and formatting
+// all MCP request metadata once. This "format once, use everywhere" pattern eliminates
+// repeated nil checking and data extraction on every field access.
 func newRequestContext(
 	identifier string,
 	mcpSession *mcp.ServerSession,
 	extra *mcp.RequestExtra,
-) *requestContext {
-	return &requestContext{
-		session:    capabilities.NewSession(mcpSession),
-		extra:      extra,
-		identifier: identifier,
+) *RequestContext {
+	var tokenInfo *auth.TokenInfo
+	var headers http.Header
+
+	// Extract values once from mcp.RequestExtra
+	if extra != nil {
+		tokenInfo = extra.TokenInfo
+		headers = extra.Header
+	}
+
+	// Ensure headers is never nil
+	if headers == nil {
+		headers = http.Header{}
+	}
+
+	return &RequestContext{
+		Session:    capabilities.NewSession(mcpSession),
+		Identifier: identifier,
+		TokenInfo:  tokenInfo,
+		Headers:    headers,
 	}
 }
 
-// withMCPContext creates a requestContext and injects it into the context.
-// This is the single allocation point that replaces the previous dual-allocation pattern.
-func withMCPContext(ctx context.Context, reqCtx *requestContext) context.Context {
-	return context.WithValue(ctx, mcpContextKey{}, reqCtx)
-}
+// ToolContext interface implementation - RequestContext provides direct access
+// to all request metadata through simple getter methods.
 
-// getMCPContext extracts the requestContext from the context.
-// Returns nil if no request context is available.
-func getMCPContext(ctx context.Context) *requestContext {
-	if reqCtx, ok := ctx.Value(mcpContextKey{}).(*requestContext); ok {
-		return reqCtx
-	}
-	return nil
-}
-
-// GetSession extracts the Session from the context.
-// Returns nil if no session is available (e.g., in tests or non-session contexts).
-//
-// Example:
-//
-//	func myTool(ctx context.Context, input Input) (Output, error) {
-//	    session := mcpio.GetSession(ctx)
-//	    if session != nil {
-//	        session.Logger().Info("Processing request", "sessionID", session.SessionID())
-//	    }
-//	    return output, nil
-//	}
-func GetSession(ctx context.Context) *capabilities.Session {
-	reqCtx := getMCPContext(ctx)
-	if reqCtx == nil {
-		// Fallback for tests that inject sessions using capabilities.WithSession directly
-		return capabilities.GetSession(ctx)
-	}
-	return reqCtx.session
-}
-
-// LogInfo sends an info-level log message to the client.
-// Returns an error if the session is not available.
-//
-// Example:
-//
-//	mcpio.LogInfo(ctx, "Processing started", map[string]any{"file": filename})
-func LogInfo(ctx context.Context, message string, data map[string]any) error {
-	session := GetSession(ctx)
-	if session == nil {
-		return ErrNoSession
-	}
-	return session.Log(ctx, capabilities.LogLevelInfo, message, data)
-}
-
-// LogWarn sends a warning-level log message to the client.
-// Returns an error if the session is not available.
-func LogWarn(ctx context.Context, message string, data map[string]any) error {
-	session := GetSession(ctx)
-	if session == nil {
-		return ErrNoSession
-	}
-	return session.Log(ctx, capabilities.LogLevelWarning, message, data)
-}
-
-// LogError sends an error-level log message to the client.
-// Returns an error if the session is not available.
-func LogError(ctx context.Context, message string, data map[string]any) error {
-	session := GetSession(ctx)
-	if session == nil {
-		return ErrNoSession
-	}
-	return session.Log(ctx, capabilities.LogLevelError, message, data)
-}
-
-// LogDebug sends a debug-level log message to the client.
-// Returns an error if the session is not available.
-func LogDebug(ctx context.Context, message string, data map[string]any) error {
-	session := GetSession(ctx)
-	if session == nil {
-		return ErrNoSession
-	}
-	return session.Log(ctx, capabilities.LogLevelDebug, message, data)
-}
-
-// GetLogger returns a slog.Logger that sends logs to the client.
-// Returns nil if the session is not available.
-//
-// Example:
-//
-//	logger := mcpio.GetLogger(ctx)
-//	if logger != nil {
-//	    logger.Info("Processing request", "file", filename, "size", fileSize)
-//	}
-func GetLogger(ctx context.Context) *slog.Logger {
-	session := GetSession(ctx)
-	if session == nil {
-		return nil
-	}
-	return session.Logger()
-}
-
-// GetSessionID returns the session ID for logging, debugging, and request correlation.
-// Returns empty string if no session is available.
-//
-// The session ID is set by the MCP client and uniquely identifies the connection.
-// Use this for audit trails, correlation IDs, or debugging client-specific behavior.
-//
-// Example:
-//
-//	sessionID := mcpio.GetSessionID(ctx)
-//	if sessionID != "" {
-//	    logger.Info("Processing request", "sessionID", sessionID, "operation", "analyze")
-//	}
-func GetSessionID(ctx context.Context) string {
-	session := GetSession(ctx)
-	if session == nil {
-		return ""
-	}
-	return session.SessionID()
+// GetSession returns the MCP session for accessing session capabilities like
+// logging, elicitation, and sampling.
+func (r *RequestContext) GetSession() *capabilities.Session {
+	return r.Session
 }
 
 // GetIdentifier returns the identifier for the current request.
 // For tools, this is the tool name. For prompts, the prompt name. For resources, the URI.
-// Returns empty string if no request context is available.
-//
-// Example:
-//
-//	toolName := mcpio.GetIdentifier(ctx)
-//	logger.Info("Tool invoked", "name", toolName)
-func GetIdentifier(ctx context.Context) string {
-	reqCtx := getMCPContext(ctx)
-	if reqCtx == nil {
-		return ""
-	}
-	return reqCtx.identifier
+func (r *RequestContext) GetIdentifier() string {
+	return r.Identifier
 }
 
 // GetTokenInfo returns OAuth token information from the request if available.
-// Returns nil if no token was provided or request context is unavailable.
-//
-// Example:
-//
-//	tokenInfo := mcpio.GetTokenInfo(ctx)
-//	if tokenInfo != nil {
-//	    userID := tokenInfo.Subject
-//	    scopes := tokenInfo.Scopes
-//	}
-func GetTokenInfo(ctx context.Context) *auth.TokenInfo {
-	reqCtx := getMCPContext(ctx)
-	if reqCtx == nil || reqCtx.extra == nil {
-		return nil
-	}
-	return reqCtx.extra.TokenInfo
+// Returns nil if no token was provided.
+func (r *RequestContext) GetTokenInfo() *auth.TokenInfo {
+	return r.TokenInfo
 }
 
-// GetRequestHeader returns a specific HTTP header value from the request.
-// Returns empty string if the header is not present or request context is unavailable.
-//
-// Example:
-//
-//	userAgent := mcpio.GetRequestHeader(ctx, "User-Agent")
-//	if userAgent != "" {
-//	    logger.Info("Client info", "userAgent", userAgent)
-//	}
-func GetRequestHeader(ctx context.Context, key string) string {
-	reqCtx := getMCPContext(ctx)
-	if reqCtx == nil || reqCtx.extra == nil || reqCtx.extra.Header == nil {
-		return ""
-	}
-	return reqCtx.extra.Header.Get(key)
-}
-
-// GetRequestHeaders returns all HTTP headers from the request.
-// Returns nil if no headers are available or request context is unavailable.
-//
-// Example:
-//
-//	headers := mcpio.GetRequestHeaders(ctx)
-//	if headers != nil {
-//	    for key, values := range headers {
-//	        logger.Debug("Header", "key", key, "values", values)
-//	    }
-//	}
-func GetRequestHeaders(ctx context.Context) http.Header {
-	reqCtx := getMCPContext(ctx)
-	if reqCtx == nil || reqCtx.extra == nil {
-		return nil
-	}
-	return reqCtx.extra.Header
+// GetHeaders returns all HTTP headers from the request.
+// Never returns nil - returns empty http.Header{} if no headers present.
+func (r *RequestContext) GetHeaders() http.Header {
+	return r.Headers
 }

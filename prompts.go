@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/capabilities"
 )
 
 // PromptFunc is the function signature for user-defined prompt handlers.
@@ -44,8 +45,9 @@ type PromptMessage struct {
 // createPromptHandler wraps a user function to match MCP PromptHandler signature
 func createPromptHandler(fn PromptFunc) mcp.PromptHandler {
 	return func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-		// Inject request context (session + metadata)
-		ctx = withMCPContext(ctx, newRequestContext(req.Params.Name, req.Session, req.Extra))
+		// Inject session into context so it's available via capabilities.GetSession(ctx)
+		session := capabilities.NewSession(req.Session)
+		ctx = capabilities.WithSession(ctx, session)
 
 		// Convert MCP request to user-friendly args
 		args := make(map[string]any)
@@ -84,8 +86,9 @@ func createPromptHandler(fn PromptFunc) mcp.PromptHandler {
 // createTypedPromptHandler wraps a typed prompt function to match MCP PromptHandler signature
 func createTypedPromptHandler[TArgs any](fn TypedPromptFunc[TArgs]) mcp.PromptHandler {
 	return func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-		// Inject request context (session + metadata)
-		ctx = withMCPContext(ctx, newRequestContext(req.Params.Name, req.Session, req.Extra))
+		// Inject session into context so it's available via capabilities.GetSession(ctx)
+		session := capabilities.NewSession(req.Session)
+		ctx = capabilities.WithSession(ctx, session)
 
 		// Convert MCP request arguments to typed struct
 		var args TArgs

@@ -34,20 +34,14 @@ func TestCliPromptSuite(t *testing.T) {
 func (s *CliPromptTestSuite) TestFunctionality() {
 	ctx := s.T().Context()
 
-	// Create server using the same logic as main()
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("prompt-server"),
-			mcpio.WithPrompt("greeter", "Generates a friendly greeting", greeterPrompt),
-			mcpio.WithTypedPrompt("document_writer", "Generates writing prompts with typed arguments", documentPrompt),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("prompt-server"),
+		mcpio.WithPrompt("greeter", "Generates a friendly greeting", greeterPrompt),
+		mcpio.WithTypedPrompt("document_writer", "Generates writing prompts with typed arguments", documentPrompt),
+	)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		// Test greeter prompt (map-based)
 		s.Run("GreeterWithName", func() {
 			result, err := session.GetPrompt(ctx, &mcp.GetPromptParams{
@@ -122,19 +116,14 @@ func (s *CliPromptTestSuite) TestFunctionality() {
 func (s *CliPromptTestSuite) TestListing() {
 	ctx := s.T().Context()
 
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("prompt-server"),
-			mcpio.WithPrompt("greeter", "Generates a friendly greeting", greeterPrompt),
-			mcpio.WithTypedPrompt("document_writer", "Generates writing prompts with typed arguments", documentPrompt),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("prompt-server"),
+		mcpio.WithPrompt("greeter", "Generates a friendly greeting", greeterPrompt),
+		mcpio.WithTypedPrompt("document_writer", "Generates writing prompts with typed arguments", documentPrompt),
+	)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		result, err := session.ListPrompts(ctx, &mcp.ListPromptsParams{})
 		s.Require().NoError(err)
 		s.Require().Len(result.Prompts, 2)
@@ -182,19 +171,14 @@ func (s *CliPromptTestSuite) TestListing() {
 func (s *CliPromptTestSuite) TestErrorHandling() {
 	ctx := s.T().Context()
 
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("prompt-server"),
-			mcpio.WithPrompt("greeter", "Generates a friendly greeting", greeterPrompt),
-			mcpio.WithTypedPrompt("document_writer", "Generates writing prompts with typed arguments", documentPrompt),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("prompt-server"),
+		mcpio.WithPrompt("greeter", "Generates a friendly greeting", greeterPrompt),
+		mcpio.WithTypedPrompt("document_writer", "Generates writing prompts with typed arguments", documentPrompt),
+	)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		// Test calling non-existent prompt
 		s.Run("UnknownPrompt", func() {
 			_, err := session.GetPrompt(ctx, &mcp.GetPromptParams{

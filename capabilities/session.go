@@ -10,6 +10,13 @@ import (
 // sessionContextKey is the context key for storing Session instances.
 type sessionContextKey struct{}
 
+// ClientCapabilities represents the capabilities declared by the client.
+type ClientCapabilities struct {
+	Elicitation *ElicitationCapabilities
+	Sampling    *SamplingCapabilities
+	Roots       *RootsCapabilities
+}
+
 // WithSession injects a Session into the context.
 // This is used by both production code (via handlers) and test code.
 func WithSession(ctx context.Context, session *Session) context.Context {
@@ -95,4 +102,25 @@ func (s *Session) Wait() error {
 // Close closes this session and the underlying connection.
 func (s *Session) Close() error {
 	return s.session.Close()
+}
+
+// ClientCapabilities returns the capabilities the client declared during initialization.
+func (s *Session) ClientCapabilities() *ClientCapabilities {
+	initParams := s.session.InitializeParams()
+	caps := &ClientCapabilities{}
+
+	if initParams.Capabilities.Elicitation != nil {
+		caps.Elicitation = &ElicitationCapabilities{}
+	}
+	if initParams.Capabilities.Sampling != nil {
+		caps.Sampling = &SamplingCapabilities{}
+	}
+	// Roots capability - check if ListChanged is supported
+	if initParams.Capabilities.Roots.ListChanged {
+		caps.Roots = &RootsCapabilities{
+			ListChanged: true,
+		}
+	}
+
+	return caps
 }

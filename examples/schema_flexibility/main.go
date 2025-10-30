@@ -19,12 +19,12 @@ type TextOutput struct {
 	Result string `json:"result" jsonschema:"Processed text"`
 }
 
-func toUpper(ctx context.Context, input TextInput) (TextOutput, error) {
+func toUpper(ctx context.Context, toolCtx mcpio.ToolContext, input TextInput) (TextOutput, error) {
 	return TextOutput{Result: strings.ToUpper(input.Text)}, nil
 }
 
 // Generic tool function that works with any JSON - raw version for WithRawTool
-func processJSON(ctx context.Context, input []byte) ([]byte, error) {
+func processJSON(ctx context.Context, toolCtx mcpio.ToolContext, input []byte) ([]byte, error) {
 	var params map[string]any
 	if err := json.Unmarshal(input, &params); err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func main() {
 	}`
 
 	// Calculator function - raw version for WithRawTool
-	calculator := func(ctx context.Context, input []byte) ([]byte, error) {
+	calculator := func(ctx context.Context, toolCtx mcpio.ToolContext, input []byte) ([]byte, error) {
 		var params map[string]any
 		if err := json.Unmarshal(input, &params); err != nil {
 			return nil, err

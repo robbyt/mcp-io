@@ -2,6 +2,7 @@ package mcpio
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -78,8 +79,16 @@ func TestElicitTyped_Success(t *testing.T) {
 	}
 
 	session := capabilities.NewSession(mockServerSession)
-	ctx := capabilities.WithSession(t.Context(), session)
-	result, err := ElicitTyped[TestConfig](ctx, "Test message")
+	reqCtx := &RequestContext{
+		Session:    session,
+		Identifier: "test",
+		TokenInfo:  nil,
+		Headers:    http.Header{},
+	}
+	elicitor := NewElicitor(reqCtx)
+	ctx := t.Context()
+
+	result, err := ElicitTyped[TestConfig](ctx, elicitor, "Test message")
 
 	require.NoError(t, err)
 	assert.True(t, result.IsAccepted())
@@ -97,8 +106,16 @@ func TestElicitTyped_SchemaGeneration(t *testing.T) {
 	}
 
 	session := capabilities.NewSession(mockServerSession)
-	ctx := capabilities.WithSession(t.Context(), session)
-	result, err := ElicitTyped[TestConfig](ctx, "Test message")
+	reqCtx := &RequestContext{
+		Session:    session,
+		Identifier: "test",
+		TokenInfo:  nil,
+		Headers:    http.Header{},
+	}
+	elicitor := NewElicitor(reqCtx)
+	ctx := t.Context()
+
+	result, err := ElicitTyped[TestConfig](ctx, elicitor, "Test message")
 
 	require.NoError(t, err)
 	assert.True(t, result.IsDeclined())
@@ -106,8 +123,16 @@ func TestElicitTyped_SchemaGeneration(t *testing.T) {
 }
 
 func TestElicitTyped_NoSession(t *testing.T) {
+	reqCtx := &RequestContext{
+		Session:    nil,
+		Identifier: "test",
+		TokenInfo:  nil,
+		Headers:    http.Header{},
+	}
+	elicitor := NewElicitor(reqCtx)
 	ctx := t.Context()
-	result, err := ElicitTyped[TestConfig](ctx, "Test message")
+
+	result, err := ElicitTyped[TestConfig](ctx, elicitor, "Test message")
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNoSession)
@@ -117,10 +142,18 @@ func TestElicitTyped_NoSession(t *testing.T) {
 func TestElicitTyped_ElicitationNotSupported(t *testing.T) {
 	// Create a mock server session that doesn't support elicitation
 	mockServerSession := &TestMockNoElicitation{}
-	session := capabilities.NewSession(mockServerSession)
 
-	ctx := capabilities.WithSession(t.Context(), session)
-	result, err := ElicitTyped[TestConfig](ctx, "Test message")
+	session := capabilities.NewSession(mockServerSession)
+	reqCtx := &RequestContext{
+		Session:    session,
+		Identifier: "test",
+		TokenInfo:  nil,
+		Headers:    http.Header{},
+	}
+	elicitor := NewElicitor(reqCtx)
+	ctx := t.Context()
+
+	result, err := ElicitTyped[TestConfig](ctx, elicitor, "Test message")
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrElicitationNotSupported)
@@ -210,8 +243,16 @@ func TestElicitSimple_Success(t *testing.T) {
 	}
 
 	session := capabilities.NewSession(mockServerSession)
-	ctx := capabilities.WithSession(t.Context(), session)
-	result, err := ElicitSimple(ctx, "Enter username:", "username", "Your username")
+	reqCtx := &RequestContext{
+		Session:    session,
+		Identifier: "test",
+		TokenInfo:  nil,
+		Headers:    http.Header{},
+	}
+	elicitor := NewElicitor(reqCtx)
+	ctx := t.Context()
+
+	result, err := elicitor.ElicitSimple(ctx, "Enter username:", "username", "Your username")
 
 	require.NoError(t, err)
 	assert.True(t, result.IsAccepted())
@@ -226,8 +267,16 @@ func TestElicitSimple_Decline(t *testing.T) {
 	}
 
 	session := capabilities.NewSession(mockServerSession)
-	ctx := capabilities.WithSession(t.Context(), session)
-	result, err := ElicitSimple(ctx, "Enter username:", "username", "Your username")
+	reqCtx := &RequestContext{
+		Session:    session,
+		Identifier: "test",
+		TokenInfo:  nil,
+		Headers:    http.Header{},
+	}
+	elicitor := NewElicitor(reqCtx)
+	ctx := t.Context()
+
+	result, err := elicitor.ElicitSimple(ctx, "Enter username:", "username", "Your username")
 
 	require.NoError(t, err)
 	assert.True(t, result.IsDeclined())
@@ -235,8 +284,16 @@ func TestElicitSimple_Decline(t *testing.T) {
 }
 
 func TestElicitSimple_NoSession(t *testing.T) {
+	reqCtx := &RequestContext{
+		Session:    nil,
+		Identifier: "test",
+		TokenInfo:  nil,
+		Headers:    http.Header{},
+	}
+	elicitor := NewElicitor(reqCtx)
 	ctx := t.Context()
-	result, err := ElicitSimple(ctx, "Enter username:", "username", "Your username")
+
+	result, err := elicitor.ElicitSimple(ctx, "Enter username:", "username", "Your username")
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNoSession)
@@ -291,9 +348,16 @@ func TestMultiStepElicitation(t *testing.T) {
 	}
 
 	session := capabilities.NewSession(mockServerSession)
-	ctx := capabilities.WithSession(t.Context(), session)
+	reqCtx := &RequestContext{
+		Session:    session,
+		Identifier: "test",
+		TokenInfo:  nil,
+		Headers:    http.Header{},
+	}
+	elicitor := NewElicitor(reqCtx)
+	ctx := t.Context()
 
-	result1, err := ElicitTyped[TestConfig](ctx, "First config:")
+	result1, err := ElicitTyped[TestConfig](ctx, elicitor, "First config:")
 	require.NoError(t, err)
 	assert.True(t, result1.IsAccepted())
 
@@ -303,7 +367,7 @@ func TestMultiStepElicitation(t *testing.T) {
 	assert.Equal(t, "config1", config1.Name)
 	assert.Equal(t, 100, config1.Value)
 
-	result2, err := ElicitTyped[TestConfig](ctx, "Second config:")
+	result2, err := ElicitTyped[TestConfig](ctx, elicitor, "Second config:")
 	require.NoError(t, err)
 	assert.True(t, result2.IsAccepted())
 
@@ -313,7 +377,7 @@ func TestMultiStepElicitation(t *testing.T) {
 	assert.Equal(t, "config2", config2.Name)
 	assert.Equal(t, 200, config2.Value)
 
-	result3, err := ElicitSimple(ctx, "Proceed?", "confirm", "Type yes to proceed")
+	result3, err := elicitor.ElicitSimple(ctx, "Proceed?", "confirm", "Type yes to proceed")
 	require.NoError(t, err)
 	assert.True(t, result3.IsAccepted())
 	assert.Equal(t, "yes", result3.GetContent()["confirm"])

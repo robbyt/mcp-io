@@ -2,7 +2,9 @@ package testutil
 
 import (
 	"context"
+	"net/http"
 
+	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/stretchr/testify/mock"
@@ -113,4 +115,61 @@ func (m *MockSession) SetupNoCapabilities() {
 	m.On("InitializeParams").Return(&mcp.InitializeParams{
 		Capabilities: &mcp.ClientCapabilities{},
 	})
+}
+
+// MockToolContext is a mock implementation of mcpio.ToolContext interface
+type MockToolContext struct {
+	mock.Mock
+	session    *capabilities.Session
+	identifier string
+	tokenInfo  *auth.TokenInfo
+	headers    http.Header
+}
+
+// NewMockToolContext creates a new mock tool context with the given session
+func NewMockToolContext(session *capabilities.Session) *MockToolContext {
+	return &MockToolContext{
+		session:    session,
+		identifier: "",
+		tokenInfo:  nil,
+		headers:    http.Header{},
+	}
+}
+
+// GetSession returns the session capability for advanced features
+func (m *MockToolContext) GetSession() *capabilities.Session {
+	return m.session
+}
+
+// GetIdentifier returns the request identifier
+func (m *MockToolContext) GetIdentifier() string {
+	return m.identifier
+}
+
+// GetTokenInfo returns authentication token information
+func (m *MockToolContext) GetTokenInfo() *auth.TokenInfo {
+	return m.tokenInfo
+}
+
+// GetHeaders returns all request headers
+func (m *MockToolContext) GetHeaders() http.Header {
+	return m.headers
+}
+
+// WithIdentifier sets the identifier for testing
+func (m *MockToolContext) WithIdentifier(identifier string) *MockToolContext {
+	m.identifier = identifier
+	return m
+}
+
+// WithTokenInfo sets the token info for testing
+func (m *MockToolContext) WithTokenInfo(tokenInfo *auth.TokenInfo) *MockToolContext {
+	m.tokenInfo = tokenInfo
+	return m
+}
+
+// WithHeaders sets the headers for testing
+func (m *MockToolContext) WithHeaders(headers http.Header) *MockToolContext {
+	m.headers = headers
+	return m
 }

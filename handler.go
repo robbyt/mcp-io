@@ -7,7 +7,10 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/capabilities"
+	mcpwrapper "github.com/robbyt/mcp-io/mcp"
 )
 
 // Resource registration function types
@@ -28,22 +31,69 @@ type handlerConfig struct {
 	server                *mcp.Server // The MCP-SDK server instance
 	serverOptions         *mcp.ServerOptions
 	streamableHTTPOptions *mcp.StreamableHTTPOptions
+	contextStore          ContextStore // Pluggable context storage
+}
+
+// MCPServer provides an interface to the MCP SDK server, allowing for
+// dependency injection in tests and decoupling from the concrete SDK types.
+//
+// The Unwrap method provides an escape hatch for power users who need
+// access to features not yet wrapped by mcp-io.
+type MCPServer interface {
+	// Tool registration
+	AddTool(tool *mcp.Tool, handler mcp.ToolHandler)
+
+	// Prompt registration
+	AddPrompt(prompt *mcp.Prompt, handler mcp.PromptHandler)
+
+	// Resource registration
+	AddResource(resource *mcp.Resource, handler mcp.ResourceHandler)
+	AddResourceTemplate(template *mcp.ResourceTemplate, handler mcp.ResourceHandler)
+
+	// Transport - run the server with configured transport
+	Run(ctx context.Context) error
+
+	// Unwrap returns the underlying SDK server for advanced usage.
+	// Returns *mcp.Server from github.com/modelcontextprotocol/go-sdk/mcp
+	// Returns nil if this is a mock implementation.
+	Unwrap() any
 }
 
 // Handler is the main MCP handler struct
 type Handler struct {
-	server  *mcp.Server
-	handler *mcp.StreamableHTTPHandler
+	server       MCPServer
+	handler      *mcp.StreamableHTTPHandler
+	contextStore ContextStore
+}
+
+// ToolContext provides access to MCP request metadata and session capabilities.
+// RequestContext implements this interface and is passed directly to tool functions,
+// eliminating the need for context storage and retrieval.
+type ToolContext interface {
+	// GetSession returns the MCP session for accessing session capabilities like
+	// logging, elicitation, and sampling.
+	GetSession() *capabilities.Session
+
+	// GetIdentifier returns the identifier for the current request.
+	// For tools: tool name, for prompts: prompt name, for resources: URI.
+	GetIdentifier() string
+
+	// GetTokenInfo returns OAuth token information if present, nil otherwise.
+	GetTokenInfo() *auth.TokenInfo
+
+	// GetHeaders returns HTTP headers from the request.
+	GetHeaders() http.Header
 }
 
 // GetServer returns the underlying MCP server for advanced usage
-func (h *Handler) GetServer() *mcp.Server {
+func (h *Handler) GetServer() MCPServer {
 	return h.server
 }
 
 // toolRegisterFunc is an internal function type that registers a tool on an MCP server.
 // This is used internally by the option functions to defer tool registration.
-type toolRegisterFunc func(*mcp.Server) error
+// It receives both the handler (for creating tool handlers) and the server (for registration).
+type toolRegisterFunc func(*Handler, *mcp.Server) error
 
 // NewHandler creates a new MCP handler that supports any combination of MCP resources.
 // This is the unified constructor that can handle tools, prompts, resources, and resource templates.
@@ -58,6 +108,7 @@ func NewHandler(opts ...Option) (*Handler, error) {
 		server:                nil, // Will be created if not provided
 		serverOptions:         &mcp.ServerOptions{},
 		streamableHTTPOptions: &mcp.StreamableHTTPOptions{},
+		contextStore:          NewContextStore(DefaultContextKey),
 	}
 
 	// Apply all options
@@ -76,10 +127,20 @@ func NewHandler(opts ...Option) (*Handler, error) {
 		cfg.server = mcp.NewServer(impl, cfg.serverOptions)
 	}
 
+	// Create the handler before registration (needed by registerFunc)
+	handler := &Handler{
+		server: mcpwrapper.New(cfg.server),
+		handler: mcp.NewStreamableHTTPHandler(
+			func(*http.Request) *mcp.Server { return cfg.server },
+			cfg.streamableHTTPOptions,
+		),
+		contextStore: cfg.contextStore,
+	}
+
 	// Register all resources
 	errz := make([]error, 0)
 	for _, registerFunc := range cfg.tools {
-		if err := registerFunc(cfg.server); err != nil {
+		if err := registerFunc(handler, cfg.server); err != nil {
 			errz = append(errz, fmt.Errorf("failed to register tool: %w", err))
 		}
 	}
@@ -102,13 +163,7 @@ func NewHandler(opts ...Option) (*Handler, error) {
 		return nil, errors.Join(errz...)
 	}
 
-	return &Handler{
-		server: cfg.server,
-		handler: mcp.NewStreamableHTTPHandler(
-			func(*http.Request) *mcp.Server { return cfg.server },
-			cfg.streamableHTTPOptions,
-		),
-	}, nil
+	return handler, nil
 }
 
 // ServeHTTP implements http.Handler for HTTP transport
@@ -116,22 +171,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.handler.ServeHTTP(w, r)
 }
 
-// ServeSSE implements SSE transport by delegating to ServeHTTP
-// The MCP SDK handles the transport differences internally
-func (h *Handler) ServeSSE(w http.ResponseWriter, r *http.Request) {
-	h.ServeHTTP(w, r)
-}
-
-// ServeStdio implements stdio transport for command-line tools
-//
-// NOTE: The stdin and stdout parameters are currently unused. The MCP SDK's
-// StdioTransport always uses os.Stdin and os.Stdout. This is being addressed
-// in upstream PR: https://github.com/modelcontextprotocol/go-sdk/pull/465
-//
-// TODO: Once PR #465 is merged, update to use custom stdin/stdout
+// ServeStdio implements stdio transport for command-line tools.
+// The stdin and stdout parameters are currently unused as the MCP SDK's
+// StdioTransport always uses os.Stdin and os.Stdout.
 func (h *Handler) ServeStdio(ctx context.Context, _ io.Reader, _ io.Writer) error {
-	transport := &mcp.StdioTransport{}
-	return h.server.Run(ctx, transport)
+	// h.server is always a *mcpwrapper.Server (wrapped at creation time in NewHandler)
+	// Set the stdio transport before running
+	h.server.(*mcpwrapper.Server).SetTransport(&mcp.StdioTransport{})
+	return h.server.Run(ctx)
 }
 
 // createTypedHandler converts a simple typed function into an MCP ToolHandlerFor.
@@ -151,13 +198,13 @@ func (h *Handler) ServeStdio(ctx context.Context, _ io.Reader, _ io.Writer) erro
 //
 // Returns:
 //   - MCP ToolHandlerFor lambda that bridges user code to SDK interface
-func createTypedHandler[TIn, TOut any](fn ToolFunc[TIn, TOut]) mcp.ToolHandlerFor[TIn, TOut] {
+func createTypedHandler[TIn, TOut any](handler *Handler, fn ToolFunc[TIn, TOut]) mcp.ToolHandlerFor[TIn, TOut] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, input TIn) (*mcp.CallToolResult, TOut, error) {
-		// Inject request context (session + metadata)
-		ctx = withMCPContext(ctx, newRequestContext(req.Params.Name, req.Session, req.Extra))
+		// Create request context with all MCP metadata
+		reqCtx := newRequestContext(req.Params.Name, req.Session, req.Extra)
 
-		// Execute the user-provided tool function
-		output, err := fn(ctx, input)
+		// Execute the user-provided tool function (pass reqCtx as ToolContext)
+		output, err := fn(ctx, reqCtx, input)
 		if err != nil {
 			// Check if it's a tool error (user-facing error)
 			var toolErr *ToolError

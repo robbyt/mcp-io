@@ -25,8 +25,8 @@ type AnalyzeOutput struct {
 }
 
 // analyzeTool uses the client's LLM (sampling) to analyze code
-func analyzeTool(ctx context.Context, input AnalyzeInput) (AnalyzeOutput, error) {
-	session := mcpio.GetSession(ctx)
+func analyzeTool(ctx context.Context, toolCtx mcpio.ToolContext, input AnalyzeInput) (AnalyzeOutput, error) {
+	session := toolCtx.GetSession()
 	if session == nil {
 		return AnalyzeOutput{}, fmt.Errorf("no session available")
 	}
@@ -45,7 +45,7 @@ func analyzeTool(ctx context.Context, input AnalyzeInput) (AnalyzeOutput, error)
 	_ = session.NotifyProgress(ctx, 0.0, 1.0) //nolint:errcheck
 
 	// Log analysis start
-	_ = mcpio.LogInfo(ctx, "Starting code analysis", map[string]any{ //nolint:errcheck
+	_ = toolCtx.GetSession().Log(ctx, capabilities.LogLevelInfo, "Starting code analysis", map[string]any{ //nolint:errcheck
 		"language":  input.Language,
 		"code_size": len(input.Code),
 	})
@@ -64,7 +64,7 @@ func analyzeTool(ctx context.Context, input AnalyzeInput) (AnalyzeOutput, error)
 		Content: prompt,
 	}}, 2000)
 	if err != nil {
-		_ = mcpio.LogError(ctx, "Sampling failed", map[string]any{"error": err.Error()}) //nolint:errcheck
+		_ = toolCtx.GetSession().Log(ctx, capabilities.LogLevelError, "Sampling failed", map[string]any{"error": err.Error()}) //nolint:errcheck
 		return AnalyzeOutput{}, fmt.Errorf("sampling failed: %w", err)
 	}
 
@@ -76,7 +76,7 @@ func analyzeTool(ctx context.Context, input AnalyzeInput) (AnalyzeOutput, error)
 	issuesFound := countIssues(analysis)
 
 	// Log completion
-	_ = mcpio.LogInfo(ctx, "Analysis completed", map[string]any{ //nolint:errcheck
+	_ = toolCtx.GetSession().Log(ctx, capabilities.LogLevelInfo, "Analysis completed", map[string]any{ //nolint:errcheck
 		"issues_found": issuesFound,
 		"suggestions":  len(suggestions),
 	})
@@ -106,8 +106,8 @@ type ImproveOutput struct {
 }
 
 // improveTool uses sampling to suggest improved code
-func improveTool(ctx context.Context, input ImproveInput) (ImproveOutput, error) {
-	session := mcpio.GetSession(ctx)
+func improveTool(ctx context.Context, toolCtx mcpio.ToolContext, input ImproveInput) (ImproveOutput, error) {
+	session := toolCtx.GetSession()
 	if session == nil || !session.SupportsSampling() {
 		return ImproveOutput{
 			ImprovedCode: input.Code,

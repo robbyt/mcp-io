@@ -34,26 +34,20 @@ func TestCliCombinedSuite(t *testing.T) {
 func (s *CliCombinedTestSuite) TestTools() {
 	ctx := s.T().Context()
 
-	// Create server using the same logic as main()
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("document-processor"),
-			mcpio.WithVersion("1.0.0"),
-			mcpio.WithTool("format_text", "Clean and format text by normalizing whitespace", formatText),
-			mcpio.WithTool("analyze_text", "Analyze text and provide statistics", analyzeText),
-			mcpio.WithResourceTemplate("doc://templates/email", "Email template", documentResource),
-			mcpio.WithResourceTemplate("doc://templates/report", "Report template", documentResource),
-			mcpio.WithResourceTemplate("doc://templates/memo", "Memo template", documentResource),
-			mcpio.WithResourceTemplate("doc://samples/analysis", "Sample analysis data", documentResource),
-			mcpio.WithPrompt("document_writer", "Generate writing prompts for different document types", documentPrompt),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("document-processor"),
+		mcpio.WithVersion("1.0.0"),
+		mcpio.WithTool("format_text", "Clean and format text by normalizing whitespace", formatText),
+		mcpio.WithTool("analyze_text", "Analyze text and provide statistics", analyzeText),
+		mcpio.WithResourceTemplate("doc://templates/email", "Email template", documentResource),
+		mcpio.WithResourceTemplate("doc://templates/report", "Report template", documentResource),
+		mcpio.WithResourceTemplate("doc://templates/memo", "Memo template", documentResource),
+		mcpio.WithResourceTemplate("doc://samples/analysis", "Sample analysis data", documentResource),
+		mcpio.WithPrompt("document_writer", "Generate writing prompts for different document types", documentPrompt),
+	)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		s.Run("FormatText", func() {
 			result, err := session.CallTool(ctx, &mcp.CallToolParams{
 				Name:      "format_text",
@@ -90,21 +84,16 @@ func (s *CliCombinedTestSuite) TestTools() {
 func (s *CliCombinedTestSuite) TestResources() {
 	ctx := s.T().Context()
 
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("document-processor"),
-			mcpio.WithResourceTemplate("doc://templates/email", "Email template", documentResource),
-			mcpio.WithResourceTemplate("doc://templates/report", "Report template", documentResource),
-			mcpio.WithResourceTemplate("doc://templates/memo", "Memo template", documentResource),
-			mcpio.WithResourceTemplate("doc://samples/analysis", "Sample analysis data", documentResource),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("document-processor"),
+		mcpio.WithResourceTemplate("doc://templates/email", "Email template", documentResource),
+		mcpio.WithResourceTemplate("doc://templates/report", "Report template", documentResource),
+		mcpio.WithResourceTemplate("doc://templates/memo", "Memo template", documentResource),
+		mcpio.WithResourceTemplate("doc://samples/analysis", "Sample analysis data", documentResource),
+	)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		testCases := []struct {
 			name        string
 			uri         string
@@ -173,18 +162,13 @@ func (s *CliCombinedTestSuite) TestResources() {
 func (s *CliCombinedTestSuite) TestPrompts() {
 	ctx := s.T().Context()
 
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("document-processor"),
-			mcpio.WithPrompt("document_writer", "Generate writing prompts for different document types", documentPrompt),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("document-processor"),
+		mcpio.WithPrompt("document_writer", "Generate writing prompts for different document types", documentPrompt),
+	)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		testCases := []struct {
 			name           string
 			args           map[string]string
@@ -283,25 +267,20 @@ func (s *CliCombinedTestSuite) TestPrompts() {
 func (s *CliCombinedTestSuite) TestListing() {
 	ctx := s.T().Context()
 
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("document-processor"),
-			mcpio.WithVersion("1.0.0"),
-			mcpio.WithTool("format_text", "Clean and format text by normalizing whitespace", formatText),
-			mcpio.WithTool("analyze_text", "Analyze text and provide statistics", analyzeText),
-			mcpio.WithResourceTemplate("doc://templates/email", "Email template", documentResource),
-			mcpio.WithResourceTemplate("doc://templates/report", "Report template", documentResource),
-			mcpio.WithResourceTemplate("doc://templates/memo", "Memo template", documentResource),
-			mcpio.WithResourceTemplate("doc://samples/analysis", "Sample analysis data", documentResource),
-			mcpio.WithPrompt("document_writer", "Generate writing prompts for different document types", documentPrompt),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("document-processor"),
+		mcpio.WithVersion("1.0.0"),
+		mcpio.WithTool("format_text", "Clean and format text by normalizing whitespace", formatText),
+		mcpio.WithTool("analyze_text", "Analyze text and provide statistics", analyzeText),
+		mcpio.WithResourceTemplate("doc://templates/email", "Email template", documentResource),
+		mcpio.WithResourceTemplate("doc://templates/report", "Report template", documentResource),
+		mcpio.WithResourceTemplate("doc://templates/memo", "Memo template", documentResource),
+		mcpio.WithResourceTemplate("doc://samples/analysis", "Sample analysis data", documentResource),
+		mcpio.WithPrompt("document_writer", "Generate writing prompts for different document types", documentPrompt),
+	)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		// Test tools listing
 		s.Run("ListTools", func() {
 			result, err := session.ListTools(ctx, &mcp.ListToolsParams{})

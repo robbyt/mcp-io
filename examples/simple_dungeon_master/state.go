@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	mcpio "github.com/robbyt/mcp-io"
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/crypt"
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/dice"
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/narrative"
@@ -11,11 +12,11 @@ import (
 
 // GameState coordinates game components with sub-states for narrative, dice, and cryptography.
 type GameState struct {
-	narrative *narrative.State                                           // Narrative engine with history and skill check state
-	dice      *dice.State                                                // Dice roller with roll history
-	crypt     *crypt.State                                               // Cryptographic operations for encrypted data validation
-	config    *Config                                                    // Runtime configuration options
-	llmFunc   func(context.Context, string, int, string) (string, error) // LLM function for narrative generation (injectable for testing)
+	narrative *narrative.State                                                              // Narrative engine with history and skill check state
+	dice      *dice.State                                                                   // Dice roller with roll history
+	crypt     *crypt.State                                                                  // Cryptographic operations for encrypted data validation
+	config    *Config                                                                       // Runtime configuration options
+	llmFunc   func(context.Context, mcpio.ToolContext, string, int, string) (string, error) // LLM function for narrative generation (injectable for testing)
 
 	// turnCounterMutex protects turnCounter
 	turnCounterMutex sync.RWMutex
@@ -38,7 +39,7 @@ type GameStateResponse struct {
 }
 
 // GameStateTool returns the current game state, for use as an MCP tool to peak inside the internal game state
-func (state *GameState) GameStateTool(_ context.Context, _ struct{}) (GameStateResponse, error) {
+func (state *GameState) GameStateTool(_ context.Context, _ mcpio.ToolContext, _ struct{}) (GameStateResponse, error) {
 	return GameStateResponse{
 		CurrentTurnNumber:  state.getTurnCounter(),
 		Summary:            state.narrative.GetSummary(),

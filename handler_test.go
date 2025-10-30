@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpWrapper "github.com/robbyt/mcp-io/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +24,7 @@ type SimpleOutput struct {
 }
 
 // Test helper functions for handler-specific tests
-func simpleEchoFunc(ctx context.Context, input SimpleInput) (SimpleOutput, error) {
+func simpleEchoFunc(ctx context.Context, toolCtx ToolContext, input SimpleInput) (SimpleOutput, error) {
 	return SimpleOutput{Message: input.Text}, nil
 }
 
@@ -73,20 +74,23 @@ func TestServerWithTransport(t *testing.T) {
 	t.Parallel()
 
 	t.Run("server with InMemoryTransport and context cancellation", func(t *testing.T) {
-		serverTransport, clientTransport := mcp.NewInMemoryTransports()
-
 		handler, err := NewHandler(
 			WithName("test-server"),
 			WithTool("echo", "Echo input", simpleEchoFunc),
 		)
 		require.NoError(t, err)
 
+		// Create in-memory server with transport
+		sdkServer, ok := handler.server.Unwrap().(*mcp.Server)
+		require.True(t, ok, "failed to unwrap SDK server")
+		wrappedServer, clientTransport := mcpWrapper.NewInMemoryServer(sdkServer)
+
 		// Run server with cancellable context
 		ctx, cancel := context.WithCancel(context.Background())
 		serverDone := make(chan error, 1)
 
 		go func() {
-			err := handler.server.Run(ctx, serverTransport)
+			err := wrappedServer.Run(ctx)
 			serverDone <- err
 		}()
 
@@ -128,20 +132,23 @@ func TestServerWithTransport(t *testing.T) {
 		cancels := make([]context.CancelFunc, numServers)
 
 		for i := range numServers {
-			serverTransport, clientTransport := mcp.NewInMemoryTransports()
-
 			handler, err := NewHandler(
 				WithName("test-server"),
 				WithTool("echo", "Echo input", simpleEchoFunc),
 			)
 			require.NoError(t, err)
 
+			// Create in-memory server with transport
+			sdkServer, ok := handler.server.Unwrap().(*mcp.Server)
+			require.True(t, ok, "failed to unwrap SDK server")
+			wrappedServer, clientTransport := mcpWrapper.NewInMemoryServer(sdkServer)
+
 			serverDone[i] = make(chan error, 1)
 			ctx, cancel := context.WithCancel(context.Background())
 			cancels[i] = cancel
 
 			go func(idx int) {
-				err := handler.server.Run(ctx, serverTransport)
+				err := wrappedServer.Run(ctx)
 				serverDone[idx] <- err
 			}(i)
 
@@ -187,7 +194,7 @@ func TestGetServer(t *testing.T) {
 	require.NoError(t, err)
 
 	retrievedServer := handler.GetServer()
-	assert.Equal(t, server, retrievedServer)
+	assert.Equal(t, server, retrievedServer.Unwrap())
 }
 
 func TestServeSSE(t *testing.T) {
@@ -199,10 +206,10 @@ func TestServeSSE(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create test server using httptest
-	server := httptest.NewServer(http.HandlerFunc(handler.ServeSSE))
+	server := httptest.NewServer(http.HandlerFunc(handler.ServeHTTP))
 	defer server.Close()
 
-	// Test basic SSE response (should delegate to ServeHTTP)
+	// Test basic HTTP/SSE response
 	// TODO: switch to httptest.Client and do a full MCP call
 	resp, err := http.Get(server.URL)
 	require.NoError(t, err)
@@ -217,14 +224,15 @@ func TestServeSSE(t *testing.T) {
 
 func TestCreateTypedHandlerSuccess(t *testing.T) {
 	t.Parallel()
-	handler := createTypedHandler(simpleEchoFunc)
+	h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+	handlerFunc := createTypedHandler(h, simpleEchoFunc)
 
 	req := &mcp.CallToolRequest{
 		Params: &mcp.CallToolParamsRaw{Name: "test_tool"},
 	}
 
 	input := SimpleInput{Text: "hello world"}
-	result, output, err := handler(context.Background(), req, input)
+	result, output, err := handlerFunc(context.Background(), req, input)
 
 	require.NoError(t, err)
 	assert.Nil(t, result)
@@ -234,18 +242,19 @@ func TestCreateTypedHandlerSuccess(t *testing.T) {
 func TestCreateTypedHandlerToolError(t *testing.T) {
 	t.Parallel()
 	// Function that returns a tool error
-	errorFunc := func(ctx context.Context, input SimpleInput) (SimpleOutput, error) {
+	errorFunc := func(ctx context.Context, toolCtx ToolContext, input SimpleInput) (SimpleOutput, error) {
 		return SimpleOutput{}, NewToolError("tool failed")
 	}
 
-	handler := createTypedHandler(errorFunc)
+	h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+	handlerFunc := createTypedHandler(h, errorFunc)
 
 	req := &mcp.CallToolRequest{
 		Params: &mcp.CallToolParamsRaw{Name: "test_tool"},
 	}
 
 	input := SimpleInput{Text: "test"}
-	result, output, err := handler(context.Background(), req, input)
+	result, output, err := handlerFunc(context.Background(), req, input)
 
 	require.Error(t, err)
 	assert.Nil(t, result)
@@ -259,18 +268,19 @@ func TestCreateTypedHandlerToolError(t *testing.T) {
 func TestCreateTypedHandlerProtocolError(t *testing.T) {
 	t.Parallel()
 	// Function that returns a non-tool error
-	errorFunc := func(ctx context.Context, input SimpleInput) (SimpleOutput, error) {
+	errorFunc := func(ctx context.Context, toolCtx ToolContext, input SimpleInput) (SimpleOutput, error) {
 		return SimpleOutput{}, errors.New("protocol error")
 	}
 
-	handler := createTypedHandler(errorFunc)
+	h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+	handlerFunc := createTypedHandler(h, errorFunc)
 
 	req := &mcp.CallToolRequest{
 		Params: &mcp.CallToolParamsRaw{Name: "test_tool"},
 	}
 
 	input := SimpleInput{Text: "test"}
-	result, output, err := handler(context.Background(), req, input)
+	result, output, err := handlerFunc(context.Background(), req, input)
 
 	require.Error(t, err)
 	assert.Nil(t, result)
@@ -299,7 +309,7 @@ func TestNewHandlerWithCustomServer(t *testing.T) {
 	assert.NotNil(t, handler)
 
 	// Verify the custom server is used
-	assert.Equal(t, customServer, handler.GetServer())
+	assert.Equal(t, customServer, handler.GetServer().Unwrap())
 }
 
 func TestNewHandlerOptionError(t *testing.T) {
@@ -370,7 +380,7 @@ func TestNewHandler_Unified(t *testing.T) {
 	t.Parallel()
 
 	// Test tool function
-	addTool := func(ctx context.Context, input struct{ A, B int }) (struct{ Sum int }, error) {
+	addTool := func(ctx context.Context, toolCtx ToolContext, input struct{ A, B int }) (struct{ Sum int }, error) {
 		return struct{ Sum int }{Sum: input.A + input.B}, nil
 	}
 
@@ -486,7 +496,7 @@ func TestNewHandlerToolRegistrationError(t *testing.T) {
 
 	// Create a tool registration function that will fail
 	failingToolOption := func(cfg *handlerConfig) error {
-		failingRegistration := func(server *mcp.Server) error {
+		failingRegistration := func(handler *Handler, server *mcp.Server) error {
 			return errToolRegistration
 		}
 		cfg.tools = append(cfg.tools, failingRegistration)
@@ -577,7 +587,7 @@ func TestNewHandlerMixedRegistrationsSuccess(t *testing.T) {
 
 	// Create successful registration functions
 	successToolOption := func(cfg *handlerConfig) error {
-		successRegistration := func(server *mcp.Server) error {
+		successRegistration := func(handler *Handler, server *mcp.Server) error {
 			return nil // Success
 		}
 		cfg.tools = append(cfg.tools, successRegistration)
@@ -727,7 +737,7 @@ func TestToolRegistration(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, handler)
-	assert.Equal(t, server, handler.GetServer())
+	assert.Equal(t, server, handler.GetServer().Unwrap())
 }
 
 func TestConcurrentAccess(t *testing.T) {

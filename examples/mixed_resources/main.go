@@ -31,14 +31,14 @@ type AnalysisOutput struct {
 }
 
 // Tool functions
-func formatText(ctx context.Context, input TextInput) (TextOutput, error) {
+func formatText(ctx context.Context, toolCtx mcpio.ToolContext, input TextInput) (TextOutput, error) {
 	// Clean up text: trim whitespace, normalize spacing
 	cleaned := strings.TrimSpace(input.Text)
 	cleaned = strings.Join(strings.Fields(cleaned), " ")
 	return TextOutput{Result: cleaned}, nil
 }
 
-func analyzeText(ctx context.Context, input AnalysisInput) (AnalysisOutput, error) {
+func analyzeText(ctx context.Context, toolCtx mcpio.ToolContext, input AnalysisInput) (AnalysisOutput, error) {
 	text := input.Text
 
 	// Word count

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/capabilities"
 )
 
 // ResourceFunc is the function signature for user-defined resource handlers.
@@ -20,8 +21,9 @@ type ResourceContent struct {
 // createResourceHandler wraps a user function to match MCP ResourceHandler signature
 func createResourceHandler(fn ResourceFunc) mcp.ResourceHandler {
 	return func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-		// Inject request context (session + metadata)
-		ctx = withMCPContext(ctx, newRequestContext(req.Params.URI, req.Session, req.Extra))
+		// Inject session into context so it's available via capabilities.GetSession(ctx)
+		session := capabilities.NewSession(req.Session)
+		ctx = capabilities.WithSession(ctx, session)
 
 		// Execute user function
 		content, err := fn(ctx, req.Params.URI)
