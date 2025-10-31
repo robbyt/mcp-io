@@ -30,6 +30,7 @@ linters:
     - testifylint    # Avoid common testify mistakes
     - thelper        # Ensure test helpers use t.Helper()
     - unconvert      # Remove unnecessary type conversions
+    - usetesting     # Detects when some calls can be replaced by methods from the testing package
     - unused         # Detect unused code
     - whitespace     # Detect unnecessary whitespace
   settings:
@@ -51,6 +52,10 @@ linters:
         - yaml
         - xml
         - env_interpolation
+    usetesting:
+      os-temp-dir: true
+      context-background: true
+      context-todo: true
 
 formatters:
   enable:
