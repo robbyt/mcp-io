@@ -482,7 +482,7 @@ func TestServeStdioActualCall(t *testing.T) {
 	cancel() // Cancel immediately before calling
 
 	// This should return quickly due to cancelled context
-	err = handler.ServeStdio(ctx, nil, nil)
+	err = handler.ServeStdio(ctx)
 
 	// Expect context cancellation error
 	require.Error(t, err)

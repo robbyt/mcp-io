@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 
 	mcpio "github.com/robbyt/mcp-io"
 )
@@ -69,7 +68,7 @@ func main() {
 		log.Fatal("Failed to create MCP handler:", err)
 	}
 
-	if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+	if err := handler.ServeStdio(context.Background()); err != nil {
 		log.Fatal("Failed to serve MCP via stdio:", err)
 	}
 }

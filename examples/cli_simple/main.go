@@ -5,7 +5,6 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
 	mcpio "github.com/robbyt/mcp-io"
@@ -46,7 +45,7 @@ func main() {
 		log.Fatal(http.ListenAndServe(*listen, nil))
 	} else {
 		// Stdio transport
-		if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+		if err := handler.ServeStdio(context.Background()); err != nil {
 			log.Fatalf("Server error: %v", err)
 		}
 	}

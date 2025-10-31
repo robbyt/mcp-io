@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 
 	mcpio "github.com/robbyt/mcp-io"
 	"github.com/robbyt/mcp-io/capabilities"
@@ -184,7 +183,7 @@ func main() {
 		log.Fatalf("Failed to create handler: %v", err)
 	}
 
-	if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+	if err := handler.ServeStdio(context.Background()); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }

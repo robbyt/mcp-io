@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpwrapper "github.com/robbyt/mcp-io/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -280,62 +281,71 @@ func TestWithServerOptions(t *testing.T) {
 	}
 }
 
-func TestWithStreamableHTTPOptions(t *testing.T) {
+func TestWithHTTPTransport(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name    string
-		opts    *mcp.StreamableHTTPOptions
-		wantErr error
-	}{
-		{
-			name: "stateless mode enabled",
-			opts: &mcp.StreamableHTTPOptions{
-				Stateless: true,
+	t.Run("defaults are preserved when no options provided", func(t *testing.T) {
+		cfg := &handlerConfig{
+			httpOpts: &mcp.StreamableHTTPOptions{
+				Stateless:    false,
+				JSONResponse: false,
 			},
-			wantErr: nil,
-		},
-		{
-			name: "JSON response mode enabled",
-			opts: &mcp.StreamableHTTPOptions{
-				JSONResponse: true,
-			},
-			wantErr: nil,
-		},
-		{
-			name: "both options enabled",
-			opts: &mcp.StreamableHTTPOptions{
-				Stateless:    true,
-				JSONResponse: true,
-			},
-			wantErr: nil,
-		},
-		{
-			name:    "valid empty streamable HTTP options",
-			opts:    &mcp.StreamableHTTPOptions{},
-			wantErr: nil,
-		},
-		{
-			name:    "nil streamable HTTP options should return error",
-			opts:    nil,
-			wantErr: ErrNilValue,
-		},
-	}
+		}
+		option := WithHTTPTransport()
+		err := option(cfg)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &handlerConfig{}
-			option := WithStreamableHTTPOptions(tt.opts)
-			err := option(cfg)
+		require.NoError(t, err)
+		assert.False(t, cfg.httpOpts.Stateless)
+		assert.False(t, cfg.httpOpts.JSONResponse)
+	})
 
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.opts, cfg.streamableHTTPOptions)
-			}
-		})
-	}
+	t.Run("WithStateless sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			httpOpts: &mcp.StreamableHTTPOptions{
+				Stateless:    false,
+				JSONResponse: false,
+			},
+		}
+		option := WithHTTPTransport(mcpwrapper.WithStateless())
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.True(t, cfg.httpOpts.Stateless)
+		assert.False(t, cfg.httpOpts.JSONResponse)
+	})
+
+	t.Run("WithJSONResponse sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			httpOpts: &mcp.StreamableHTTPOptions{
+				Stateless:    false,
+				JSONResponse: false,
+			},
+		}
+		option := WithHTTPTransport(mcpwrapper.WithJSONResponse())
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.False(t, cfg.httpOpts.Stateless)
+		assert.True(t, cfg.httpOpts.JSONResponse)
+	})
+
+	t.Run("multiple sub-options can be combined", func(t *testing.T) {
+		cfg := &handlerConfig{
+			httpOpts: &mcp.StreamableHTTPOptions{
+				Stateless:    false,
+				JSONResponse: false,
+			},
+		}
+		option := WithHTTPTransport(
+			mcpwrapper.WithStateless(),
+			mcpwrapper.WithJSONResponse(),
+		)
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.True(t, cfg.httpOpts.Stateless)
+		assert.True(t, cfg.httpOpts.JSONResponse)
+	})
 }
 
 func TestPromptOptions(t *testing.T) {

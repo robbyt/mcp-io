@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpwrapper "github.com/robbyt/mcp-io/mcp"
 	"github.com/robbyt/mcp-io/primitives/tool"
 )
 
@@ -58,13 +59,23 @@ func WithServerOptions(opts *mcp.ServerOptions) Option {
 	}
 }
 
-// WithStreamableHTTPOptions sets the streamable HTTP handler options
-func WithStreamableHTTPOptions(opts *mcp.StreamableHTTPOptions) Option {
+// WithHTTPTransport configures the Streamable HTTP transport.
+// Accepts variadic TransportOption functions for configuration (e.g., mcp.WithStateless()).
+//
+// Example:
+//
+//	mcpio.WithHTTPTransport(
+//	    mcp.WithStateless(),
+//	    mcp.WithJSONResponse(),
+//	)
+func WithHTTPTransport(opts ...mcpwrapper.TransportOptionStreamableHTTP) Option {
 	return func(cfg *handlerConfig) error {
-		if opts == nil {
-			return fmt.Errorf("streamable HTTP options cannot be nil: %w", ErrNilValue)
+		// Apply options to existing httpOpts (modify defaults)
+		for _, opt := range opts {
+			if err := opt(cfg.httpOpts); err != nil {
+				return err
+			}
 		}
-		cfg.streamableHTTPOptions = opts
 		return nil
 	}
 }

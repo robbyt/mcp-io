@@ -342,7 +342,7 @@ func main() {
 	}
 
 	// Run the server on stdio transport
-	if err := handler.ServeStdio(context.Background(), nil, nil); err != nil {
+	if err := handler.ServeStdio(context.Background()); err != nil {
 		slog.Error("Server failed", "error", err)
 		os.Exit(1)
 	}

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -164,7 +163,7 @@ func main() {
 	}
 
 	// Serve via stdio (standard for CLI MCP servers)
-	if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+	if err := handler.ServeStdio(context.Background()); err != nil {
 		log.Fatalf("Failed to serve MCP via stdio: %v", err)
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"os"
 	"strings"
 
 	mcpio "github.com/robbyt/mcp-io"
@@ -110,7 +109,7 @@ func main() {
 	log.Println("  - process_json: WithRawTool with json.RawMessage schema (maximum performance)")
 	log.Println()
 
-	if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+	if err := handler.ServeStdio(context.Background()); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }

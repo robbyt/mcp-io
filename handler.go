@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
@@ -22,15 +21,15 @@ type (
 
 // handlerConfig holds the configuration built by options
 type handlerConfig struct {
-	name                  string
-	version               string
-	tools                 []toolRegisterFunc
-	prompts               []promptRegisterFunc
-	resources             []resourceRegisterFunc
-	resourceTemplates     []resourceTemplateRegisterFunc
-	server                *mcp.Server // The MCP-SDK server instance
-	serverOptions         *mcp.ServerOptions
-	streamableHTTPOptions *mcp.StreamableHTTPOptions
+	name              string
+	version           string
+	tools             []toolRegisterFunc
+	prompts           []promptRegisterFunc
+	resources         []resourceRegisterFunc
+	resourceTemplates []resourceTemplateRegisterFunc
+	server            *mcp.Server
+	serverOptions     *mcp.ServerOptions
+	httpOpts          *mcp.StreamableHTTPOptions
 }
 
 // MCPServer provides an interface to the MCP SDK server, allowing for
@@ -60,8 +59,9 @@ type MCPServer interface {
 
 // Handler is the main MCP handler struct
 type Handler struct {
-	server  MCPServer
-	handler *mcp.StreamableHTTPHandler
+	server    MCPServer
+	rawServer *mcp.Server
+	httpOpts  *mcp.StreamableHTTPOptions
 }
 
 // ToolContext provides access to MCP request metadata and session capabilities.
@@ -97,15 +97,18 @@ type toolRegisterFunc func(*Handler, *mcp.Server) error
 // This is the unified constructor that can handle tools, prompts, resources, and resource templates.
 func NewHandler(opts ...Option) (*Handler, error) {
 	cfg := &handlerConfig{
-		name:                  "mcp-server",
-		version:               "1.0.0",
-		tools:                 make([]toolRegisterFunc, 0),
-		prompts:               make([]promptRegisterFunc, 0),
-		resources:             make([]resourceRegisterFunc, 0),
-		resourceTemplates:     make([]resourceTemplateRegisterFunc, 0),
-		server:                nil, // Will be created if not provided
-		serverOptions:         &mcp.ServerOptions{},
-		streamableHTTPOptions: &mcp.StreamableHTTPOptions{},
+		name:              "mcp-server",
+		version:           "1.0.0",
+		tools:             make([]toolRegisterFunc, 0),
+		prompts:           make([]promptRegisterFunc, 0),
+		resources:         make([]resourceRegisterFunc, 0),
+		resourceTemplates: make([]resourceTemplateRegisterFunc, 0),
+		server:            nil, // Will be created if not provided
+		serverOptions:     &mcp.ServerOptions{},
+		httpOpts: &mcp.StreamableHTTPOptions{
+			Stateless:    false, // Default: stateful sessions
+			JSONResponse: false, // Default: SSE streaming
+		},
 	}
 
 	// Apply all options
@@ -124,13 +127,15 @@ func NewHandler(opts ...Option) (*Handler, error) {
 		cfg.server = mcp.NewServer(impl, cfg.serverOptions)
 	}
 
+	// Create wrapped server with Stdio transport (default)
+	wrappedServer := mcpwrapper.New(cfg.server)
+	wrappedServer.SetTransport(&mcp.StdioTransport{})
+
 	// Create the handler before registration (needed by registerFunc)
 	handler := &Handler{
-		server: mcpwrapper.New(cfg.server),
-		handler: mcp.NewStreamableHTTPHandler(
-			func(*http.Request) *mcp.Server { return cfg.server },
-			cfg.streamableHTTPOptions,
-		),
+		server:    wrappedServer,
+		rawServer: cfg.server,
+		httpOpts:  cfg.httpOpts,
 	}
 
 	// Register all resources
@@ -162,18 +167,21 @@ func NewHandler(opts ...Option) (*Handler, error) {
 	return handler, nil
 }
 
-// ServeHTTP implements http.Handler for HTTP transport
+// ServeHTTP implements http.Handler for Streamable HTTP transport.
+// Creates a StreamableHTTPHandler on-demand using the configured httpOpts.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.handler.ServeHTTP(w, r)
+	httpHandler := mcp.NewStreamableHTTPHandler(
+		func(*http.Request) *mcp.Server { return h.rawServer },
+		h.httpOpts,
+	)
+	httpHandler.ServeHTTP(w, r)
 }
 
 // ServeStdio implements stdio transport for command-line tools.
 // The stdin and stdout parameters are currently unused as the MCP SDK's
 // StdioTransport always uses os.Stdin and os.Stdout.
-func (h *Handler) ServeStdio(ctx context.Context, _ io.Reader, _ io.Writer) error {
-	// h.server is always a *mcpwrapper.Server (wrapped at creation time in NewHandler)
-	// Set the stdio transport before running
-	h.server.(*mcpwrapper.Server).SetTransport(&mcp.StdioTransport{})
+func (h *Handler) ServeStdio(ctx context.Context) error {
+	// Transport is already set, just run the server
 	return h.server.Run(ctx)
 }
 

@@ -293,7 +293,7 @@ import (
 )
 
 func main() {
-    transport := flag.String("transport", "stdio", "Transport type: http, sse, or stdio")
+    transport := flag.String("transport", "stdio", "Transport type: http or stdio")
     flag.Parse()
 
     handler, err := mcpio.NewHandler(
@@ -310,12 +310,6 @@ func main() {
         // Streamable HTTP - for HTTP clients (supports both request/response and streaming)
         http.Handle("/mcp", handler)
         log.Printf("Starting Streamable HTTP server on :8080/mcp")
-        log.Fatal(http.ListenAndServe(":8080", nil))
-
-    case "sse":
-        // Streamable HTTP - serves at different endpoint (same transport as "http" case)
-        http.Handle("/mcp-sse", http.HandlerFunc(handler.ServeHTTP))
-        log.Printf("Starting Streamable HTTP server on :8080/mcp-sse")
         log.Fatal(http.ListenAndServe(":8080", nil))
 
     case "stdio":
