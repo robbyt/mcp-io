@@ -51,6 +51,9 @@ type MCPServer interface {
 	// Transport - run the server with configured transport
 	Run(ctx context.Context) error
 
+	// ServeHTTP implements http.Handler for Streamable HTTP transport
+	ServeHTTP(w http.ResponseWriter, r *http.Request, opts *mcp.StreamableHTTPOptions)
+
 	// Unwrap returns the underlying SDK server for advanced usage.
 	// Returns *mcp.Server from github.com/modelcontextprotocol/go-sdk/mcp
 	// Returns nil if this is a mock implementation.
@@ -59,9 +62,8 @@ type MCPServer interface {
 
 // Handler is the main MCP handler struct
 type Handler struct {
-	server    MCPServer
-	rawServer *mcp.Server
-	httpOpts  *mcp.StreamableHTTPOptions
+	server   MCPServer
+	httpOpts *mcp.StreamableHTTPOptions
 }
 
 // ToolContext provides access to MCP request metadata and session capabilities.
@@ -133,9 +135,8 @@ func NewHandler(opts ...Option) (*Handler, error) {
 
 	// Create the handler before registration (needed by registerFunc)
 	handler := &Handler{
-		server:    wrappedServer,
-		rawServer: cfg.server,
-		httpOpts:  cfg.httpOpts,
+		server:   wrappedServer,
+		httpOpts: cfg.httpOpts,
 	}
 
 	// Register all resources
@@ -168,13 +169,9 @@ func NewHandler(opts ...Option) (*Handler, error) {
 }
 
 // ServeHTTP implements http.Handler for Streamable HTTP transport.
-// Creates a StreamableHTTPHandler on-demand using the configured httpOpts.
+// Delegates to the MCPServer's ServeHTTP method with configured options.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	httpHandler := mcp.NewStreamableHTTPHandler(
-		func(*http.Request) *mcp.Server { return h.rawServer },
-		h.httpOpts,
-	)
-	httpHandler.ServeHTTP(w, r)
+	h.server.ServeHTTP(w, r, h.httpOpts)
 }
 
 // ServeStdio implements stdio transport for command-line tools.

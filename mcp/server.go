@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"net/http"
 
 	mcpSDK "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -35,11 +36,6 @@ func NewInMemoryServer(server *mcpSDK.Server) (*Server, *mcpSDK.InMemoryTranspor
 	}, clientTransport
 }
 
-// Run starts the MCP server with the configured transport.
-func (s *Server) Run(ctx context.Context) error {
-	return s.server.Run(ctx, s.transport)
-}
-
 // AddTool registers a tool with the server
 func (s *Server) AddTool(tool *mcpSDK.Tool, handler mcpSDK.ToolHandler) {
 	s.server.AddTool(tool, handler)
@@ -63,4 +59,19 @@ func (s *Server) AddResourceTemplate(template *mcpSDK.ResourceTemplate, handler 
 // Unwrap returns the underlying SDK server for advanced usage
 func (s *Server) Unwrap() any {
 	return s.server
+}
+
+// Run starts the MCP server with the configured transport.
+func (s *Server) Run(ctx context.Context) error {
+	return s.server.Run(ctx, s.transport)
+}
+
+// ServeHTTP implements http.Handler for Streamable HTTP transport.
+// Creates a StreamableHTTPHandler using the configured options.
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request, opts *mcpSDK.StreamableHTTPOptions) {
+	httpHandler := mcpSDK.NewStreamableHTTPHandler(
+		func(*http.Request) *mcpSDK.Server { return s.server },
+		opts,
+	)
+	httpHandler.ServeHTTP(w, r)
 }
