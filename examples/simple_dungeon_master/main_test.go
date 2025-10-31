@@ -54,7 +54,7 @@ func (s *DungeonMasterTestSuite) SetupSuite() {
 }
 
 func (s *DungeonMasterTestSuite) SetupTest() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(s.T().Context())
 	s.cancelFunc = cancel
 
 	// Build server

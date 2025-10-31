@@ -803,7 +803,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			"num":  42,
 		})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		require.NoError(t, err)
 		assert.NotNil(t, result)
@@ -832,7 +832,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			},
 		}
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		require.NoError(t, err) // Handler should not return protocol error
 		assert.NotNil(t, result)
@@ -855,7 +855,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		require.NoError(t, err) // Handler should not return protocol error
 		assert.NotNil(t, result)
@@ -878,7 +878,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 		req := createTestCallToolRequest(t, map[string]any{"data": "invalid"})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		require.NoError(t, err) // Handler should not return protocol error
 		assert.NotNil(t, result)
@@ -904,7 +904,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 		req := createTestCallToolRequest(t, map[string]any{"query": "test"})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		// Protocol errors should be returned as Go errors, not CallToolResult
 		require.ErrorIs(t, err, errDatabaseFailed)
@@ -922,7 +922,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		// Invalid JSON should be a protocol error
 		require.Error(t, err)
@@ -941,7 +941,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		require.NoError(t, err)
 		assert.NotNil(t, result)
@@ -964,7 +964,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 		req := createTestCallToolRequest(t, map[string]any{"count": 3})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		require.NoError(t, err)
 		assert.NotNil(t, result)

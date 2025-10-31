@@ -86,7 +86,7 @@ func TestServerWithTransport(t *testing.T) {
 		wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
 
 		// Run server with cancellable context
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		serverDone := make(chan error, 1)
 
 		go func() {
@@ -99,11 +99,11 @@ func TestServerWithTransport(t *testing.T) {
 			Name: "test-client",
 		}, nil)
 
-		session, err := client.Connect(context.Background(), clientTransport, nil)
+		session, err := client.Connect(t.Context(), clientTransport, nil)
 		require.NoError(t, err)
 
 		// Test tool execution
-		result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		result, err := session.CallTool(t.Context(), &mcp.CallToolParams{
 			Name:      "echo",
 			Arguments: map[string]any{"text": "hello"},
 		})
@@ -144,7 +144,7 @@ func TestServerWithTransport(t *testing.T) {
 			wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
 
 			serverDone[i] = make(chan error, 1)
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			cancels[i] = cancel
 
 			go func(idx int) {
@@ -157,10 +157,10 @@ func TestServerWithTransport(t *testing.T) {
 				Name: "test-client",
 			}, nil)
 
-			session, err := client.Connect(context.Background(), clientTransport, nil)
+			session, err := client.Connect(t.Context(), clientTransport, nil)
 			require.NoError(t, err)
 
-			err = session.Ping(context.Background(), &mcp.PingParams{})
+			err = session.Ping(t.Context(), &mcp.PingParams{})
 			require.NoError(t, err, "server %d should respond to ping", i)
 
 			err = session.Close()
@@ -232,7 +232,7 @@ func TestCreateTypedHandlerSuccess(t *testing.T) {
 	}
 
 	input := SimpleInput{Text: "hello world"}
-	result, output, err := handlerFunc(context.Background(), req, input)
+	result, output, err := handlerFunc(t.Context(), req, input)
 
 	require.NoError(t, err)
 	assert.Nil(t, result)
@@ -254,7 +254,7 @@ func TestCreateTypedHandlerToolError(t *testing.T) {
 	}
 
 	input := SimpleInput{Text: "test"}
-	result, output, err := handlerFunc(context.Background(), req, input)
+	result, output, err := handlerFunc(t.Context(), req, input)
 
 	require.Error(t, err)
 	assert.Nil(t, result)
@@ -280,7 +280,7 @@ func TestCreateTypedHandlerProtocolError(t *testing.T) {
 	}
 
 	input := SimpleInput{Text: "test"}
-	result, output, err := handlerFunc(context.Background(), req, input)
+	result, output, err := handlerFunc(t.Context(), req, input)
 
 	require.Error(t, err)
 	assert.Nil(t, result)
@@ -478,7 +478,7 @@ func TestServeStdioActualCall(t *testing.T) {
 	}
 
 	// Use a context that's already cancelled to ensure ServeStdio returns quickly
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel() // Cancel immediately before calling
 
 	// This should return quickly due to cancelled context
@@ -657,7 +657,7 @@ func TestServeStdioInternalBehavior(t *testing.T) {
 	assert.NotNil(t, transport)
 
 	// Verify context handling that ServeStdio would use
-	ctx := context.Background()
+	ctx := t.Context()
 	assert.NotNil(t, ctx)
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)

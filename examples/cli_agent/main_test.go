@@ -176,7 +176,7 @@ func (s *AgentTestSuite) TestBinaryBuild() {
 // Unit tests without suite
 
 func TestAnalyzeToolNoSession(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	mockToolCtx := testutil.NewMockToolContext(nil)
 	_, err := analyzeTool(ctx, mockToolCtx, AnalyzeInput{Code: "test"})
 	require.Error(t, err)
@@ -184,7 +184,7 @@ func TestAnalyzeToolNoSession(t *testing.T) {
 }
 
 func TestImproveToolNoSession(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	mockToolCtx := testutil.NewMockToolContext(nil)
 	result, err := improveTool(ctx, mockToolCtx, ImproveInput{Code: "test"})
 	require.NoError(t, err)

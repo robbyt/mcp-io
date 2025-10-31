@@ -98,7 +98,7 @@ func TestCreateTypedPromptHandler_Success(t *testing.T) {
 	require.NotNil(t, handler)
 
 	// Test handler execution
-	ctx := context.Background()
+	ctx := t.Context()
 	req := &mcp.GetPromptRequest{
 		Params: &mcp.GetPromptParams{
 			Name: "test",
@@ -136,7 +136,7 @@ func TestCreateTypedPromptHandler_EmptyArguments(t *testing.T) {
 	handler := createTypedPromptHandler(promptFunc)
 
 	// Test with nil arguments
-	ctx := context.Background()
+	ctx := t.Context()
 	req := &mcp.GetPromptRequest{
 		Params: &mcp.GetPromptParams{
 			Name:      "test",
@@ -163,7 +163,7 @@ func TestCreateTypedPromptHandler_InvalidJSON(t *testing.T) {
 	handler := createTypedPromptHandler(promptFunc)
 
 	// Test with invalid argument type that can't be unmarshaled
-	ctx := context.Background()
+	ctx := t.Context()
 	req := &mcp.GetPromptRequest{
 		Params: &mcp.GetPromptParams{
 			Name: "test",
@@ -186,7 +186,7 @@ func TestCreateTypedPromptHandler_PromptError(t *testing.T) {
 
 	handler := createTypedPromptHandler(promptFunc)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	req := &mcp.GetPromptRequest{
 		Params: &mcp.GetPromptParams{
 			Name: "test",
@@ -336,7 +336,7 @@ func TestCreatePromptHandler_Success(t *testing.T) {
 	require.NotNil(t, handler)
 
 	// Test handler execution with arguments
-	ctx := context.Background()
+	ctx := t.Context()
 	req := &mcp.GetPromptRequest{
 		Params: &mcp.GetPromptParams{
 			Name: "greeting",
@@ -374,7 +374,7 @@ func TestCreatePromptHandler_EmptyArguments(t *testing.T) {
 	handler := createPromptHandler(promptFunc)
 
 	// Test with nil arguments
-	ctx := context.Background()
+	ctx := t.Context()
 	req := &mcp.GetPromptRequest{
 		Params: &mcp.GetPromptParams{
 			Name:      "greeting",
@@ -422,7 +422,7 @@ func TestCreatePromptHandler_MultipleMessages(t *testing.T) {
 
 	handler := createPromptHandler(promptFunc)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	req := &mcp.GetPromptRequest{
 		Params: &mcp.GetPromptParams{
 			Name: "conversation",
@@ -462,7 +462,7 @@ func TestCreatePromptHandler_PromptError(t *testing.T) {
 
 	handler := createPromptHandler(promptFunc)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	req := &mcp.GetPromptRequest{
 		Params: &mcp.GetPromptParams{
 			Name: "failing",

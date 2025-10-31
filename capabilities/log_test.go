@@ -32,7 +32,7 @@ func TestLog(t *testing.T) {
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		err := session.Log(context.Background(), capabilities.LogLevelInfo, "test message", map[string]any{"key": "value"})
+		err := session.Log(t.Context(), capabilities.LogLevelInfo, "test message", map[string]any{"key": "value"})
 
 		require.NoError(t, err)
 		mockSession.AssertExpectations(t)
@@ -43,7 +43,7 @@ func TestLog(t *testing.T) {
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		err := session.Log(context.Background(), capabilities.LogLevelInfo, "test message", nil)
+		err := session.Log(t.Context(), capabilities.LogLevelInfo, "test message", nil)
 
 		require.NoError(t, err)
 		mockSession.AssertExpectations(t)
@@ -66,7 +66,7 @@ func TestLog(t *testing.T) {
 			mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
 			session := capabilities.NewSession(mockSession.MockServerSession)
-			err := session.Log(context.Background(), level, "test message", nil)
+			err := session.Log(t.Context(), level, "test message", nil)
 
 			require.NoError(t, err)
 			mockSession.AssertExpectations(t)
@@ -79,7 +79,7 @@ func TestLog(t *testing.T) {
 		mockSession.On("Log", mock.Anything, mock.Anything).Return(expectedErr)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		err := session.Log(context.Background(), capabilities.LogLevelError, "error message", nil)
+		err := session.Log(t.Context(), capabilities.LogLevelError, "error message", nil)
 
 		require.Error(t, err)
 		require.ErrorIs(t, err, expectedErr)
@@ -159,7 +159,7 @@ func TestLogHelpers(t *testing.T) {
 			mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
 
 			session := capabilities.NewSession(mockSession.MockServerSession)
-			err := tc.logFunc(session, context.Background(), "test message", map[string]any{"key": "value"})
+			err := tc.logFunc(session, t.Context(), "test message", map[string]any{"key": "value"})
 
 			require.NoError(t, err)
 			mockSession.AssertExpectations(t)

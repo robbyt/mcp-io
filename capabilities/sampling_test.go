@@ -1,7 +1,6 @@
 package capabilities_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -50,7 +49,7 @@ func TestCreateMessage(t *testing.T) {
 		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		result, err := session.CreateMessage(context.Background(), []*capabilities.Message{{
+		result, err := session.CreateMessage(t.Context(), []*capabilities.Message{{
 			Role:    "user",
 			Content: "Analyze this code",
 		}}, 2000)
@@ -70,7 +69,7 @@ func TestCreateMessage(t *testing.T) {
 		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		result, err := session.CreateMessage(context.Background(), []*capabilities.Message{
+		result, err := session.CreateMessage(t.Context(), []*capabilities.Message{
 			{Role: "user", Content: "First message"},
 			{Role: "assistant", Content: "First response"},
 			{Role: "user", Content: "Second message"},
@@ -87,7 +86,7 @@ func TestCreateMessage(t *testing.T) {
 		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(nil, expectedErr)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		result, err := session.CreateMessage(context.Background(), []*capabilities.Message{{
+		result, err := session.CreateMessage(t.Context(), []*capabilities.Message{{
 			Role:    "user",
 			Content: "Test",
 		}}, 1000)
@@ -118,7 +117,7 @@ func TestCreateMessageRaw(t *testing.T) {
 			}},
 			MaxTokens: 1000,
 		}
-		result, err := session.CreateMessageRaw(context.Background(), params)
+		result, err := session.CreateMessageRaw(t.Context(), params)
 
 		require.NoError(t, err)
 		assert.Equal(t, mcp.Role("assistant"), result.Role)
@@ -139,7 +138,7 @@ func TestCreateMessageRaw(t *testing.T) {
 			}},
 			MaxTokens: 1000,
 		}
-		result, err := session.CreateMessageRaw(context.Background(), params)
+		result, err := session.CreateMessageRaw(t.Context(), params)
 
 		require.Error(t, err)
 		require.ErrorIs(t, err, expectedErr)

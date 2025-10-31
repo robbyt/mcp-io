@@ -159,7 +159,7 @@ func TestReadmeExamples(t *testing.T) {
 
 		// Test division with precision
 		mockToolCtx := testutil.NewMockToolContext(nil)
-		result, err := divide(context.Background(), mockToolCtx, DivideInput{
+		result, err := divide(t.Context(), mockToolCtx, DivideInput{
 			Numerator:   10.0,
 			Denominator: 3.0,
 			Precision:   2,
@@ -168,7 +168,7 @@ func TestReadmeExamples(t *testing.T) {
 		assert.InDelta(t, 3.33, result.Result, 0.001)
 
 		// Test division by zero
-		_, err = divide(context.Background(), mockToolCtx, DivideInput{
+		_, err = divide(t.Context(), mockToolCtx, DivideInput{
 			Numerator:   5.0,
 			Denominator: 0.0,
 			Precision:   2,
@@ -550,7 +550,7 @@ func TestSessionCapabilities(t *testing.T) {
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
-		result, err := myTool(context.Background(), mockToolCtx, MyInput{Items: []string{"a", "b"}})
+		result, err := myTool(t.Context(), mockToolCtx, MyInput{Items: []string{"a", "b"}})
 		require.NoError(t, err)
 		assert.Equal(t, 2, result.Processed)
 	})
@@ -595,7 +595,7 @@ func TestSessionCapabilities(t *testing.T) {
 
 		// Test the tool function directly
 		mockToolCtx := testutil.NewMockToolContext(nil)
-		result, err := myTool(context.Background(), mockToolCtx, MyInput{Data: "test"})
+		result, err := myTool(t.Context(), mockToolCtx, MyInput{Data: "test"})
 		require.NoError(t, err)
 		assert.Equal(t, "processed: test", result.Result)
 	})
@@ -709,7 +709,7 @@ func TestToolExecution(t *testing.T) {
 	t.Parallel()
 	t.Run("ToUpperTool", func(t *testing.T) {
 		mockToolCtx := testutil.NewMockToolContext(nil)
-		result, err := toUpper(context.Background(), mockToolCtx, TextInput{Text: "hello world"})
+		result, err := toUpper(t.Context(), mockToolCtx, TextInput{Text: "hello world"})
 		require.NoError(t, err)
 		assert.Equal(t, "HELLO WORLD", result.Result)
 	})
@@ -717,7 +717,7 @@ func TestToolExecution(t *testing.T) {
 	t.Run("DivideTool", func(t *testing.T) {
 		// Test precision rounding
 		mockToolCtx := testutil.NewMockToolContext(nil)
-		result, err := divide(context.Background(), mockToolCtx, DivideInput{
+		result, err := divide(t.Context(), mockToolCtx, DivideInput{
 			Numerator:   10.0,
 			Denominator: 3.0,
 			Precision:   2,
@@ -726,7 +726,7 @@ func TestToolExecution(t *testing.T) {
 		assert.InDelta(t, 3.33, result.Result, 0.001)
 
 		// Test division by zero
-		_, err = divide(context.Background(), mockToolCtx, DivideInput{
+		_, err = divide(t.Context(), mockToolCtx, DivideInput{
 			Numerator:   5.0,
 			Denominator: 0.0,
 			Precision:   2,

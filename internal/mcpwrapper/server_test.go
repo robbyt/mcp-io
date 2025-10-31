@@ -290,7 +290,7 @@ func TestRun(t *testing.T) {
 
 		server, clientTransport := NewInMemoryServer(sdkServer)
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
 		errChan := make(chan error, 1)
