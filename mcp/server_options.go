@@ -8,7 +8,7 @@ import (
 )
 
 // ServerOption is a functional option for configuring mcp.ServerOptions.
-type ServerOption func(*mcpSDK.ServerOptions) error
+type ServerOption func(*mcpSDK.ServerOptions)
 
 // WithInstructions sets optional instructions for connected clients.
 //
@@ -16,9 +16,8 @@ type ServerOption func(*mcpSDK.ServerOptions) error
 //
 //	mcp.WithInstructions("Use this server for data processing tasks")
 func WithInstructions(instructions string) ServerOption {
-	return func(opts *mcpSDK.ServerOptions) error {
+	return func(opts *mcpSDK.ServerOptions) {
 		opts.Instructions = instructions
-		return nil
 	}
 }
 
@@ -31,9 +30,8 @@ func WithInstructions(instructions string) ServerOption {
 //
 //	mcp.WithPageSize(50)
 func WithPageSize(pageSize int) ServerOption {
-	return func(opts *mcpSDK.ServerOptions) error {
+	return func(opts *mcpSDK.ServerOptions) {
 		opts.PageSize = pageSize
-		return nil
 	}
 }
 
@@ -46,9 +44,8 @@ func WithPageSize(pageSize int) ServerOption {
 //
 //	mcp.WithKeepAlive(30 * time.Second)
 func WithKeepAlive(duration time.Duration) ServerOption {
-	return func(opts *mcpSDK.ServerOptions) error {
+	return func(opts *mcpSDK.ServerOptions) {
 		opts.KeepAlive = duration
-		return nil
 	}
 }
 
@@ -59,9 +56,8 @@ func WithKeepAlive(duration time.Duration) ServerOption {
 //
 //	mcp.WithCapabilityPrompts()
 func WithCapabilityPrompts() ServerOption {
-	return func(opts *mcpSDK.ServerOptions) error {
+	return func(opts *mcpSDK.ServerOptions) {
 		opts.HasPrompts = true
-		return nil
 	}
 }
 
@@ -72,9 +68,8 @@ func WithCapabilityPrompts() ServerOption {
 //
 //	mcp.WithCapabilityResources()
 func WithCapabilityResources() ServerOption {
-	return func(opts *mcpSDK.ServerOptions) error {
+	return func(opts *mcpSDK.ServerOptions) {
 		opts.HasResources = true
-		return nil
 	}
 }
 
@@ -85,9 +80,8 @@ func WithCapabilityResources() ServerOption {
 //
 //	mcp.WithCapabilityTools()
 func WithCapabilityTools() ServerOption {
-	return func(opts *mcpSDK.ServerOptions) error {
+	return func(opts *mcpSDK.ServerOptions) {
 		opts.HasTools = true
-		return nil
 	}
 }
 
@@ -99,9 +93,8 @@ func WithCapabilityTools() ServerOption {
 //	    log.Println("Client initialized")
 //	})
 func WithInitializedHandler(handler func(context.Context, *mcpSDK.InitializedRequest)) ServerOption {
-	return func(opts *mcpSDK.ServerOptions) error {
+	return func(opts *mcpSDK.ServerOptions) {
 		opts.InitializedHandler = handler
-		return nil
 	}
 }
 
@@ -113,9 +106,8 @@ func WithInitializedHandler(handler func(context.Context, *mcpSDK.InitializedReq
 //	    log.Println("Roots list changed")
 //	})
 func WithRootsListChangedHandler(handler func(context.Context, *mcpSDK.RootsListChangedRequest)) ServerOption {
-	return func(opts *mcpSDK.ServerOptions) error {
+	return func(opts *mcpSDK.ServerOptions) {
 		opts.RootsListChangedHandler = handler
-		return nil
 	}
 }
 
@@ -127,9 +119,8 @@ func WithRootsListChangedHandler(handler func(context.Context, *mcpSDK.RootsList
 //	    log.Printf("Progress: %v\n", req)
 //	})
 func WithProgressNotificationHandler(handler func(context.Context, *mcpSDK.ProgressNotificationServerRequest)) ServerOption {
-	return func(opts *mcpSDK.ServerOptions) error {
+	return func(opts *mcpSDK.ServerOptions) {
 		opts.ProgressNotificationHandler = handler
-		return nil
 	}
 }
 
@@ -141,9 +132,8 @@ func WithProgressNotificationHandler(handler func(context.Context, *mcpSDK.Progr
 //	    return &mcp.CompleteResult{Completion: completions}, nil
 //	})
 func WithCompletionHandler(handler func(context.Context, *mcpSDK.CompleteRequest) (*mcpSDK.CompleteResult, error)) ServerOption {
-	return func(opts *mcpSDK.ServerOptions) error {
+	return func(opts *mcpSDK.ServerOptions) {
 		opts.CompletionHandler = handler
-		return nil
 	}
 }
 
@@ -156,9 +146,8 @@ func WithCompletionHandler(handler func(context.Context, *mcpSDK.CompleteRequest
 //	    return nil
 //	})
 func WithSubscribeHandler(handler func(context.Context, *mcpSDK.SubscribeRequest) error) ServerOption {
-	return func(opts *mcpSDK.ServerOptions) error {
+	return func(opts *mcpSDK.ServerOptions) {
 		opts.SubscribeHandler = handler
-		return nil
 	}
 }
 
@@ -171,9 +160,8 @@ func WithSubscribeHandler(handler func(context.Context, *mcpSDK.SubscribeRequest
 //	    return nil
 //	})
 func WithUnsubscribeHandler(handler func(context.Context, *mcpSDK.UnsubscribeRequest) error) ServerOption {
-	return func(opts *mcpSDK.ServerOptions) error {
+	return func(opts *mcpSDK.ServerOptions) {
 		opts.UnsubscribeHandler = handler
-		return nil
 	}
 }
 
@@ -191,8 +179,7 @@ func WithUnsubscribeHandler(handler func(context.Context, *mcpSDK.UnsubscribeReq
 //	    return uuid.New().String()
 //	})
 func WithSessionIDGenerator(generator func() string) ServerOption {
-	return func(opts *mcpSDK.ServerOptions) error {
+	return func(opts *mcpSDK.ServerOptions) {
 		opts.GetSessionID = generator
-		return nil
 	}
 }

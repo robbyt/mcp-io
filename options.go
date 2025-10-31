@@ -96,9 +96,7 @@ func WithServerOptions(opts ...mcpwrapper.ServerOption) Option {
 	return func(cfg *handlerConfig) error {
 		// Apply options to existing serverOptions (modify defaults)
 		for _, opt := range opts {
-			if err := opt(cfg.serverOptions); err != nil {
-				return err
-			}
+			opt(cfg.serverOptions)
 		}
 		return nil
 	}
