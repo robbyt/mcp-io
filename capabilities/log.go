@@ -36,3 +36,43 @@ func (s *Session) Log(ctx context.Context, level LogLevel, message string, data 
 	}
 	return s.session.Log(ctx, params)
 }
+
+// LogDebug sends a debug-level log message to the client.
+func (s *Session) LogDebug(ctx context.Context, message string, data map[string]any) error {
+	return s.Log(ctx, LogLevelDebug, message, data)
+}
+
+// LogInfo sends an info-level log message to the client.
+func (s *Session) LogInfo(ctx context.Context, message string, data map[string]any) error {
+	return s.Log(ctx, LogLevelInfo, message, data)
+}
+
+// LogNotice sends a notice-level log message to the client.
+func (s *Session) LogNotice(ctx context.Context, message string, data map[string]any) error {
+	return s.Log(ctx, LogLevelNotice, message, data)
+}
+
+// LogWarning sends a warning-level log message to the client.
+func (s *Session) LogWarning(ctx context.Context, message string, data map[string]any) error {
+	return s.Log(ctx, LogLevelWarning, message, data)
+}
+
+// LogError sends an error-level log message to the client.
+func (s *Session) LogError(ctx context.Context, message string, data map[string]any) error {
+	return s.Log(ctx, LogLevelError, message, data)
+}
+
+// LogCritical sends a critical-level log message to the client.
+func (s *Session) LogCritical(ctx context.Context, message string, data map[string]any) error {
+	return s.Log(ctx, LogLevelCritical, message, data)
+}
+
+// LogAlert sends an alert-level log message to the client.
+func (s *Session) LogAlert(ctx context.Context, message string, data map[string]any) error {
+	return s.Log(ctx, LogLevelAlert, message, data)
+}
+
+// LogEmergency sends an emergency-level log message to the client.
+func (s *Session) LogEmergency(ctx context.Context, message string, data map[string]any) error {
+	return s.Log(ctx, LogLevelEmergency, message, data)
+}

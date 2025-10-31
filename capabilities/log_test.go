@@ -86,3 +86,83 @@ func TestLog(t *testing.T) {
 		mockSession.AssertExpectations(t)
 	})
 }
+
+func TestLogHelpers(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		logFunc  func(*capabilities.Session, context.Context, string, map[string]any) error
+		expected capabilities.LogLevel
+	}{
+		{
+			name: "LogDebug",
+			logFunc: func(s *capabilities.Session, ctx context.Context, msg string, data map[string]any) error {
+				return s.LogDebug(ctx, msg, data)
+			},
+			expected: capabilities.LogLevelDebug,
+		},
+		{
+			name: "LogInfo",
+			logFunc: func(s *capabilities.Session, ctx context.Context, msg string, data map[string]any) error {
+				return s.LogInfo(ctx, msg, data)
+			},
+			expected: capabilities.LogLevelInfo,
+		},
+		{
+			name: "LogNotice",
+			logFunc: func(s *capabilities.Session, ctx context.Context, msg string, data map[string]any) error {
+				return s.LogNotice(ctx, msg, data)
+			},
+			expected: capabilities.LogLevelNotice,
+		},
+		{
+			name: "LogWarning",
+			logFunc: func(s *capabilities.Session, ctx context.Context, msg string, data map[string]any) error {
+				return s.LogWarning(ctx, msg, data)
+			},
+			expected: capabilities.LogLevelWarning,
+		},
+		{
+			name: "LogError",
+			logFunc: func(s *capabilities.Session, ctx context.Context, msg string, data map[string]any) error {
+				return s.LogError(ctx, msg, data)
+			},
+			expected: capabilities.LogLevelError,
+		},
+		{
+			name: "LogCritical",
+			logFunc: func(s *capabilities.Session, ctx context.Context, msg string, data map[string]any) error {
+				return s.LogCritical(ctx, msg, data)
+			},
+			expected: capabilities.LogLevelCritical,
+		},
+		{
+			name: "LogAlert",
+			logFunc: func(s *capabilities.Session, ctx context.Context, msg string, data map[string]any) error {
+				return s.LogAlert(ctx, msg, data)
+			},
+			expected: capabilities.LogLevelAlert,
+		},
+		{
+			name: "LogEmergency",
+			logFunc: func(s *capabilities.Session, ctx context.Context, msg string, data map[string]any) error {
+				return s.LogEmergency(ctx, msg, data)
+			},
+			expected: capabilities.LogLevelEmergency,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockSession := testutil.NewMockSession()
+			mockSession.On("Log", mock.Anything, mock.Anything).Return(nil)
+
+			session := capabilities.NewSession(mockSession.MockServerSession)
+			err := tc.logFunc(session, context.Background(), "test message", map[string]any{"key": "value"})
+
+			require.NoError(t, err)
+			mockSession.AssertExpectations(t)
+		})
+	}
+}

@@ -515,18 +515,16 @@ func processDataTool(ctx context.Context, toolCtx mcpio.ToolContext, input struc
 Send structured log messages to the client for debugging and monitoring.
 
 ```go
-import "github.com/robbyt/mcp-io/capabilities"
-
 func myTool(ctx context.Context, toolCtx mcpio.ToolContext, input MyInput) (MyOutput, error) {
     session := toolCtx.GetSession()
 
-    session.Log(ctx, capabilities.LogLevelInfo, "Processing started", map[string]any{
+    session.LogInfo(ctx, "Processing started", map[string]any{
         "itemCount": len(input.Items),
     })
 
     // Do work...
 
-    session.Log(ctx, capabilities.LogLevelDebug, "Detailed state", map[string]any{
+    session.LogDebug(ctx, "Detailed state", map[string]any{
         "processed": processed,
         "remaining": remaining,
     })
@@ -535,19 +533,13 @@ func myTool(ctx context.Context, toolCtx mcpio.ToolContext, input MyInput) (MyOu
 }
 ```
 
-Available log levels via `toolCtx.GetSession().Log()`:
-- `capabilities.LogLevelDebug` - Debug-level logs
-- `capabilities.LogLevelInfo` - Informational logs
-- `capabilities.LogLevelWarning` - Warning logs
-- `capabilities.LogLevelError` - Error logs
-
 **Note**: Future releases will add functional options to support logger names and metadata for complex multi-subsystem tools.
 
 ### Request Metadata Access
 
 Access request-specific metadata including OAuth tokens, HTTP headers, and resource identifiers through the `ToolContext` parameter. This metadata is automatically injected when handlers are invoked by MCP clients.
 
-**Security Note**: MCP logs (via `session.Log()`) are sent to the LLM as context. Never log sensitive data like OAuth tokens, session IDs, or internal identifiers to MCP logs. Use a separate logging backend (slog, standard logger, metrics system) for audit trails and analytics.
+**Security Note**: MCP logs (via `session.LogInfo()`, `session.LogDebug()`, etc.) are sent to the LLM as context. Never log sensitive data like OAuth tokens, session IDs, or internal identifiers to MCP logs. Use a separate logging backend (slog, standard logger, metrics system) for audit trails and analytics.
 
 Available methods on `toolCtx`:
 - `toolCtx.GetIdentifier()` - Returns the tool name, prompt name, or resource URI for the current request

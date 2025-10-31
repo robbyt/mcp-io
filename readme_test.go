@@ -520,7 +520,7 @@ func TestSessionCapabilities(t *testing.T) {
 		}
 
 		myTool := func(ctx context.Context, toolCtx mcpio.ToolContext, input MyInput) (MyOutput, error) {
-			toolCtx.GetSession().Log(ctx, capabilities.LogLevelInfo, "Processing started", map[string]any{ //nolint:errcheck
+			toolCtx.GetSession().LogInfo(ctx, "Processing started", map[string]any{ //nolint:errcheck
 				"itemCount": len(input.Items),
 			})
 
@@ -531,7 +531,7 @@ func TestSessionCapabilities(t *testing.T) {
 			processed = len(input.Items)
 			remaining = 0
 
-			toolCtx.GetSession().Log(ctx, capabilities.LogLevelDebug, "Detailed state", map[string]any{ //nolint:errcheck
+			toolCtx.GetSession().LogDebug(ctx, "Detailed state", map[string]any{ //nolint:errcheck
 				"processed": processed,
 				"remaining": remaining,
 			})
