@@ -7,18 +7,41 @@ import (
 	mcpSDK "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// WrapperOption configures a Server wrapper
+type WrapperOption func(*Server)
+
+// WithHTTPOptions sets custom HTTP transport options for the wrapper
+func WithHTTPOptions(opts *mcpSDK.StreamableHTTPOptions) WrapperOption {
+	return func(s *Server) {
+		s.httpOpts = opts
+	}
+}
+
 type Server struct {
 	server    *mcpSDK.Server
 	transport mcpSDK.Transport
+	httpOpts  *mcpSDK.StreamableHTTPOptions
 }
 
-// New wraps an SDK server without specifying a transport.
+// New wraps an SDK server with optional configuration.
 // The transport can be set later using SetTransport.
-func New(server *mcpSDK.Server) *Server {
-	return &Server{
+// HTTP options default to stateful + SSE, override with WithHTTPOptions().
+func New(server *mcpSDK.Server, opts ...WrapperOption) *Server {
+	s := &Server{
 		server:    server,
 		transport: nil,
+		httpOpts: &mcpSDK.StreamableHTTPOptions{
+			Stateless:    false, // Default: stateful sessions
+			JSONResponse: false, // Default: SSE streaming
+		},
 	}
+
+	// Apply optional configurations
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
 }
 
 // SetTransport sets the transport for the server
@@ -28,12 +51,25 @@ func (s *Server) SetTransport(transport mcpSDK.Transport) {
 
 // NewInMemoryServer creates a server with in-memory transport for testing.
 // Returns both the wrapped server and the client transport for connecting test clients.
-func NewInMemoryServer(server *mcpSDK.Server) (*Server, *mcpSDK.InMemoryTransport) {
+// HTTP options default to stateful + SSE, override with WithHTTPOptions().
+func NewInMemoryServer(server *mcpSDK.Server, opts ...WrapperOption) (*Server, *mcpSDK.InMemoryTransport) {
 	serverTransport, clientTransport := mcpSDK.NewInMemoryTransports()
-	return &Server{
+
+	s := &Server{
 		server:    server,
 		transport: serverTransport,
-	}, clientTransport
+		httpOpts: &mcpSDK.StreamableHTTPOptions{
+			Stateless:    false, // Default: stateful sessions
+			JSONResponse: false, // Default: SSE streaming
+		},
+	}
+
+	// Apply optional configurations
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s, clientTransport
 }
 
 // AddTool registers a tool with the server
@@ -67,11 +103,11 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 // ServeHTTP implements http.Handler for Streamable HTTP transport.
-// Creates a StreamableHTTPHandler using the configured options.
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request, opts *mcpSDK.StreamableHTTPOptions) {
+// Creates a StreamableHTTPHandler using the server's configured HTTP options.
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	httpHandler := mcpSDK.NewStreamableHTTPHandler(
 		func(*http.Request) *mcpSDK.Server { return s.server },
-		opts,
+		s.httpOpts,
 	)
 	httpHandler.ServeHTTP(w, r)
 }
