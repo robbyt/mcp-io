@@ -234,7 +234,7 @@ func TestOptionErrorConditions(t *testing.T) {
 	assert.Equal(t, "1.0.0", cfg.version)
 }
 
-func TestWithServerOptions(t *testing.T) {
+func TestWithServerConfig(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -268,7 +268,7 @@ func TestWithServerOptions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &handlerConfig{}
-			option := WithServerOptions(tt.opts)
+			option := WithServerConfig(tt.opts)
 			err := option(cfg)
 
 			if tt.wantErr != nil {
@@ -279,6 +279,101 @@ func TestWithServerOptions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWithServerOptions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("defaults are preserved when no options provided", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions()
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.Empty(t, cfg.serverOptions.Instructions)
+		assert.Equal(t, 0, cfg.serverOptions.PageSize)
+		assert.False(t, cfg.serverOptions.HasPrompts)
+		assert.False(t, cfg.serverOptions.HasResources)
+		assert.False(t, cfg.serverOptions.HasTools)
+	})
+
+	t.Run("WithInstructions sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions(mcpwrapper.WithInstructions("Test instructions"))
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, "Test instructions", cfg.serverOptions.Instructions)
+	})
+
+	t.Run("WithPageSize sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions(mcpwrapper.WithPageSize(50))
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, 50, cfg.serverOptions.PageSize)
+	})
+
+	t.Run("WithCapabilityPrompts sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions(mcpwrapper.WithCapabilityPrompts())
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.True(t, cfg.serverOptions.HasPrompts)
+	})
+
+	t.Run("WithCapabilityResources sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions(mcpwrapper.WithCapabilityResources())
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.True(t, cfg.serverOptions.HasResources)
+	})
+
+	t.Run("WithCapabilityTools sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions(mcpwrapper.WithCapabilityTools())
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.True(t, cfg.serverOptions.HasTools)
+	})
+
+	t.Run("multiple sub-options can be combined", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions(
+			mcpwrapper.WithInstructions("Combined test"),
+			mcpwrapper.WithPageSize(100),
+			mcpwrapper.WithCapabilityPrompts(),
+			mcpwrapper.WithCapabilityResources(),
+			mcpwrapper.WithCapabilityTools(),
+		)
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, "Combined test", cfg.serverOptions.Instructions)
+		assert.Equal(t, 100, cfg.serverOptions.PageSize)
+		assert.True(t, cfg.serverOptions.HasPrompts)
+		assert.True(t, cfg.serverOptions.HasResources)
+		assert.True(t, cfg.serverOptions.HasTools)
+	})
 }
 
 func TestWithHTTPTransport(t *testing.T) {

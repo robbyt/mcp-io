@@ -48,8 +48,10 @@ func WithServer(server *mcp.Server) Option {
 	}
 }
 
-// WithServerOptions sets the MCP server options
-func WithServerOptions(opts *mcp.ServerOptions) Option {
+// WithServerConfig sets the complete MCP server options struct.
+// Use this for advanced configurations requiring handler functions.
+// For simple configurations, prefer WithServerOptions with functional options.
+func WithServerConfig(opts *mcp.ServerOptions) Option {
 	return func(cfg *handlerConfig) error {
 		if opts == nil {
 			return fmt.Errorf("server options cannot be nil: %w", ErrNilValue)
@@ -73,6 +75,28 @@ func WithHTTPTransport(opts ...mcpwrapper.TransportOptionStreamableHTTP) Option 
 		// Apply options to existing httpOpts (modify defaults)
 		for _, opt := range opts {
 			if err := opt(cfg.httpOpts); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+// WithServerOptions configures MCP server options using functional options.
+// Accepts variadic ServerOption functions for configuration.
+//
+// Example:
+//
+//	mcpio.WithServerOptions(
+//	    mcp.WithInstructions("Use this server for data processing"),
+//	    mcp.WithPageSize(50),
+//	    mcp.WithCapabilityPrompts(),
+//	)
+func WithServerOptions(opts ...mcpwrapper.ServerOption) Option {
+	return func(cfg *handlerConfig) error {
+		// Apply options to existing serverOptions (modify defaults)
+		for _, opt := range opts {
+			if err := opt(cfg.serverOptions); err != nil {
 				return err
 			}
 		}
