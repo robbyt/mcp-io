@@ -69,28 +69,6 @@ func WithStreamableHTTPOptions(opts *mcp.StreamableHTTPOptions) Option {
 	}
 }
 
-// WithContextStore configures a custom context storage mechanism.
-// This is useful for testing with isolated context keys.
-//
-// Example:
-//
-//	// Custom test storage with isolated key
-//	testKey := struct{ name string }{"TestFoo"}
-//	store := mcpio.NewContextStore(testKey)
-//	handler, _ := mcpio.NewHandler(
-//	    mcpio.WithContextStore(store),
-//	    mcpio.WithTool("test", "desc", toolFunc),
-//	)
-func WithContextStore(store ContextStore) Option {
-	return func(cfg *handlerConfig) error {
-		if store == nil {
-			return fmt.Errorf("context store cannot be nil: %w", ErrNilValue)
-		}
-		cfg.contextStore = store
-		return nil
-	}
-}
-
 // WithPrompt adds a prompt to the handler
 func WithPrompt(name, description string, fn PromptFunc) Option {
 	return func(cfg *handlerConfig) error {

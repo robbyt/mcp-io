@@ -8,9 +8,6 @@ import (
 	"github.com/robbyt/mcp-io/capabilities"
 )
 
-// mcpContextKey is the context key for storing RequestContext instances.
-type mcpContextKey struct{}
-
 // RequestContext holds all MCP request metadata and implements the ToolContext interface.
 // This struct is created once per request and passed directly to tool functions,
 // eliminating the need for context storage and retrieval.

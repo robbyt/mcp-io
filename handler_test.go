@@ -224,7 +224,7 @@ func TestServeSSE(t *testing.T) {
 
 func TestCreateTypedHandlerSuccess(t *testing.T) {
 	t.Parallel()
-	h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+	h := &Handler{}
 	handlerFunc := createTypedHandler(h, simpleEchoFunc)
 
 	req := &mcp.CallToolRequest{
@@ -246,7 +246,7 @@ func TestCreateTypedHandlerToolError(t *testing.T) {
 		return SimpleOutput{}, NewToolError("tool failed")
 	}
 
-	h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+	h := &Handler{}
 	handlerFunc := createTypedHandler(h, errorFunc)
 
 	req := &mcp.CallToolRequest{
@@ -272,7 +272,7 @@ func TestCreateTypedHandlerProtocolError(t *testing.T) {
 		return SimpleOutput{}, errors.New("protocol error")
 	}
 
-	h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+	h := &Handler{}
 	handlerFunc := createTypedHandler(h, errorFunc)
 
 	req := &mcp.CallToolRequest{

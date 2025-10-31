@@ -31,7 +31,6 @@ type handlerConfig struct {
 	server                *mcp.Server // The MCP-SDK server instance
 	serverOptions         *mcp.ServerOptions
 	streamableHTTPOptions *mcp.StreamableHTTPOptions
-	contextStore          ContextStore // Pluggable context storage
 }
 
 // MCPServer provides an interface to the MCP SDK server, allowing for
@@ -61,9 +60,8 @@ type MCPServer interface {
 
 // Handler is the main MCP handler struct
 type Handler struct {
-	server       MCPServer
-	handler      *mcp.StreamableHTTPHandler
-	contextStore ContextStore
+	server  MCPServer
+	handler *mcp.StreamableHTTPHandler
 }
 
 // ToolContext provides access to MCP request metadata and session capabilities.
@@ -108,7 +106,6 @@ func NewHandler(opts ...Option) (*Handler, error) {
 		server:                nil, // Will be created if not provided
 		serverOptions:         &mcp.ServerOptions{},
 		streamableHTTPOptions: &mcp.StreamableHTTPOptions{},
-		contextStore:          NewContextStore(DefaultContextKey),
 	}
 
 	// Apply all options
@@ -134,7 +131,6 @@ func NewHandler(opts ...Option) (*Handler, error) {
 			func(*http.Request) *mcp.Server { return cfg.server },
 			cfg.streamableHTTPOptions,
 		),
-		contextStore: cfg.contextStore,
 	}
 
 	// Register all resources

@@ -690,7 +690,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return []byte(`{"result": "success", "input_length": ` + strconv.Itoa(len(input)) + `}`), nil
 		}
 
-		h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+		h := &Handler{}
 		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{
@@ -716,7 +716,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return []byte(`{"result": "should not reach"}`), nil
 		}
 
-		h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+		h := &Handler{}
 		handler := createRawToolHandler(h, rawFunc)
 
 		// Create request with invalid JSON that will cause marshaling to fail
@@ -745,7 +745,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return nil, NewToolError("validation failed")
 		}
 
-		h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+		h := &Handler{}
 		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
@@ -768,7 +768,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return nil, ValidationError("invalid input format")
 		}
 
-		h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+		h := &Handler{}
 		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"data": "invalid"})
@@ -794,7 +794,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return nil, errDatabaseFailed
 		}
 
-		h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+		h := &Handler{}
 		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"query": "test"})
@@ -812,7 +812,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return []byte(`{invalid json:`), nil
 		}
 
-		h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+		h := &Handler{}
 		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
@@ -831,7 +831,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return []byte(`{}`), nil
 		}
 
-		h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+		h := &Handler{}
 		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
@@ -854,7 +854,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return []byte(`[1, 2, 3]`), nil
 		}
 
-		h := &Handler{contextStore: NewContextStore(DefaultContextKey)}
+		h := &Handler{}
 		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"count": 3})
