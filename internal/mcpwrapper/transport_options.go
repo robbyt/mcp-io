@@ -1,4 +1,4 @@
-package mcp
+package mcpwrapper
 
 import (
 	mcpSDK "github.com/modelcontextprotocol/go-sdk/mcp"

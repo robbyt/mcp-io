@@ -14,7 +14,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
-	mcpWrapper "github.com/robbyt/mcp-io/mcp"
+	"github.com/robbyt/mcp-io/internal/mcpwrapper"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -68,7 +68,7 @@ func (s *ExampleTestSuite) WithMCPSession(handler *mcpio.Handler, testFunc func(
 	sdkServer, ok := handler.GetServer().Unwrap().(*mcp.Server)
 	s.Require().True(ok, "failed to unwrap SDK server")
 
-	wrappedServer, clientTransport := mcpWrapper.NewInMemoryServer(sdkServer)
+	wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
 
 	// Start server with embedded transport
 	go func() {

@@ -13,8 +13,8 @@ import (
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/crypt"
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/dice"
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/narrative"
+	"github.com/robbyt/mcp-io/internal/mcpwrapper"
 	"github.com/robbyt/mcp-io/internal/testutil"
-	mcpWrapper "github.com/robbyt/mcp-io/mcp"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
@@ -78,7 +78,7 @@ func (s *DungeonMasterTestSuite) SetupTest() {
 	// Create in-memory server with transport
 	sdkServer, ok := handler.GetServer().Unwrap().(*mcp.Server)
 	s.Require().True(ok, "failed to unwrap SDK server")
-	wrappedServer, clientTransport := mcpWrapper.NewInMemoryServer(sdkServer)
+	wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
 
 	// Start server in background
 	go func() {
@@ -295,7 +295,7 @@ func (s *DungeonMasterTestSuite) TestMultipleTurnsWithoutSkillChecks() {
 	// Create in-memory server with transport
 	sdkServer, ok := handler.GetServer().Unwrap().(*mcp.Server)
 	s.Require().True(ok, "failed to unwrap SDK server")
-	wrappedServer, clientTransport := mcpWrapper.NewInMemoryServer(sdkServer)
+	wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
 
 	// Start server
 	serverCtx, serverCancel := context.WithCancel(ctx)
@@ -417,7 +417,7 @@ func (s *DungeonMasterTestSuite) TestDuplicateActionSubmission() {
 	// Create in-memory server with transport
 	sdkServer, ok := handler.GetServer().Unwrap().(*mcp.Server)
 	s.Require().True(ok, "failed to unwrap SDK server")
-	wrappedServer, clientTransport := mcpWrapper.NewInMemoryServer(sdkServer)
+	wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
 
 	// Start server
 	serverCtx, serverCancel := context.WithCancel(ctx)

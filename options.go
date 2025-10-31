@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	mcpwrapper "github.com/robbyt/mcp-io/mcp"
+	"github.com/robbyt/mcp-io/internal/mcpwrapper"
 	"github.com/robbyt/mcp-io/primitives/tool"
 )
 

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	mcpWrapper "github.com/robbyt/mcp-io/mcp"
+	"github.com/robbyt/mcp-io/internal/mcpwrapper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -83,7 +83,7 @@ func TestServerWithTransport(t *testing.T) {
 		// Create in-memory server with transport
 		sdkServer, ok := handler.server.Unwrap().(*mcp.Server)
 		require.True(t, ok, "failed to unwrap SDK server")
-		wrappedServer, clientTransport := mcpWrapper.NewInMemoryServer(sdkServer)
+		wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
 
 		// Run server with cancellable context
 		ctx, cancel := context.WithCancel(context.Background())
@@ -141,7 +141,7 @@ func TestServerWithTransport(t *testing.T) {
 			// Create in-memory server with transport
 			sdkServer, ok := handler.server.Unwrap().(*mcp.Server)
 			require.True(t, ok, "failed to unwrap SDK server")
-			wrappedServer, clientTransport := mcpWrapper.NewInMemoryServer(sdkServer)
+			wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
 
 			serverDone[i] = make(chan error, 1)
 			ctx, cancel := context.WithCancel(context.Background())

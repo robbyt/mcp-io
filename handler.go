@@ -9,7 +9,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/robbyt/mcp-io/capabilities"
-	mcpwrapper "github.com/robbyt/mcp-io/mcp"
+	"github.com/robbyt/mcp-io/internal/mcpwrapper"
 )
 
 // Resource registration function types
