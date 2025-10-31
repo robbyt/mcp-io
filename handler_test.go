@@ -197,7 +197,7 @@ func TestGetServer(t *testing.T) {
 	assert.Equal(t, server, retrievedServer.Unwrap())
 }
 
-func TestServeSSE(t *testing.T) {
+func TestServeHTTP_BasicResponse(t *testing.T) {
 	t.Parallel()
 	handler, err := NewHandler(
 		WithName("test-server"),
@@ -209,7 +209,7 @@ func TestServeSSE(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(handler.ServeHTTP))
 	defer server.Close()
 
-	// Test basic HTTP/SSE response
+	// Test basic Streamable HTTP response
 	// TODO: switch to httptest.Client and do a full MCP call
 	resp, err := http.Get(server.URL)
 	require.NoError(t, err)

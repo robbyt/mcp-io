@@ -15,7 +15,7 @@ This library wraps the official [MCP SDK](https://github.com/modelcontextprotoco
 - **Graceful Error Handling**: Configuration errors return meaningful error messages instead of panicking
 - **Functional Options Constructors**: Composable API using the functional options pattern
 - **Type-Safe Tools**: Define MCP resources with Go generics to specify the in/out schema shapes
-- **Multiple Transports**: HTTP, SSE, and stdio support through a single handler
+- **Multiple Transports**: Streamable HTTP and stdio support through a single handler
 - **Sentinel Error Types**: Errors return specific types that can be checked with `errors.Is`
 - **Extensive Examples**: Includes examples demonstrating MCP features and usage patterns
 
@@ -276,8 +276,7 @@ Tool annotations guide LLM decision-making per the MCP specification, helping cl
 A single handler instance supports multiple transport types. Choose one transport at runtime based on your deployment needs:
 
 - **stdio** - Process communication via standard input/output (recommended default)
-- **HTTP** - Standard HTTP POST/GET requests (Streamable HTTP transport)
-- **SSE** - Server-Sent Events for streaming (part of Streamable HTTP)
+- **Streamable HTTP** - HTTP transport supporting both request/response and streaming (MCP 2025-03-26 spec)
 
 For details on MCP transport protocols, see the [official specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports).
 
@@ -308,15 +307,15 @@ func main() {
 
     switch *transport {
     case "http":
-        // HTTP - for standard HTTP clients
+        // Streamable HTTP - for HTTP clients (supports both request/response and streaming)
         http.Handle("/mcp", handler)
-        log.Printf("Starting HTTP server on :8080/mcp")
+        log.Printf("Starting Streamable HTTP server on :8080/mcp")
         log.Fatal(http.ListenAndServe(":8080", nil))
 
     case "sse":
-        // SSE - for browser clients with server-sent events
-        http.Handle("/mcp-sse", http.HandlerFunc(handler.ServeSSE))
-        log.Printf("Starting SSE server on :8080/mcp-sse")
+        // Streamable HTTP - serves at different endpoint (same transport as "http" case)
+        http.Handle("/mcp-sse", http.HandlerFunc(handler.ServeHTTP))
+        log.Printf("Starting Streamable HTTP server on :8080/mcp-sse")
         log.Fatal(http.ListenAndServe(":8080", nil))
 
     case "stdio":

@@ -281,13 +281,13 @@ func TestTransportOptions(t *testing.T) {
 		assert.Implements(t, (*http.Handler)(nil), handler)
 	})
 
-	t.Run("SSETransport", func(t *testing.T) {
+	t.Run("StreamableHTTPTransport", func(t *testing.T) {
 		assert.NotNil(t, handler.ServeHTTP)
 
-		sseHandler := http.HandlerFunc(handler.ServeHTTP)
-		assert.NotNil(t, sseHandler)
+		httpHandler := http.HandlerFunc(handler.ServeHTTP)
+		assert.NotNil(t, httpHandler)
 
-		server := httptest.NewServer(sseHandler)
+		server := httptest.NewServer(httpHandler)
 		defer server.Close()
 
 		assert.NotNil(t, server)
