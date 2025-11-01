@@ -442,8 +442,7 @@ func TestSessionCapabilities(t *testing.T) {
 		}, nil)
 
 		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
-		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
-		result, err := dungeonMaster(ctx, mockToolCtx, AdventureInput{Action: "I open the mysterious door"})
+		result, err := dungeonMaster(t.Context(), mockToolCtx, AdventureInput{Action: "I open the mysterious door"})
 		require.NoError(t, err)
 		assert.Contains(t, result, "narrative")
 		assert.Contains(t, result["narrative"], "door")
@@ -476,10 +475,9 @@ func TestSessionCapabilities(t *testing.T) {
 		}, nil)
 
 		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
-		ctx := capabilities.WithSession(t.Context(), mockSession.Session)
 
 		// Execute the tool
-		result, err := analyzeTool(ctx, mockToolCtx, struct{ Code string }{Code: "func test() {}"})
+		result, err := analyzeTool(t.Context(), mockToolCtx, struct{ Code string }{Code: "func test() {}"})
 		require.NoError(t, err)
 		assert.Contains(t, result["analysis"], "looks good")
 	})

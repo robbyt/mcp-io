@@ -10,7 +10,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
-	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -51,8 +50,7 @@ func (s *AgentTestSuite) TestAnalyzeToolWithSampling() {
 		}, nil).Once()
 
 		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
-		ctx := capabilities.WithSession(context.Background(), mockSession.Session)
-		result, err := analyzeTool(ctx, mockToolCtx, AnalyzeInput{
+		result, err := analyzeTool(context.Background(), mockToolCtx, AnalyzeInput{
 			Code:     "func test() { return }",
 			Language: "go",
 		})
@@ -72,8 +70,7 @@ func (s *AgentTestSuite) TestAnalyzeToolWithSampling() {
 		mockSession.SetupNoCapabilities()
 
 		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
-		ctx := capabilities.WithSession(context.Background(), mockSession.Session)
-		result, err := analyzeTool(ctx, mockToolCtx, AnalyzeInput{
+		result, err := analyzeTool(context.Background(), mockToolCtx, AnalyzeInput{
 			Code: "func test() {}",
 		})
 
@@ -99,8 +96,7 @@ func (s *AgentTestSuite) TestImproveToolWithSampling() {
 		}, nil).Once()
 
 		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
-		ctx := capabilities.WithSession(context.Background(), mockSession.Session)
-		result, err := improveTool(ctx, mockToolCtx, ImproveInput{
+		result, err := improveTool(context.Background(), mockToolCtx, ImproveInput{
 			Code:     "func test() {}",
 			Focus:    "security",
 			Language: "go",
@@ -119,9 +115,8 @@ func (s *AgentTestSuite) TestImproveToolWithSampling() {
 		mockSession.SetupNoCapabilities()
 
 		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
-		ctx := capabilities.WithSession(context.Background(), mockSession.Session)
 		originalCode := "func test() {}"
-		result, err := improveTool(ctx, mockToolCtx, ImproveInput{
+		result, err := improveTool(context.Background(), mockToolCtx, ImproveInput{
 			Code: originalCode,
 		})
 

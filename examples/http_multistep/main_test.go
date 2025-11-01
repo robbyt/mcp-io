@@ -61,8 +61,7 @@ func (s *HttpMultistepTestSuite) TestDevelopmentFlow() {
 			},
 		}, nil).Once()
 
-		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
+		result, err := configureSystem(s.T().Context(), mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("fully_configured", result["status"])
@@ -116,8 +115,7 @@ func (s *HttpMultistepTestSuite) TestStagingFlow() {
 			},
 		}, nil).Once()
 
-		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
+		result, err := configureSystem(s.T().Context(), mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("fully_configured", result["status"])
@@ -187,8 +185,7 @@ func (s *HttpMultistepTestSuite) TestProductionFlow() {
 			},
 		}, nil).Once()
 
-		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
+		result, err := configureSystem(s.T().Context(), mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("fully_configured", result["status"])
@@ -218,8 +215,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			Action: "decline",
 		}, nil).Once()
 
-		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
+		result, err := configureSystem(s.T().Context(), mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("cancelled", result["status"])
@@ -246,8 +242,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			Action: "decline",
 		}, nil).Once()
 
-		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
+		result, err := configureSystem(s.T().Context(), mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("partial", result["status"])
@@ -292,8 +287,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			},
 		}, nil).Once()
 
-		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
+		result, err := configureSystem(s.T().Context(), mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("error", result["status"])
@@ -322,8 +316,7 @@ func (s *HttpMultistepTestSuite) TestErrorHandling() {
 			},
 		}, nil).Once()
 
-		ctx := capabilities.WithSession(s.T().Context(), mockSession.Session)
-		result, err := configureSystem(ctx, mockToolContext(mockSession.Session), struct{}{})
+		result, err := configureSystem(s.T().Context(), mockToolContext(mockSession.Session), struct{}{})
 		s.Require().NoError(err)
 
 		s.Equal("cancelled", result["status"])

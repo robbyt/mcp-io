@@ -34,7 +34,7 @@ func TestTypedToolSessionInjection(t *testing.T) {
 	// Connect client using testutil helper
 	session := testutil.ConnectInMemory(t, handler)
 
-	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+	result, err := session.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "typed_tool",
 		Arguments: map[string]any{"text": "test"},
 	})
@@ -60,7 +60,7 @@ func TestRawToolSessionInjection(t *testing.T) {
 	// Connect client using testutil helper
 	session := testutil.ConnectInMemory(t, handler)
 
-	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+	result, err := session.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "raw_tool",
 		Arguments: map[string]any{},
 	})
@@ -87,7 +87,7 @@ func TestPromptSessionInjection(t *testing.T) {
 	// Connect client using testutil helper
 	session := testutil.ConnectInMemory(t, handler)
 
-	result, err := session.GetPrompt(context.Background(), &mcp.GetPromptParams{Name: "test_prompt"})
+	result, err := session.GetPrompt(t.Context(), &mcp.GetPromptParams{Name: "test_prompt"})
 	require.NoError(t, err)
 	require.Len(t, result.Messages, 1)
 }
@@ -115,7 +115,7 @@ func TestTypedPromptSessionInjection(t *testing.T) {
 	// Connect client using testutil helper
 	session := testutil.ConnectInMemory(t, handler)
 
-	result, err := session.GetPrompt(context.Background(), &mcp.GetPromptParams{
+	result, err := session.GetPrompt(t.Context(), &mcp.GetPromptParams{
 		Name:      "typed_prompt",
 		Arguments: map[string]string{"topic": "test"},
 	})
@@ -143,7 +143,7 @@ func TestResourceSessionInjection(t *testing.T) {
 	// Connect client using testutil helper
 	session := testutil.ConnectInMemory(t, handler)
 
-	result, err := session.ReadResource(context.Background(), &mcp.ReadResourceParams{URI: "test://resource"})
+	result, err := session.ReadResource(t.Context(), &mcp.ReadResourceParams{URI: "test://resource"})
 	require.NoError(t, err)
 	require.Len(t, result.Contents, 1)
 }

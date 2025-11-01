@@ -7,20 +7,11 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// sessionContextKey is the context key for storing Session instances.
-type sessionContextKey struct{}
-
 // ClientCapabilities represents the capabilities declared by the client.
 type ClientCapabilities struct {
 	Elicitation *ElicitationCapabilities
 	Sampling    *SamplingCapabilities
 	Roots       *RootsCapabilities
-}
-
-// WithSession injects a Session into the context.
-// This is primarily used by test code to set up session context for testing.
-func WithSession(ctx context.Context, session *Session) context.Context {
-	return context.WithValue(ctx, sessionContextKey{}, session)
 }
 
 // serverSession defines the interface for MCP server session operations.
