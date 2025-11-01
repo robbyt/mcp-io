@@ -24,7 +24,7 @@ type SimpleOutput struct {
 }
 
 // Test helper functions for handler-specific tests
-func simpleEchoFunc(ctx context.Context, toolCtx ToolContext, input SimpleInput) (SimpleOutput, error) {
+func simpleEchoFunc(ctx context.Context, toolCtx RequestContext, input SimpleInput) (SimpleOutput, error) {
 	return SimpleOutput{Message: input.Text}, nil
 }
 
@@ -222,72 +222,6 @@ func TestServeHTTP_BasicResponse(t *testing.T) {
 	assert.NotEqual(t, 0, resp.StatusCode)
 }
 
-func TestCreateTypedHandlerSuccess(t *testing.T) {
-	t.Parallel()
-	h := &Handler{}
-	handlerFunc := createTypedHandler(h, simpleEchoFunc)
-
-	req := &mcp.CallToolRequest{
-		Params: &mcp.CallToolParamsRaw{Name: "test_tool"},
-	}
-
-	input := SimpleInput{Text: "hello world"}
-	result, output, err := handlerFunc(t.Context(), req, input)
-
-	require.NoError(t, err)
-	assert.Nil(t, result)
-	assert.Equal(t, "hello world", output.Message)
-}
-
-func TestCreateTypedHandlerToolError(t *testing.T) {
-	t.Parallel()
-	// Function that returns a tool error
-	errorFunc := func(ctx context.Context, toolCtx ToolContext, input SimpleInput) (SimpleOutput, error) {
-		return SimpleOutput{}, NewToolError("tool failed")
-	}
-
-	h := &Handler{}
-	handlerFunc := createTypedHandler(h, errorFunc)
-
-	req := &mcp.CallToolRequest{
-		Params: &mcp.CallToolParamsRaw{Name: "test_tool"},
-	}
-
-	input := SimpleInput{Text: "test"}
-	result, output, err := handlerFunc(t.Context(), req, input)
-
-	require.Error(t, err)
-	assert.Nil(t, result)
-	assert.Equal(t, SimpleOutput{}, output)
-
-	var toolErr *ToolError
-	require.ErrorAs(t, err, &toolErr)
-	assert.Equal(t, "tool failed", toolErr.Message)
-}
-
-func TestCreateTypedHandlerProtocolError(t *testing.T) {
-	t.Parallel()
-	// Function that returns a non-tool error
-	errorFunc := func(ctx context.Context, toolCtx ToolContext, input SimpleInput) (SimpleOutput, error) {
-		return SimpleOutput{}, errors.New("protocol error")
-	}
-
-	h := &Handler{}
-	handlerFunc := createTypedHandler(h, errorFunc)
-
-	req := &mcp.CallToolRequest{
-		Params: &mcp.CallToolParamsRaw{Name: "test_tool"},
-	}
-
-	input := SimpleInput{Text: "test"}
-	result, output, err := handlerFunc(t.Context(), req, input)
-
-	require.Error(t, err)
-	assert.Nil(t, result)
-	assert.Equal(t, SimpleOutput{}, output)
-	assert.Equal(t, "protocol error", err.Error())
-}
-
 func TestNewHandlerWithCustomServer(t *testing.T) {
 	t.Parallel()
 
@@ -380,12 +314,12 @@ func TestNewHandler_Unified(t *testing.T) {
 	t.Parallel()
 
 	// Test tool function
-	addTool := func(ctx context.Context, toolCtx ToolContext, input struct{ A, B int }) (struct{ Sum int }, error) {
+	addTool := func(ctx context.Context, toolCtx RequestContext, input struct{ A, B int }) (struct{ Sum int }, error) {
 		return struct{ Sum int }{Sum: input.A + input.B}, nil
 	}
 
 	// Test prompt function
-	greetingPrompt := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+	greetingPrompt := func(ctx context.Context, reqCtx RequestContext, args map[string]any) (*PromptResult, error) {
 		name, ok := args["name"].(string)
 		if !ok {
 			name = "World"
@@ -398,7 +332,7 @@ func TestNewHandler_Unified(t *testing.T) {
 	}
 
 	// Test resource function
-	configResource := func(ctx context.Context, uri string) (*ResourceContent, error) {
+	configResource := func(ctx context.Context, reqCtx RequestContext) (*ResourceContent, error) {
 		return &ResourceContent{
 			Content:  []byte("config data"),
 			MIMEType: "text/plain",

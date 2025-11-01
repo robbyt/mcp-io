@@ -232,7 +232,7 @@ func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Opti
 // The function receives a context, ToolContext for accessing session/metadata, typed input,
 // and returns typed output with an optional error.
 // Schema generation is handled automatically based on the TIn and TOut types.
-type ToolFunc[TIn, TOut any] func(context.Context, ToolContext, TIn) (TOut, error)
+type ToolFunc[TIn, TOut any] func(context.Context, RequestContext, TIn) (TOut, error)
 
 // WithTool adds a type-safe tool with automatic schema generation from Go types.
 //
@@ -284,7 +284,7 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 // The function receives a context, ToolContext for accessing session/metadata,
 // and raw JSON bytes as input, and returns JSON bytes as output.
 // Schema must be provided explicitly when using WithRawTool.
-type RawToolFunc func(context.Context, ToolContext, []byte) ([]byte, error)
+type RawToolFunc func(context.Context, RequestContext, []byte) ([]byte, error)
 
 // WithRawTool adds a tool with manual JSON handling and explicit schema.
 // Use this when you need direct control over JSON processing or dynamic schemas.

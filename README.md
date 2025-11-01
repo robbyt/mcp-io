@@ -51,7 +51,7 @@ type TextOutput struct {
 }
 
 // Tool function
-func toUpper(ctx context.Context, toolCtx mcpio.ToolContext, input TextInput) (TextOutput, error) {
+func toUpper(ctx context.Context, toolCtx mcpio.RequestContext, input TextInput) (TextOutput, error) {
 	return TextOutput{Result: strings.ToUpper(input.Text)}, nil
 }
 
@@ -193,7 +193,7 @@ type DivideOutput struct {
     Result float64 `json:"result" jsonschema:"Division result rounded to specified precision"`
 }
 
-func divide(ctx context.Context, toolCtx mcpio.ToolContext, input DivideInput) (DivideOutput, error) {
+func divide(ctx context.Context, toolCtx mcpio.RequestContext, input DivideInput) (DivideOutput, error) {
     if input.Denominator == 0 {
         return DivideOutput{}, mcpio.NewToolError("division by zero")
     }
@@ -346,7 +346,7 @@ type ConfirmDeletion struct {
     Confirm string `json:"confirm" jsonschema:"Type DELETE to confirm deletion"`
 }
 
-func deleteRecords(ctx context.Context, toolCtx mcpio.ToolContext, input DeleteRecordsInput) (map[string]any, error) {
+func deleteRecords(ctx context.Context, toolCtx mcpio.RequestContext, input DeleteRecordsInput) (map[string]any, error) {
     // Preview what will be deleted
     records := getRecords(input.UserID) // Returns []Record from database
 
@@ -422,7 +422,7 @@ type AdventureInput struct {
     Action string `json:"action" jsonschema:"What the player does"`
 }
 
-func dungeonMaster(ctx context.Context, toolCtx mcpio.ToolContext, input AdventureInput) (map[string]any, error) {
+func dungeonMaster(ctx context.Context, toolCtx mcpio.RequestContext, input AdventureInput) (map[string]any, error) {
     session := toolCtx.GetSession()
     if session == nil {
         return nil, fmt.Errorf("no session available")
@@ -484,7 +484,7 @@ npx @modelcontextprotocol/inspector --cli go run -C examples/simple_dungeon_mast
 Send progress updates to the MCP client, useful for keeping users informed while long-running events are being processed by the MCP server.
 
 ```go
-func processDataTool(ctx context.Context, toolCtx mcpio.ToolContext, input struct{ Files []string }) (map[string]any, error) {
+func processDataTool(ctx context.Context, toolCtx mcpio.RequestContext, input struct{ Files []string }) (map[string]any, error) {
     session := toolCtx.GetSession()
     if session == nil {
         return nil, fmt.Errorf("no session available")
@@ -509,7 +509,7 @@ func processDataTool(ctx context.Context, toolCtx mcpio.ToolContext, input struc
 Send structured log messages to the client for debugging and monitoring.
 
 ```go
-func myTool(ctx context.Context, toolCtx mcpio.ToolContext, input MyInput) (MyOutput, error) {
+func myTool(ctx context.Context, toolCtx mcpio.RequestContext, input MyInput) (MyOutput, error) {
     session := toolCtx.GetSession()
 
     session.LogInfo(ctx, "Processing started", map[string]any{
@@ -546,7 +546,7 @@ Available methods on `toolCtx`:
 ```go
 import "log/slog"
 
-func myTool(ctx context.Context, toolCtx mcpio.ToolContext, input MyInput) (MyOutput, error) {
+func myTool(ctx context.Context, toolCtx mcpio.RequestContext, input MyInput) (MyOutput, error) {
     // Get the tool/prompt/resource identifier
     identifier := toolCtx.GetIdentifier()
 
@@ -573,7 +573,7 @@ Access the `Session` interface directly via `toolCtx` to check capabilities, cal
 **Note**: This returns mcp-io's `Session` interface, NOT the underlying MCP SDK's `*mcp.ServerSession`. You're still using mcp-io's abstraction layer, which means you're subject to the same incomplete implementations (missing Logger, ProgressToken, Meta fields, etc.). For direct MCP SDK access, use `handler.GetServer()` to access the raw `*mcp.Server`.
 
 ```go
-func advancedTool(ctx context.Context, toolCtx mcpio.ToolContext, _ struct{}) (map[string]any, error) {
+func advancedTool(ctx context.Context, toolCtx mcpio.RequestContext, _ struct{}) (map[string]any, error) {
     session := toolCtx.GetSession()
     if session == nil {
         return nil, errors.New("no session available")
@@ -631,7 +631,7 @@ import (
 )
 
 // Example: A tool that validates and reformats any JSON input
-validateJSON := func(ctx context.Context, toolCtx mcpio.ToolContext, input []byte) ([]byte, error) {
+validateJSON := func(ctx context.Context, toolCtx mcpio.RequestContext, input []byte) ([]byte, error) {
     // Unmarshal to confirm it's valid JSON
     var jsonData any
     if err := json.Unmarshal(input, &jsonData); err != nil {
@@ -781,10 +781,10 @@ func greet(ctx context.Context, req *mcpSDK.CallToolRequest, input GreetInput) (
 mcpSDK.AddTool(server, tool, greet) // Schema auto-generated from types
 ```
 
-**mcp-io**: Simplified signature with ToolContext parameter
+**mcp-io**: Simplified signature with RequestContext parameter
 ```go
 // Clean signature with toolCtx parameter for metadata access
-func greet(ctx context.Context, toolCtx mcpio.ToolContext, input GreetInput) (GreetOutput, error) {
+func greet(ctx context.Context, toolCtx mcpio.RequestContext, input GreetInput) (GreetOutput, error) {
     // Session available via toolCtx, if needed
     session := toolCtx.GetSession()
 

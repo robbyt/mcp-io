@@ -13,12 +13,12 @@ import (
 // Elicitor provides elicitation functionality for interactive user input.
 // Create via mcpio.NewElicitor(toolCtx) in tool functions.
 type Elicitor struct {
-	toolCtx ToolContext
+	toolCtx RequestContext
 }
 
 // NewElicitor creates an Elicitor with the given ToolContext.
 // This allows elicitation to access the session and validate elicitation support.
-func NewElicitor(toolCtx ToolContext) *Elicitor {
+func NewElicitor(toolCtx RequestContext) *Elicitor {
 	return &Elicitor{toolCtx: toolCtx}
 }
 

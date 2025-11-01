@@ -34,7 +34,7 @@ type DeploymentConfig struct {
 }
 
 // configureSystem demonstrates a comprehensive multi-step elicitation workflow
-func configureSystem(ctx context.Context, toolCtx mcpio.ToolContext, _ struct{}) (map[string]any, error) {
+func configureSystem(ctx context.Context, toolCtx mcpio.RequestContext, _ struct{}) (map[string]any, error) {
 	elicitor := mcpio.NewElicitor(toolCtx)
 
 	// Step 1: Elicit basic system configuration

@@ -39,7 +39,7 @@ func TestDatabaseSuite(t *testing.T) {
 }
 
 // mockToolContext creates a mock tool context for unit tests
-func mockToolContext() mcpio.ToolContext {
+func mockToolContext() mcpio.RequestContext {
 	return testutil.NewMockToolContext(nil)
 }
 

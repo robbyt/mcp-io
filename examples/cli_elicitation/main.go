@@ -63,7 +63,7 @@ func validateConfirmation(result *mcpio.ElicitationResult, expectedValue string)
 // Standard database operations (no elicitation needed)
 
 // readRecord retrieves a record by ID - standard tool operation
-func readRecord(ctx context.Context, toolCtx mcpio.ToolContext, input struct {
+func readRecord(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 	ID string `json:"id" jsonschema:"description:Record ID to retrieve"`
 },
 ) (map[string]any, error) {
@@ -85,7 +85,7 @@ func readRecord(ctx context.Context, toolCtx mcpio.ToolContext, input struct {
 }
 
 // listRecords returns all records, optionally filtered by status
-func listRecords(ctx context.Context, toolCtx mcpio.ToolContext, input struct {
+func listRecords(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 	Status string `json:"status,omitempty" jsonschema:"description:Optional status filter,enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 },
 ) (map[string]any, error) {
@@ -115,7 +115,7 @@ func listRecords(ctx context.Context, toolCtx mcpio.ToolContext, input struct {
 // Elicitation-based operations
 
 // createRecord demonstrates elicitation for gathering structured data
-func createRecord(ctx context.Context, toolCtx mcpio.ToolContext, _ struct{}) (map[string]any, error) {
+func createRecord(ctx context.Context, toolCtx mcpio.RequestContext, _ struct{}) (map[string]any, error) {
 	slog.Debug("createRecord starting", "operation", "elicitation")
 
 	// Server pauses to elicit structured record data
@@ -186,7 +186,7 @@ func createRecord(ctx context.Context, toolCtx mcpio.ToolContext, _ struct{}) (m
 }
 
 // updateRecord demonstrates elicitation for confirming destructive changes
-func updateRecord(ctx context.Context, toolCtx mcpio.ToolContext, input struct {
+func updateRecord(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 	ID     string `json:"id"               jsonschema:"description:Record ID to update"`
 	Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
 	Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
@@ -270,7 +270,7 @@ func updateRecord(ctx context.Context, toolCtx mcpio.ToolContext, input struct {
 }
 
 // deleteRecord demonstrates critical operation confirmation
-func deleteRecord(ctx context.Context, toolCtx mcpio.ToolContext, input struct {
+func deleteRecord(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 	ID string `json:"id" jsonschema:"description:Record ID to delete"`
 },
 ) (map[string]any, error) {

@@ -33,7 +33,7 @@ type MockLLM struct {
 }
 
 // CreateMessage mocks the LLM message creation
-func (m *MockLLM) CreateMessage(ctx context.Context, toolCtx mcpio.ToolContext, prompt string, maxTokens int, preferredModel string) (string, error) {
+func (m *MockLLM) CreateMessage(ctx context.Context, toolCtx mcpio.RequestContext, prompt string, maxTokens int, preferredModel string) (string, error) {
 	args := m.Called(ctx, toolCtx, prompt, maxTokens, preferredModel)
 	return args.String(0), args.Error(1)
 }

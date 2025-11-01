@@ -25,7 +25,7 @@ func (s *PromptsIntegrationTestSuite) TestPromptHandlerIntegration() {
 		// Create the server with the same prompt as cli-prompt
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("prompt-server"),
-			mcpio.WithPrompt("greeter", "Generates a friendly greeting", func(ctx context.Context, args map[string]any) (*mcpio.PromptResult, error) {
+			mcpio.WithPrompt("greeter", "Generates a friendly greeting", func(ctx context.Context, reqCtx mcpio.RequestContext, args map[string]any) (*mcpio.PromptResult, error) {
 				name, _ := args["name"].(string)
 				if name == "" {
 					name = "World"

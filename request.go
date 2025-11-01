@@ -8,14 +8,32 @@ import (
 	"github.com/robbyt/mcp-io/capabilities"
 )
 
-// RequestContext holds all MCP request metadata and implements the ToolContext interface.
-// This struct is created once per request and passed directly to tool functions,
+// RequestContext provides access to MCP request metadata and session capabilities.
+// RequestContext implements this interface and is passed directly to tool functions,
 // eliminating the need for context storage and retrieval.
+type RequestContext interface {
+	// GetSession returns the MCP session for accessing session capabilities like
+	// logging, elicitation, and sampling.
+	GetSession() *capabilities.Session
+
+	// GetIdentifier returns the identifier for the current request.
+	// For tools: tool name, for prompts: prompt name, for resources: URI.
+	GetIdentifier() string
+
+	// GetTokenInfo returns OAuth token information if present, nil otherwise.
+	GetTokenInfo() *auth.TokenInfo
+
+	// GetHeaders returns HTTP headers from the request.
+	GetHeaders() http.Header
+}
+
+// MCPRequestContext holds all MCP request metadata and implements the RequestContext interface.
+// This struct is created once per request and passed directly to the primitives (tool, prompt, resource).
 //
-// Exported to enable test mocking. Tests construct RequestContext instances
+// Exported to enable test mocking. Tests construct MCPRequestContext instances
 // with mock sessions when testing elicitation, logging, and other
 // session-dependent functionality.
-type RequestContext struct {
+type MCPRequestContext struct {
 	// Session provides access to MCP session capabilities (sampling, elicitation, logging, etc).
 	// Never nil - always contains a valid session instance.
 	Session *capabilities.Session
@@ -42,7 +60,7 @@ func newRequestContext(
 	identifier string,
 	mcpSession *mcp.ServerSession,
 	extra *mcp.RequestExtra,
-) *RequestContext {
+) *MCPRequestContext {
 	var tokenInfo *auth.TokenInfo
 	var headers http.Header
 
@@ -57,7 +75,7 @@ func newRequestContext(
 		headers = http.Header{}
 	}
 
-	return &RequestContext{
+	return &MCPRequestContext{
 		Session:    capabilities.NewSession(mcpSession),
 		Identifier: identifier,
 		TokenInfo:  tokenInfo,
@@ -70,24 +88,24 @@ func newRequestContext(
 
 // GetSession returns the MCP session for accessing session capabilities like
 // logging, elicitation, and sampling.
-func (r *RequestContext) GetSession() *capabilities.Session {
+func (r *MCPRequestContext) GetSession() *capabilities.Session {
 	return r.Session
 }
 
 // GetIdentifier returns the identifier for the current request.
 // For tools, this is the tool name. For prompts, the prompt name. For resources, the URI.
-func (r *RequestContext) GetIdentifier() string {
+func (r *MCPRequestContext) GetIdentifier() string {
 	return r.Identifier
 }
 
 // GetTokenInfo returns OAuth token information from the request if available.
 // Returns nil if no token was provided.
-func (r *RequestContext) GetTokenInfo() *auth.TokenInfo {
+func (r *MCPRequestContext) GetTokenInfo() *auth.TokenInfo {
 	return r.TokenInfo
 }
 
 // GetHeaders returns all HTTP headers from the request.
 // Never returns nil - returns empty http.Header{} if no headers present.
-func (r *RequestContext) GetHeaders() http.Header {
+func (r *MCPRequestContext) GetHeaders() http.Header {
 	return r.Headers
 }

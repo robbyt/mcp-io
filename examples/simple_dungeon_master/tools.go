@@ -12,7 +12,7 @@ import (
 
 // RollDiceTool simulates rolling a 20-sided dice and stores it in history
 // Uses turn-based roll (idempotent - multiple calls return the same roll for this turn)
-func (state *GameState) RollDiceTool(ctx context.Context, toolCtx mcpio.ToolContext, input dice.RollInput) (dice.Roll, error) {
+func (state *GameState) RollDiceTool(ctx context.Context, toolCtx mcpio.RequestContext, input dice.RollInput) (dice.Roll, error) {
 	toolCtx.GetSession().Log(ctx, capabilities.LogLevelDebug, "RollDiceTool called", map[string]any{"input": input}) //nolint:errcheck
 	pendingCheck := state.narrative.GetPendingSkillCheck()
 
@@ -37,7 +37,7 @@ func (state *GameState) RollDiceTool(ctx context.Context, toolCtx mcpio.ToolCont
 }
 
 // NarrativeActionTool coordinates narrative generation across dice and narrative packages
-func (state *GameState) NarrativeActionTool(ctx context.Context, toolCtx mcpio.ToolContext, input narrative.ActionInput) (narrative.Response, error) {
+func (state *GameState) NarrativeActionTool(ctx context.Context, toolCtx mcpio.RequestContext, input narrative.ActionInput) (narrative.Response, error) {
 	toolCtx.GetSession().Log(ctx, capabilities.LogLevelDebug, "NarrativeActionTool called", map[string]any{"input": input}) //nolint:errcheck
 
 	// Get current turn counter for this action

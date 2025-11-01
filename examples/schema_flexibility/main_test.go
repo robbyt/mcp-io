@@ -49,7 +49,7 @@ func createCalculator() (*mcpio.Handler, error) {
 		"required": ["operation", "a", "b"]
 	}`
 
-	calculator := func(ctx context.Context, toolCtx mcpio.ToolContext, input []byte) ([]byte, error) {
+	calculator := func(ctx context.Context, toolCtx mcpio.RequestContext, input []byte) ([]byte, error) {
 		var params map[string]any
 		if err := json.Unmarshal(input, &params); err != nil {
 			return nil, err
@@ -123,7 +123,7 @@ func createFull() (*mcpio.Handler, error) {
 	}`
 
 	// Calculator function - raw version for WithRawTool
-	calculator := func(ctx context.Context, toolCtx mcpio.ToolContext, input []byte) ([]byte, error) {
+	calculator := func(ctx context.Context, toolCtx mcpio.RequestContext, input []byte) ([]byte, error) {
 		var params map[string]any
 		if err := json.Unmarshal(input, &params); err != nil {
 			return nil, err

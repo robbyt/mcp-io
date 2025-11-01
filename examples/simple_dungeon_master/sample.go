@@ -9,7 +9,7 @@ import (
 )
 
 // createLLMMessage sends a prompt to the client's LLM and returns the text response
-func createLLMMessage(ctx context.Context, toolCtx mcpio.ToolContext, prompt string, maxTokens int, preferredModel string) (string, error) {
+func createLLMMessage(ctx context.Context, toolCtx mcpio.RequestContext, prompt string, maxTokens int, preferredModel string) (string, error) {
 	session := toolCtx.GetSession()
 	if session == nil {
 		return "", fmt.Errorf("no session available")

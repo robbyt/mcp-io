@@ -79,7 +79,7 @@ func TestElicitTyped_Success(t *testing.T) {
 	}
 
 	session := capabilities.NewSession(mockServerSession)
-	reqCtx := &RequestContext{
+	reqCtx := &MCPRequestContext{
 		Session:    session,
 		Identifier: "test",
 		TokenInfo:  nil,
@@ -106,7 +106,7 @@ func TestElicitTyped_SchemaGeneration(t *testing.T) {
 	}
 
 	session := capabilities.NewSession(mockServerSession)
-	reqCtx := &RequestContext{
+	reqCtx := &MCPRequestContext{
 		Session:    session,
 		Identifier: "test",
 		TokenInfo:  nil,
@@ -123,7 +123,7 @@ func TestElicitTyped_SchemaGeneration(t *testing.T) {
 }
 
 func TestElicitTyped_NoSession(t *testing.T) {
-	reqCtx := &RequestContext{
+	reqCtx := &MCPRequestContext{
 		Session:    nil,
 		Identifier: "test",
 		TokenInfo:  nil,
@@ -144,7 +144,7 @@ func TestElicitTyped_ElicitationNotSupported(t *testing.T) {
 	mockServerSession := &TestMockNoElicitation{}
 
 	session := capabilities.NewSession(mockServerSession)
-	reqCtx := &RequestContext{
+	reqCtx := &MCPRequestContext{
 		Session:    session,
 		Identifier: "test",
 		TokenInfo:  nil,
@@ -243,7 +243,7 @@ func TestElicitSimple_Success(t *testing.T) {
 	}
 
 	session := capabilities.NewSession(mockServerSession)
-	reqCtx := &RequestContext{
+	reqCtx := &MCPRequestContext{
 		Session:    session,
 		Identifier: "test",
 		TokenInfo:  nil,
@@ -267,7 +267,7 @@ func TestElicitSimple_Decline(t *testing.T) {
 	}
 
 	session := capabilities.NewSession(mockServerSession)
-	reqCtx := &RequestContext{
+	reqCtx := &MCPRequestContext{
 		Session:    session,
 		Identifier: "test",
 		TokenInfo:  nil,
@@ -284,7 +284,7 @@ func TestElicitSimple_Decline(t *testing.T) {
 }
 
 func TestElicitSimple_NoSession(t *testing.T) {
-	reqCtx := &RequestContext{
+	reqCtx := &MCPRequestContext{
 		Session:    nil,
 		Identifier: "test",
 		TokenInfo:  nil,
@@ -348,7 +348,7 @@ func TestMultiStepElicitation(t *testing.T) {
 	}
 
 	session := capabilities.NewSession(mockServerSession)
-	reqCtx := &RequestContext{
+	reqCtx := &MCPRequestContext{
 		Session:    session,
 		Identifier: "test",
 		TokenInfo:  nil,

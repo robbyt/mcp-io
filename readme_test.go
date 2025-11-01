@@ -41,11 +41,11 @@ type DivideOutput struct {
 }
 
 // Example tool functions
-func toUpper(ctx context.Context, toolCtx mcpio.ToolContext, input TextInput) (TextOutput, error) {
+func toUpper(ctx context.Context, toolCtx mcpio.RequestContext, input TextInput) (TextOutput, error) {
 	return TextOutput{Result: strings.ToUpper(input.Text)}, nil
 }
 
-func divide(ctx context.Context, toolCtx mcpio.ToolContext, input DivideInput) (DivideOutput, error) {
+func divide(ctx context.Context, toolCtx mcpio.RequestContext, input DivideInput) (DivideOutput, error) {
 	if input.Denominator == 0 {
 		return DivideOutput{}, mcpio.NewToolError("division by zero")
 	}
@@ -62,7 +62,7 @@ func divide(ctx context.Context, toolCtx mcpio.ToolContext, input DivideInput) (
 // Helper function for raw JSON tool usage - from README Advanced Features section
 func createRawToolHandler() (*mcpio.Handler, error) {
 	// Example: A tool that validates and reformats any JSON input
-	validateJSON := func(ctx context.Context, toolCtx mcpio.ToolContext, input []byte) ([]byte, error) {
+	validateJSON := func(ctx context.Context, toolCtx mcpio.RequestContext, input []byte) ([]byte, error) {
 		// Unmarshal to confirm it's valid JSON
 		var jsonData any
 		if err := json.Unmarshal(input, &jsonData); err != nil {
@@ -206,25 +206,25 @@ func TestToolMetadata_MultipleTools(t *testing.T) {
 	}
 
 	// Define tool functions
-	getRecords := func(ctx context.Context, toolCtx mcpio.ToolContext, _ struct{}) (RecordsOutput, error) {
+	getRecords := func(ctx context.Context, toolCtx mcpio.RequestContext, _ struct{}) (RecordsOutput, error) {
 		return RecordsOutput{Records: []string{"record1", "record2"}}, nil
 	}
 
-	updateRecord := func(ctx context.Context, toolCtx mcpio.ToolContext, input struct {
+	updateRecord := func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 		ID int `json:"id" jsonschema:"Record ID to update"`
 	},
 	) (UpdateOutput, error) {
 		return UpdateOutput{Success: true}, nil
 	}
 
-	deleteRecords := func(ctx context.Context, toolCtx mcpio.ToolContext, input struct {
+	deleteRecords := func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 		IDs []int `json:"ids" jsonschema:"Record IDs to delete"`
 	},
 	) (DeleteOutput, error) {
 		return DeleteOutput{Deleted: len(input.IDs)}, nil
 	}
 
-	backupDatabase := func(ctx context.Context, toolCtx mcpio.ToolContext, input struct {
+	backupDatabase := func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 		Location string `json:"location" jsonschema:"Backup storage location"`
 	},
 	) (BackupOutput, error) {
@@ -338,7 +338,7 @@ func TestSessionCapabilities(t *testing.T) {
 		}
 
 		// Tool from README
-		deleteRecords := func(ctx context.Context, toolCtx mcpio.ToolContext, input DeleteRecordsInput) (map[string]any, error) {
+		deleteRecords := func(ctx context.Context, toolCtx mcpio.RequestContext, input DeleteRecordsInput) (map[string]any, error) {
 			// Preview what will be deleted
 			records := getRecords(input.UserID)
 
@@ -399,7 +399,7 @@ func TestSessionCapabilities(t *testing.T) {
 			Action string `json:"action" jsonschema:"What the player does"`
 		}
 
-		dungeonMaster := func(ctx context.Context, toolCtx mcpio.ToolContext, input AdventureInput) (map[string]any, error) {
+		dungeonMaster := func(ctx context.Context, toolCtx mcpio.RequestContext, input AdventureInput) (map[string]any, error) {
 			session := toolCtx.GetSession()
 			if session == nil {
 				return nil, fmt.Errorf("no session available")
@@ -451,7 +451,7 @@ func TestSessionCapabilities(t *testing.T) {
 
 	t.Run("SamplingExampleWithExecution", func(t *testing.T) {
 		// Actually test the sampling functionality with a mock
-		analyzeTool := func(ctx context.Context, toolCtx mcpio.ToolContext, input struct{ Code string }) (map[string]any, error) {
+		analyzeTool := func(ctx context.Context, toolCtx mcpio.RequestContext, input struct{ Code string }) (map[string]any, error) {
 			session := toolCtx.GetSession()
 			if session == nil {
 				return nil, fmt.Errorf("no session available")
@@ -486,7 +486,7 @@ func TestSessionCapabilities(t *testing.T) {
 
 	t.Run("ProgressNotifications", func(t *testing.T) {
 		// Tool from README
-		processDataTool := func(ctx context.Context, toolCtx mcpio.ToolContext, input struct{ Files []string }) (map[string]any, error) {
+		processDataTool := func(ctx context.Context, toolCtx mcpio.RequestContext, input struct{ Files []string }) (map[string]any, error) {
 			session := toolCtx.GetSession()
 			if session == nil {
 				return nil, fmt.Errorf("no session available")
@@ -519,7 +519,7 @@ func TestSessionCapabilities(t *testing.T) {
 			Processed int `json:"processed"`
 		}
 
-		myTool := func(ctx context.Context, toolCtx mcpio.ToolContext, input MyInput) (MyOutput, error) {
+		myTool := func(ctx context.Context, toolCtx mcpio.RequestContext, input MyInput) (MyOutput, error) {
 			toolCtx.GetSession().LogInfo(ctx, "Processing started", map[string]any{ //nolint:errcheck
 				"itemCount": len(input.Items),
 			})
@@ -565,7 +565,7 @@ func TestSessionCapabilities(t *testing.T) {
 		}
 
 		// Tool from README
-		myTool := func(ctx context.Context, toolCtx mcpio.ToolContext, input MyInput) (MyOutput, error) {
+		myTool := func(ctx context.Context, toolCtx mcpio.RequestContext, input MyInput) (MyOutput, error) {
 			// Get the tool/prompt/resource identifier
 			identifier := toolCtx.GetIdentifier()
 
@@ -602,7 +602,7 @@ func TestSessionCapabilities(t *testing.T) {
 
 	t.Run("SessionInterfaceAccess", func(t *testing.T) {
 		// Tool from README
-		advancedTool := func(ctx context.Context, toolCtx mcpio.ToolContext, _ struct{}) (map[string]any, error) {
+		advancedTool := func(ctx context.Context, toolCtx mcpio.RequestContext, _ struct{}) (map[string]any, error) {
 			session := toolCtx.GetSession()
 			if session == nil {
 				return nil, errors.New("no session available")
@@ -642,7 +642,7 @@ func TestSchemaTypeOptions(t *testing.T) {
 	t.Parallel()
 
 	// Tool function for all three variations
-	simpleTool := func(ctx context.Context, toolCtx mcpio.ToolContext, input []byte) ([]byte, error) {
+	simpleTool := func(ctx context.Context, toolCtx mcpio.RequestContext, input []byte) ([]byte, error) {
 		return []byte(`{"status":"processed"}`), nil
 	}
 

@@ -24,11 +24,11 @@ type testOutput struct {
 }
 
 // Test helper functions
-func testToolFunc(ctx context.Context, toolCtx ToolContext, input testInput) (testOutput, error) {
+func testToolFunc(ctx context.Context, toolCtx RequestContext, input testInput) (testOutput, error) {
 	return testOutput{Result: input.Value + "_processed"}, nil
 }
 
-func testRawToolFunc(ctx context.Context, toolCtx ToolContext, input []byte) ([]byte, error) {
+func testRawToolFunc(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 	return input, nil
 }
 
@@ -446,7 +446,7 @@ func TestWithHTTPTransport(t *testing.T) {
 func TestPromptOptions(t *testing.T) {
 	t.Parallel()
 
-	testPromptFunc := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+	testPromptFunc := func(ctx context.Context, reqCtx RequestContext, args map[string]any) (*PromptResult, error) {
 		return &PromptResult{
 			Messages: []PromptMessage{{Role: "user", Content: "test"}},
 		}, nil
@@ -594,11 +594,11 @@ func TestPromptOptions(t *testing.T) {
 func TestResourceOptions(t *testing.T) {
 	t.Parallel()
 
-	resourceFunc := func(ctx context.Context, uri string) (*ResourceContent, error) {
+	resourceFunc := func(ctx context.Context, reqCtx RequestContext) (*ResourceContent, error) {
 		return &ResourceContent{Content: []byte("test content"), MIMEType: "text/plain"}, nil
 	}
 
-	templateFunc := func(ctx context.Context, uri string) (*ResourceContent, error) {
+	templateFunc := func(ctx context.Context, reqCtx RequestContext) (*ResourceContent, error) {
 		return &ResourceContent{Content: []byte("template content"), MIMEType: "application/json"}, nil
 	}
 
@@ -662,15 +662,15 @@ type GreetOutput struct {
 }
 
 // Test helper functions for tool tests
-func greetFunc(ctx context.Context, toolCtx ToolContext, input GreetInput) (GreetOutput, error) {
+func greetFunc(ctx context.Context, toolCtx RequestContext, input GreetInput) (GreetOutput, error) {
 	return GreetOutput{Message: "Hello, " + input.Name}, nil
 }
 
-func farewellFunc(ctx context.Context, toolCtx ToolContext, input GreetInput) (GreetOutput, error) {
+func farewellFunc(ctx context.Context, toolCtx RequestContext, input GreetInput) (GreetOutput, error) {
 	return GreetOutput{Message: "Goodbye, " + input.Name}, nil
 }
 
-func rawToolFunc(ctx context.Context, toolCtx ToolContext, input []byte) ([]byte, error) {
+func rawToolFunc(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 	return []byte(`{"result": "processed"}`), nil
 }
 
@@ -791,7 +791,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("success path with valid JSON", func(t *testing.T) {
 		// Raw function that returns valid JSON
-		rawFunc := func(ctx context.Context, toolCtx ToolContext, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return []byte(`{"result": "success", "input_length": ` + strconv.Itoa(len(input)) + `}`), nil
 		}
 
@@ -817,7 +817,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("input marshaling error", func(t *testing.T) {
 		// Raw function (won't be called due to marshaling error)
-		rawFunc := func(ctx context.Context, toolCtx ToolContext, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return []byte(`{"result": "should not reach"}`), nil
 		}
 
@@ -846,7 +846,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("raw function returns ToolError", func(t *testing.T) {
 		// Raw function that returns a ToolError
-		rawFunc := func(ctx context.Context, toolCtx ToolContext, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return nil, NewToolError("validation failed")
 		}
 
@@ -869,7 +869,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("raw function returns ToolError with code", func(t *testing.T) {
 		// Raw function that returns a ToolError with error code
-		rawFunc := func(ctx context.Context, toolCtx ToolContext, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return nil, ValidationError("invalid input format")
 		}
 
@@ -895,7 +895,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 		errDatabaseFailed := errors.New("database connection failed")
 
 		// Raw function that returns a regular Go error (protocol error)
-		rawFunc := func(ctx context.Context, toolCtx ToolContext, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return nil, errDatabaseFailed
 		}
 
@@ -913,7 +913,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("invalid JSON output", func(t *testing.T) {
 		// Raw function that returns invalid JSON
-		rawFunc := func(ctx context.Context, toolCtx ToolContext, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return []byte(`{invalid json:`), nil
 		}
 
@@ -932,7 +932,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("empty JSON object output", func(t *testing.T) {
 		// Raw function that returns empty JSON object
-		rawFunc := func(ctx context.Context, toolCtx ToolContext, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return []byte(`{}`), nil
 		}
 
@@ -955,7 +955,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("JSON array output", func(t *testing.T) {
 		// Raw function that returns JSON array
-		rawFunc := func(ctx context.Context, toolCtx ToolContext, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return []byte(`[1, 2, 3]`), nil
 		}
 

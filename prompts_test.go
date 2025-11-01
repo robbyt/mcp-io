@@ -24,7 +24,7 @@ type SimplePromptArgs struct {
 func TestWithTypedPrompt_Basic(t *testing.T) {
 	t.Parallel()
 
-	promptFunc := func(ctx context.Context, args DocumentPromptArgs) (*PromptResult, error) {
+	promptFunc := func(ctx context.Context, reqCtx RequestContext, args DocumentPromptArgs) (*PromptResult, error) {
 		return &PromptResult{
 			Messages: []PromptMessage{{
 				Role:    "user",
@@ -46,7 +46,7 @@ func TestWithTypedPrompt_Basic(t *testing.T) {
 func TestWithTypedPrompt_EmptyName(t *testing.T) {
 	t.Parallel()
 
-	promptFunc := func(ctx context.Context, args SimplePromptArgs) (*PromptResult, error) {
+	promptFunc := func(ctx context.Context, reqCtx RequestContext, args SimplePromptArgs) (*PromptResult, error) {
 		return &PromptResult{Messages: []PromptMessage{{Role: "user", Content: args.Message}}}, nil
 	}
 
@@ -62,7 +62,7 @@ func TestWithTypedPrompt_EmptyName(t *testing.T) {
 func TestWithTypedPrompt_SchemaGeneration(t *testing.T) {
 	t.Parallel()
 
-	promptFunc := func(ctx context.Context, args DocumentPromptArgs) (*PromptResult, error) {
+	promptFunc := func(ctx context.Context, reqCtx RequestContext, args DocumentPromptArgs) (*PromptResult, error) {
 		return &PromptResult{
 			Messages: []PromptMessage{{
 				Role:    "user",
@@ -84,7 +84,7 @@ func TestWithTypedPrompt_SchemaGeneration(t *testing.T) {
 func TestCreateTypedPromptHandler_Success(t *testing.T) {
 	t.Parallel()
 
-	promptFunc := func(ctx context.Context, args SimplePromptArgs) (*PromptResult, error) {
+	promptFunc := func(ctx context.Context, reqCtx RequestContext, args SimplePromptArgs) (*PromptResult, error) {
 		return &PromptResult{
 			Messages: []PromptMessage{{
 				Role:    "user",
@@ -120,7 +120,7 @@ func TestCreateTypedPromptHandler_Success(t *testing.T) {
 func TestCreateTypedPromptHandler_EmptyArguments(t *testing.T) {
 	t.Parallel()
 
-	promptFunc := func(ctx context.Context, args SimplePromptArgs) (*PromptResult, error) {
+	promptFunc := func(ctx context.Context, reqCtx RequestContext, args SimplePromptArgs) (*PromptResult, error) {
 		message := args.Message
 		if message == "" {
 			message = "default message"
@@ -156,7 +156,7 @@ func TestCreateTypedPromptHandler_InvalidJSON(t *testing.T) {
 		Count int `json:"count"`
 	}
 
-	promptFunc := func(ctx context.Context, args InvalidArgs) (*PromptResult, error) {
+	promptFunc := func(ctx context.Context, reqCtx RequestContext, args InvalidArgs) (*PromptResult, error) {
 		return &PromptResult{Messages: []PromptMessage{{Role: "user", Content: "test"}}}, nil
 	}
 
@@ -180,7 +180,7 @@ func TestCreateTypedPromptHandler_InvalidJSON(t *testing.T) {
 func TestCreateTypedPromptHandler_PromptError(t *testing.T) {
 	t.Parallel()
 
-	promptFunc := func(ctx context.Context, args SimplePromptArgs) (*PromptResult, error) {
+	promptFunc := func(ctx context.Context, reqCtx RequestContext, args SimplePromptArgs) (*PromptResult, error) {
 		return nil, assert.AnError // Simulate prompt function error
 	}
 
@@ -318,7 +318,7 @@ func TestSchemaToPromptArguments_DeterministicOrdering(t *testing.T) {
 func TestCreatePromptHandler_Success(t *testing.T) {
 	t.Parallel()
 
-	promptFunc := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+	promptFunc := func(ctx context.Context, reqCtx RequestContext, args map[string]any) (*PromptResult, error) {
 		name, _ := args["name"].(string)
 		if name == "" {
 			name = "World"
@@ -358,7 +358,7 @@ func TestCreatePromptHandler_Success(t *testing.T) {
 func TestCreatePromptHandler_EmptyArguments(t *testing.T) {
 	t.Parallel()
 
-	promptFunc := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+	promptFunc := func(ctx context.Context, reqCtx RequestContext, args map[string]any) (*PromptResult, error) {
 		name, _ := args["name"].(string)
 		if name == "" {
 			name = "default"
@@ -396,7 +396,7 @@ func TestCreatePromptHandler_EmptyArguments(t *testing.T) {
 func TestCreatePromptHandler_MultipleMessages(t *testing.T) {
 	t.Parallel()
 
-	promptFunc := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+	promptFunc := func(ctx context.Context, reqCtx RequestContext, args map[string]any) (*PromptResult, error) {
 		topic, _ := args["topic"].(string)
 		if topic == "" {
 			topic = "general"
@@ -456,7 +456,7 @@ func TestCreatePromptHandler_MultipleMessages(t *testing.T) {
 func TestCreatePromptHandler_PromptError(t *testing.T) {
 	t.Parallel()
 
-	promptFunc := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+	promptFunc := func(ctx context.Context, reqCtx RequestContext, args map[string]any) (*PromptResult, error) {
 		return nil, assert.AnError // Simulate prompt function error
 	}
 
@@ -480,7 +480,7 @@ func TestCreatePromptHandler_PromptError(t *testing.T) {
 func TestWithPrompt_Integration(t *testing.T) {
 	t.Parallel()
 
-	promptFunc := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+	promptFunc := func(ctx context.Context, reqCtx RequestContext, args map[string]any) (*PromptResult, error) {
 		greeting, _ := args["greeting"].(string)
 		if greeting == "" {
 			greeting = "Hello"

@@ -13,7 +13,8 @@ var data = map[string]string{
 	"farewell": "Goodbye, World!",
 }
 
-func resourceReader(ctx context.Context, uri string) (*mcpio.ResourceContent, error) {
+func resourceReader(ctx context.Context, reqCtx mcpio.RequestContext) (*mcpio.ResourceContent, error) {
+	uri := reqCtx.GetIdentifier()
 	key := strings.TrimPrefix(uri, "res://kv/")
 	if value, ok := data[key]; ok {
 		return &mcpio.ResourceContent{

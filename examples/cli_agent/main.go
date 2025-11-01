@@ -24,7 +24,7 @@ type AnalyzeOutput struct {
 }
 
 // analyzeTool uses the client's LLM (sampling) to analyze code
-func analyzeTool(ctx context.Context, toolCtx mcpio.ToolContext, input AnalyzeInput) (AnalyzeOutput, error) {
+func analyzeTool(ctx context.Context, toolCtx mcpio.RequestContext, input AnalyzeInput) (AnalyzeOutput, error) {
 	session := toolCtx.GetSession()
 	if session == nil {
 		return AnalyzeOutput{}, fmt.Errorf("no session available")
@@ -105,7 +105,7 @@ type ImproveOutput struct {
 }
 
 // improveTool uses sampling to suggest improved code
-func improveTool(ctx context.Context, toolCtx mcpio.ToolContext, input ImproveInput) (ImproveOutput, error) {
+func improveTool(ctx context.Context, toolCtx mcpio.RequestContext, input ImproveInput) (ImproveOutput, error) {
 	session := toolCtx.GetSession()
 	if session == nil || !session.SupportsSampling() {
 		return ImproveOutput{
