@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/robbyt/mcp-io/internal/mcpwrapper"
+	"github.com/robbyt/mcp-io/mcpwrapper"
 )
 
 // Resource registration function types

@@ -10,8 +10,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
-	"github.com/robbyt/mcp-io/internal/mcpwrapper"
 	"github.com/robbyt/mcp-io/internal/testutil"
+	"github.com/robbyt/mcp-io/mcpwrapper"
 	"github.com/stretchr/testify/require"
 )
 

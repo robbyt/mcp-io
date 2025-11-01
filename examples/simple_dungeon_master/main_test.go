@@ -13,8 +13,8 @@ import (
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/crypt"
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/dice"
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/narrative"
-	"github.com/robbyt/mcp-io/internal/mcpwrapper"
 	"github.com/robbyt/mcp-io/internal/testutil"
+	"github.com/robbyt/mcp-io/mcpwrapper"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )

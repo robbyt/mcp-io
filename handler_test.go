@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/robbyt/mcp-io/internal/mcpwrapper"
+	"github.com/robbyt/mcp-io/mcpwrapper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
