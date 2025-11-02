@@ -227,7 +227,7 @@ func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Opti
 }
 
 // ToolFunc is the function signature for typed tools with automatic schema generation.
-// The function receives a context, ToolContext for accessing session/metadata, typed input,
+// The function receives a context, RequestContext for accessing session/metadata, typed input,
 // and returns typed output with an optional error.
 // Schema generation is handled automatically based on the TIn and TOut types.
 type ToolFunc[TIn, TOut any] func(context.Context, RequestContext, TIn) (TOut, error)
@@ -279,7 +279,7 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 }
 
 // RawToolFunc is the function signature for raw JSON tools.
-// The function receives a context, ToolContext for accessing session/metadata,
+// The function receives a context, RequestContext for accessing session/metadata,
 // and raw JSON bytes as input, and returns JSON bytes as output.
 // Schema must be provided explicitly when using WithRawTool.
 type RawToolFunc func(context.Context, RequestContext, []byte) ([]byte, error)

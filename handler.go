@@ -151,9 +151,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.server.ServeHTTP(w, r)
 }
 
-// ServeStdio implements stdio transport for command-line tools.
-// The stdin and stdout parameters are currently unused as the MCP SDK's
-// StdioTransport always uses os.Stdin and os.Stdout.
+// ServeStdio runs the server using stdio transport for command-line tools.
+// Uses os.Stdin and os.Stdout as configured by the MCP SDK.
 func (h *Handler) ServeStdio(ctx context.Context) error {
 	// Transport is already set, just run the server
 	return h.server.Run(ctx)

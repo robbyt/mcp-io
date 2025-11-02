@@ -31,7 +31,7 @@ func createTypedHandler[TIn, TOut any](handler *Handler, fn ToolFunc[TIn, TOut])
 		// Create request context with all MCP metadata
 		reqCtx := newRequestContext(req.Params.Name, req.Params, req.Session, req.Extra)
 
-		// Execute the user-provided tool function (pass reqCtx as ToolContext)
+		// Execute the user-provided tool function (pass reqCtx as RequestContext)
 		output, err := fn(ctx, reqCtx, input)
 		if err != nil {
 			// Check if it's a tool error (user-facing error)
@@ -67,7 +67,7 @@ func createRawToolHandler(handler *Handler, fn RawToolFunc) mcp.ToolHandler {
 			}, nil
 		}
 
-		// Execute raw function (pass reqCtx as ToolContext)
+		// Execute raw function (pass reqCtx as RequestContext)
 		outputJSON, err := fn(ctx, reqCtx, inputJSON)
 		if err != nil {
 			// Check if it's a tool error

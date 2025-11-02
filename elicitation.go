@@ -16,13 +16,13 @@ type Elicitor struct {
 	toolCtx RequestContext
 }
 
-// NewElicitor creates an Elicitor with the given ToolContext.
+// NewElicitor creates an Elicitor with the given RequestContext.
 // This allows elicitation to access the session and validate elicitation support.
 func NewElicitor(toolCtx RequestContext) *Elicitor {
 	return &Elicitor{toolCtx: toolCtx}
 }
 
-// validateElicitation checks if the ToolContext has a valid session with elicitation support.
+// validateElicitation checks if the RequestContext has a valid session with elicitation support.
 func (e *Elicitor) validateElicitation(ctx context.Context) error {
 	session := e.toolCtx.GetSession()
 	if session == nil {
@@ -46,7 +46,7 @@ func (e *Elicitor) validateElicitation(ctx context.Context) error {
 //	    EnableUI bool   `json:"enableUI" jsonschema:"Enable graphical interface"`
 //	}
 //
-//	func myTool(ctx context.Context, toolCtx mcpio.ToolContext, input MyInput) (MyOutput, error) {
+//	func myTool(ctx context.Context, toolCtx mcpio.RequestContext, input MyInput) (MyOutput, error) {
 //	    elicitor := mcpio.NewElicitor(toolCtx)
 //	    result, err := mcpio.ElicitTyped[UserConfig](ctx, elicitor, "Please provide your configuration:")
 //	    if err != nil {

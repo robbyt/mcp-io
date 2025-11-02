@@ -1,3 +1,6 @@
+// Package mcpwrapper provides a wrapper around the MCP SDK server to simplify
+// transport configuration and provide a consistent interface for both stdio
+// and HTTP transports.
 package mcpwrapper
 
 import (
