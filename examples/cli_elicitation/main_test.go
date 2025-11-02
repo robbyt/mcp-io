@@ -40,7 +40,7 @@ func TestDatabaseSuite(t *testing.T) {
 
 // mockToolContext creates a mock tool context for unit tests
 func mockToolContext() mcpio.RequestContext {
-	return testutil.NewMockToolContext(nil)
+	return testutil.NewMockRequestContext(nil)
 }
 
 // Test standard database operations (no elicitation)

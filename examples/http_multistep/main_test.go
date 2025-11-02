@@ -35,7 +35,7 @@ func TestHttpMultistepSuite(t *testing.T) {
 
 // mockToolContext creates a minimal ToolContext for testing with the given session
 func mockToolContext(session *capabilities.Session) mcpio.RequestContext {
-	return testutil.NewMockToolContext(session)
+	return testutil.NewMockRequestContext(session)
 }
 
 func (s *HttpMultistepTestSuite) TestDevelopmentFlow() {

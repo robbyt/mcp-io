@@ -2,7 +2,9 @@ package mcpio
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -27,7 +29,7 @@ import (
 func createTypedHandler[TIn, TOut any](handler *Handler, fn ToolFunc[TIn, TOut]) mcp.ToolHandlerFor[TIn, TOut] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, input TIn) (*mcp.CallToolResult, TOut, error) {
 		// Create request context with all MCP metadata
-		reqCtx := newRequestContext(req.Params.Name, req.Session, req.Extra)
+		reqCtx := newRequestContext(req.Params.Name, req.Params, req.Session, req.Extra)
 
 		// Execute the user-provided tool function (pass reqCtx as ToolContext)
 		output, err := fn(ctx, reqCtx, input)
@@ -46,5 +48,55 @@ func createTypedHandler[TIn, TOut any](handler *Handler, fn ToolFunc[TIn, TOut])
 
 		// Success: return structured output (SDK handles serialization)
 		return nil, output, nil
+	}
+}
+
+// createRawToolHandler wraps a raw function to match the MCP ToolHandler signature
+func createRawToolHandler(handler *Handler, fn RawToolFunc) mcp.ToolHandler {
+	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		reqCtx := newRequestContext(req.Params.Name, req.Params, req.Session, req.Extra)
+
+		// Marshal input arguments to JSON bytes
+		inputJSON, err := json.Marshal(req.Params.Arguments)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: fmt.Sprintf("Failed to marshal input: %v", err)},
+				},
+				IsError: true,
+			}, nil
+		}
+
+		// Execute raw function (pass reqCtx as ToolContext)
+		outputJSON, err := fn(ctx, reqCtx, inputJSON)
+		if err != nil {
+			// Check if it's a tool error
+			var toolErr *ToolError
+			if errors.As(err, &toolErr) {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{
+						&mcp.TextContent{Text: toolErr.Error()},
+					},
+					IsError: true,
+				}, nil
+			}
+			// Protocol error
+			return nil, err
+		}
+
+		// Parse output for structured response
+		var output any
+		if err := json.Unmarshal(outputJSON, &output); err != nil {
+			// Raw tools must return valid JSON
+			return nil, errors.Join(ErrInvalidJSON, err)
+		}
+
+		// Return structured output
+		outputJSONStr := string(outputJSON)
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: outputJSONStr},
+			},
+		}, nil
 	}
 }

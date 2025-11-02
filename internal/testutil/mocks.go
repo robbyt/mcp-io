@@ -117,8 +117,8 @@ func (m *MockSession) SetupNoCapabilities() {
 	})
 }
 
-// MockToolContext is a mock implementation of mcpio.ToolContext interface
-type MockToolContext struct {
+// MockRequestContext is a mock implementation of mcpio.RequestContext interface
+type MockRequestContext struct {
 	mock.Mock
 	session    *capabilities.Session
 	identifier string
@@ -126,50 +126,55 @@ type MockToolContext struct {
 	headers    http.Header
 }
 
-// NewMockToolContext creates a new mock tool context with the given session
-func NewMockToolContext(session *capabilities.Session) *MockToolContext {
-	return &MockToolContext{
+// NewMockRequestContext creates a new mock request context with auto-configured mock expectations.
+// Tests can override the default return values by calling .On() methods.
+func NewMockRequestContext(session *capabilities.Session) *MockRequestContext {
+	m := &MockRequestContext{
 		session:    session,
 		identifier: "",
 		tokenInfo:  nil,
 		headers:    http.Header{},
 	}
+
+	// Auto-setup default mock expectations
+	m.On("GetSession").Return(session)
+	m.On("GetIdentifier").Return("")
+	m.On("GetTokenInfo").Return((*auth.TokenInfo)(nil))
+	m.On("GetHeaders").Return(http.Header{})
+	m.On("GetMeta").Return(map[string]any{})
+
+	return m
 }
 
 // GetSession returns the session capability for advanced features
-func (m *MockToolContext) GetSession() *capabilities.Session {
-	return m.session
+func (m *MockRequestContext) GetSession() *capabilities.Session {
+	args := m.Called()
+	return args.Get(0).(*capabilities.Session)
 }
 
 // GetIdentifier returns the request identifier
-func (m *MockToolContext) GetIdentifier() string {
-	return m.identifier
+func (m *MockRequestContext) GetIdentifier() string {
+	args := m.Called()
+	return args.String(0)
 }
 
 // GetTokenInfo returns authentication token information
-func (m *MockToolContext) GetTokenInfo() *auth.TokenInfo {
-	return m.tokenInfo
+func (m *MockRequestContext) GetTokenInfo() *auth.TokenInfo {
+	args := m.Called()
+	return args.Get(0).(*auth.TokenInfo)
 }
 
 // GetHeaders returns all request headers
-func (m *MockToolContext) GetHeaders() http.Header {
-	return m.headers
+func (m *MockRequestContext) GetHeaders() http.Header {
+	args := m.Called()
+	return args.Get(0).(http.Header)
 }
 
-// WithIdentifier sets the identifier for testing
-func (m *MockToolContext) WithIdentifier(identifier string) *MockToolContext {
-	m.identifier = identifier
-	return m
-}
-
-// WithTokenInfo sets the token info for testing
-func (m *MockToolContext) WithTokenInfo(tokenInfo *auth.TokenInfo) *MockToolContext {
-	m.tokenInfo = tokenInfo
-	return m
-}
-
-// WithHeaders sets the headers for testing
-func (m *MockToolContext) WithHeaders(headers http.Header) *MockToolContext {
-	m.headers = headers
-	return m
+// GetMeta returns metadata from the request parameters
+func (m *MockRequestContext) GetMeta() map[string]any {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(map[string]any)
 }

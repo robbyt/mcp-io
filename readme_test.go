@@ -158,7 +158,7 @@ func TestReadmeExamples(t *testing.T) {
 		assert.NotNil(t, handler)
 
 		// Test division with precision
-		mockToolCtx := testutil.NewMockToolContext(nil)
+		mockToolCtx := testutil.NewMockRequestContext(nil)
 		result, err := divide(t.Context(), mockToolCtx, DivideInput{
 			Numerator:   10.0,
 			Denominator: 3.0,
@@ -441,7 +441,7 @@ func TestSessionCapabilities(t *testing.T) {
 			},
 		}, nil)
 
-		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
+		mockToolCtx := testutil.NewMockRequestContext(mockSession.Session)
 		result, err := dungeonMaster(t.Context(), mockToolCtx, AdventureInput{Action: "I open the mysterious door"})
 		require.NoError(t, err)
 		assert.Contains(t, result, "narrative")
@@ -474,7 +474,7 @@ func TestSessionCapabilities(t *testing.T) {
 			Content: &mcp.TextContent{Text: "This code looks good. No issues found."},
 		}, nil)
 
-		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
+		mockToolCtx := testutil.NewMockRequestContext(mockSession.Session)
 
 		// Execute the tool
 		result, err := analyzeTool(t.Context(), mockToolCtx, struct{ Code string }{Code: "func test() {}"})
@@ -547,7 +547,7 @@ func TestSessionCapabilities(t *testing.T) {
 		// Test the tool function directly
 		mockSession := testutil.NewMockSession()
 		mockSession.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
+		mockToolCtx := testutil.NewMockRequestContext(mockSession.Session)
 		result, err := myTool(t.Context(), mockToolCtx, MyInput{Items: []string{"a", "b"}})
 		require.NoError(t, err)
 		assert.Equal(t, 2, result.Processed)
@@ -592,7 +592,7 @@ func TestSessionCapabilities(t *testing.T) {
 		assert.NotNil(t, handler)
 
 		// Test the tool function directly
-		mockToolCtx := testutil.NewMockToolContext(nil)
+		mockToolCtx := testutil.NewMockRequestContext(nil)
 		result, err := myTool(t.Context(), mockToolCtx, MyInput{Data: "test"})
 		require.NoError(t, err)
 		assert.Equal(t, "processed: test", result.Result)
@@ -706,7 +706,7 @@ func TestSchemaTypeOptions(t *testing.T) {
 func TestToolExecution(t *testing.T) {
 	t.Parallel()
 	t.Run("ToUpperTool", func(t *testing.T) {
-		mockToolCtx := testutil.NewMockToolContext(nil)
+		mockToolCtx := testutil.NewMockRequestContext(nil)
 		result, err := toUpper(t.Context(), mockToolCtx, TextInput{Text: "hello world"})
 		require.NoError(t, err)
 		assert.Equal(t, "HELLO WORLD", result.Result)
@@ -714,7 +714,7 @@ func TestToolExecution(t *testing.T) {
 
 	t.Run("DivideTool", func(t *testing.T) {
 		// Test precision rounding
-		mockToolCtx := testutil.NewMockToolContext(nil)
+		mockToolCtx := testutil.NewMockRequestContext(nil)
 		result, err := divide(t.Context(), mockToolCtx, DivideInput{
 			Numerator:   10.0,
 			Denominator: 3.0,

@@ -22,7 +22,7 @@ type ResourceContent struct {
 func createResourceHandler(fn ResourceFunc) mcp.ResourceHandler {
 	return func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 		// Create request context with all MCP metadata
-		reqCtx := newRequestContext(req.Params.URI, req.Session, req.Extra)
+		reqCtx := newRequestContext(req.Params.URI, req.Params, req.Session, req.Extra)
 
 		// Execute user function with request context
 		content, err := fn(ctx, reqCtx)

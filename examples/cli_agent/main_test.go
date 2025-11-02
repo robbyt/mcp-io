@@ -49,7 +49,7 @@ func (s *AgentTestSuite) TestAnalyzeToolWithSampling() {
 			},
 		}, nil).Once()
 
-		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
+		mockToolCtx := testutil.NewMockRequestContext(mockSession.Session)
 		result, err := analyzeTool(context.Background(), mockToolCtx, AnalyzeInput{
 			Code:     "func test() { return }",
 			Language: "go",
@@ -69,7 +69,7 @@ func (s *AgentTestSuite) TestAnalyzeToolWithSampling() {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupNoCapabilities()
 
-		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
+		mockToolCtx := testutil.NewMockRequestContext(mockSession.Session)
 		result, err := analyzeTool(context.Background(), mockToolCtx, AnalyzeInput{
 			Code: "func test() {}",
 		})
@@ -95,7 +95,7 @@ func (s *AgentTestSuite) TestImproveToolWithSampling() {
 			},
 		}, nil).Once()
 
-		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
+		mockToolCtx := testutil.NewMockRequestContext(mockSession.Session)
 		result, err := improveTool(context.Background(), mockToolCtx, ImproveInput{
 			Code:     "func test() {}",
 			Focus:    "security",
@@ -114,7 +114,7 @@ func (s *AgentTestSuite) TestImproveToolWithSampling() {
 		mockSession := testutil.NewMockSession()
 		mockSession.SetupNoCapabilities()
 
-		mockToolCtx := testutil.NewMockToolContext(mockSession.Session)
+		mockToolCtx := testutil.NewMockRequestContext(mockSession.Session)
 		originalCode := "func test() {}"
 		result, err := improveTool(context.Background(), mockToolCtx, ImproveInput{
 			Code: originalCode,
@@ -172,7 +172,7 @@ func (s *AgentTestSuite) TestBinaryBuild() {
 
 func TestAnalyzeToolNoSession(t *testing.T) {
 	ctx := t.Context()
-	mockToolCtx := testutil.NewMockToolContext(nil)
+	mockToolCtx := testutil.NewMockRequestContext(nil)
 	_, err := analyzeTool(ctx, mockToolCtx, AnalyzeInput{Code: "test"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no session")
@@ -180,7 +180,7 @@ func TestAnalyzeToolNoSession(t *testing.T) {
 
 func TestImproveToolNoSession(t *testing.T) {
 	ctx := t.Context()
-	mockToolCtx := testutil.NewMockToolContext(nil)
+	mockToolCtx := testutil.NewMockRequestContext(nil)
 	result, err := improveTool(ctx, mockToolCtx, ImproveInput{Code: "test"})
 	require.NoError(t, err)
 	assert.False(t, result.SamplingUsed)
