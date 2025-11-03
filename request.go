@@ -124,8 +124,6 @@ func (r *MCPRequestContext) GetHeaders() http.Header { return r.Headers }
 // GetProgressToken returns the progress token from the request params if available.
 // Returns nil if the params don't support progress tokens or no token is present.
 func (r *MCPRequestContext) GetProgressToken() any {
-	// Check if the params implement the GetProgressToken method
-	// This is available on CallToolParams, CallPromptParams, etc.
 	type progressTokenGetter interface {
 		GetProgressToken() any
 	}

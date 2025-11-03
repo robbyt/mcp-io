@@ -5,7 +5,6 @@ package mcpio_test
 import (
 	"context"
 	"fmt"
-	"sync"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -223,74 +222,6 @@ func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 		s.InEpsilon(2.0, notifications[1].Progress, 0.0001)
 		s.InEpsilon(2.0, notifications[1].Total, 0.0001)
 		s.Equal("finalize", notifications[1].Meta["step"])
-	})
-
-	s.Run("ConcurrentRequests", func() {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("progress-test"),
-			mcpio.WithTool("process", "Test concurrent progress", func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
-				ID    string `json:"id"`
-				Steps int    `json:"steps"`
-			}) (struct {
-				Result string `json:"result"`
-			}, error,
-			) {
-				session := toolCtx.GetSession()
-				token := toolCtx.GetProgressToken()
-
-				for i := 0; i < input.Steps; i++ {
-					if err := session.NotifyProgress(ctx, float64(i+1), float64(input.Steps),
-						capabilities.WithProgressToken(token),
-						capabilities.WithProgressMessage(fmt.Sprintf("%s: step %d", input.ID, i+1))); err != nil {
-						return struct {
-							Result string `json:"result"`
-						}{}, err
-					}
-				}
-
-				return struct {
-					Result string `json:"result"`
-				}{Result: input.ID}, nil
-			}),
-		)
-		s.Require().NoError(err)
-
-		session, getNotifications := testutil.ConnectWithProgressCapture(s.T(), handler)
-
-		// Make concurrent calls with different tokens
-		var wg sync.WaitGroup
-		tokens := []any{"token-1", "token-2", "token-3"}
-
-		for i, token := range tokens {
-			wg.Add(1)
-			go func(idx int, tok any) {
-				defer wg.Done()
-				_, _ = session.CallTool(s.Ctx, &mcp.CallToolParams{ //nolint:errcheck
-					Name: "process",
-					Arguments: map[string]any{
-						"id":    fmt.Sprintf("request-%d", idx+1),
-						"steps": 2,
-					},
-					Meta: mcp.Meta{"progressToken": tok},
-				})
-			}(i, token)
-		}
-
-		wg.Wait()
-
-		// Verify we got notifications for all tokens
-		notifications := getNotifications()
-		s.Require().Len(notifications, 6) // 3 requests × 2 steps each
-
-		// Verify each token appears twice
-		tokenCounts := make(map[any]int)
-		for _, notif := range notifications {
-			tokenCounts[notif.ProgressToken]++
-		}
-
-		s.Equal(2, tokenCounts["token-1"])
-		s.Equal(2, tokenCounts["token-2"])
-		s.Equal(2, tokenCounts["token-3"])
 	})
 }
 

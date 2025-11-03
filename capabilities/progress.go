@@ -45,12 +45,5 @@ func (s *Session) NotifyProgress(ctx context.Context, progress, total float64, o
 		params.Meta = cfg.meta
 	}
 
-	return s.NotifyProgressRaw(ctx, params)
-}
-
-// NotifyProgressRaw provides direct access to all ProgressNotificationParams fields.
-// This is an escape hatch for advanced use cases. For most scenarios, use NotifyProgress()
-// with functional options (WithProgressToken, WithProgressMessage, WithProgressMeta).
-func (s *Session) NotifyProgressRaw(ctx context.Context, params *mcp.ProgressNotificationParams) error {
 	return s.session.NotifyProgress(ctx, params)
 }
