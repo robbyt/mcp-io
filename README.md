@@ -502,9 +502,10 @@ Send progress updates to the MCP client during long-running operations using fun
 ```go
 func backgroundTask(ctx context.Context, toolCtx mcpio.RequestContext, input TaskInput) (TaskOutput, error) {
     session := toolCtx.GetSession()
+    total := len(input.Items)
 
     for i, item := range input.Items {
-        session.NotifyProgress(ctx, float64(i), float64(len(input.Items)))
+        session.NotifyProgress(ctx, float64(i+1), float64(total))
         // Process item...
     }
     return output, nil
@@ -516,17 +517,17 @@ func backgroundTask(ctx context.Context, toolCtx mcpio.RequestContext, input Tas
 func processBatch(ctx context.Context, toolCtx mcpio.RequestContext, input struct{ Files []string }) (map[string]any, error) {
     session := toolCtx.GetSession()
     token := toolCtx.GetProgressToken()
+    total := len(input.Files)
 
-    total := float64(len(input.Files))
     for i, file := range input.Files {
-        session.NotifyProgress(ctx, float64(i), total,
+        session.NotifyProgress(ctx, float64(i+1), float64(total),
             capabilities.WithProgressToken(token),
-            capabilities.WithProgressMessage(fmt.Sprintf("Processing %s (%d/%d)", file, i+1, len(input.Files))))
+            capabilities.WithProgressMessage(fmt.Sprintf("Processing %s (%d/%d)", file, i+1, total)))
         // Process file...
     }
 
-    session.NotifyProgress(ctx, total, total, capabilities.WithProgressToken(token))
-    return map[string]any{"status": "done", "processed": len(input.Files)}, nil
+    session.NotifyProgress(ctx, float64(total), float64(total), capabilities.WithProgressToken(token))
+    return map[string]any{"status": "done", "processed": total}, nil
 }
 ```
 

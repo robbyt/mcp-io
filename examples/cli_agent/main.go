@@ -25,8 +25,12 @@ type AnalyzeOutput struct {
 
 // notifyProgress sends a progress notification if supported.
 // Treats progress as best-effort - logs failures but never aborts tool execution.
-func notifyProgress(ctx context.Context, session *capabilities.Session, reqCtx mcpio.RequestContext,
-	progress, total float64, message string,
+func notifyProgress(
+	ctx context.Context,
+	session *capabilities.Session,
+	reqCtx mcpio.RequestContext,
+	progress, total float64,
+	message string,
 ) {
 	opts := []capabilities.ProgressOption{
 		capabilities.WithProgressToken(reqCtx.GetProgressToken()),
@@ -36,7 +40,7 @@ func notifyProgress(ctx context.Context, session *capabilities.Session, reqCtx m
 	}
 
 	if err := session.NotifyProgress(ctx, progress, total, opts...); err != nil {
-		// Log failure but don't abort - progress is best-effort
+		// Log failure but don't abort - progress notifications are best-effort
 		_ = session.LogWarning(ctx, "Failed to send progress notification", //nolint:errcheck
 			map[string]any{"error": err.Error()})
 	}

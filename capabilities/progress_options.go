@@ -10,10 +10,8 @@ type progressConfig struct {
 	meta    map[string]any
 }
 
-// WithProgressToken associates the progress notification with a specific request
-// for concurrent tracking. The token is an opaque identifier (int or string per
-// MCP specification) that must be echoed back exactly as received from the client.
-// Extract the token from RequestContext via GetProgressToken().
+// WithProgressToken associates the progress notification with a specific request.
+// See RequestContext.GetProgressToken() for details on token semantics.
 func WithProgressToken(token any) ProgressOption {
 	return func(c *progressConfig) {
 		c.token = token
