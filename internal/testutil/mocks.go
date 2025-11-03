@@ -2,7 +2,9 @@ package testutil
 
 import (
 	"context"
+	"net/http"
 
+	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/stretchr/testify/mock"
@@ -113,4 +115,66 @@ func (m *MockSession) SetupNoCapabilities() {
 	m.On("InitializeParams").Return(&mcp.InitializeParams{
 		Capabilities: &mcp.ClientCapabilities{},
 	})
+}
+
+// MockRequestContext is a mock implementation of mcpio.RequestContext interface
+type MockRequestContext struct {
+	mock.Mock
+	session    *capabilities.Session
+	identifier string
+	tokenInfo  *auth.TokenInfo
+	headers    http.Header
+}
+
+// NewMockRequestContext creates a new mock request context with auto-configured mock expectations.
+// Tests can override the default return values by calling .On() methods.
+func NewMockRequestContext(session *capabilities.Session) *MockRequestContext {
+	m := &MockRequestContext{
+		session:    session,
+		identifier: "",
+		tokenInfo:  nil,
+		headers:    http.Header{},
+	}
+
+	// Auto-setup default mock expectations
+	m.On("GetSession").Return(session)
+	m.On("GetIdentifier").Return("")
+	m.On("GetTokenInfo").Return((*auth.TokenInfo)(nil))
+	m.On("GetHeaders").Return(http.Header{})
+	m.On("GetMeta").Return(map[string]any{})
+
+	return m
+}
+
+// GetSession returns the session capability for advanced features
+func (m *MockRequestContext) GetSession() *capabilities.Session {
+	args := m.Called()
+	return args.Get(0).(*capabilities.Session)
+}
+
+// GetIdentifier returns the request identifier
+func (m *MockRequestContext) GetIdentifier() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+// GetTokenInfo returns authentication token information
+func (m *MockRequestContext) GetTokenInfo() *auth.TokenInfo {
+	args := m.Called()
+	return args.Get(0).(*auth.TokenInfo)
+}
+
+// GetHeaders returns all request headers
+func (m *MockRequestContext) GetHeaders() http.Header {
+	args := m.Called()
+	return args.Get(0).(http.Header)
+}
+
+// GetMeta returns metadata from the request parameters
+func (m *MockRequestContext) GetMeta() map[string]any {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(map[string]any)
 }

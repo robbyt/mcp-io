@@ -9,10 +9,12 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpio "github.com/robbyt/mcp-io"
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/crypt"
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/dice"
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/narrative"
 	"github.com/robbyt/mcp-io/internal/testutil"
+	"github.com/robbyt/mcp-io/mcpwrapper"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
@@ -31,8 +33,8 @@ type MockLLM struct {
 }
 
 // CreateMessage mocks the LLM message creation
-func (m *MockLLM) CreateMessage(ctx context.Context, prompt string, maxTokens int, preferredModel string) (string, error) {
-	args := m.Called(ctx, prompt, maxTokens, preferredModel)
+func (m *MockLLM) CreateMessage(ctx context.Context, toolCtx mcpio.RequestContext, prompt string, maxTokens int, preferredModel string) (string, error) {
+	args := m.Called(ctx, toolCtx, prompt, maxTokens, preferredModel)
 	return args.String(0), args.Error(1)
 }
 
@@ -48,11 +50,11 @@ func (s *DungeonMasterTestSuite) SetupSuite() {
 
 	// Setup shared mock LLM
 	s.mockLLM = new(MockLLM)
-	s.mockLLM.On("CreateMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return("test narrative", nil)
+	s.mockLLM.On("CreateMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return("test narrative", nil)
 }
 
 func (s *DungeonMasterTestSuite) SetupTest() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(s.T().Context())
 	s.cancelFunc = cancel
 
 	// Build server
@@ -72,14 +74,15 @@ func (s *DungeonMasterTestSuite) SetupTest() {
 	}
 	handler, err := buildHandler(gameState)
 	s.Require().NoError(err)
-	server := handler.GetServer()
 
-	// Create in-memory transports
-	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	// Create in-memory server with transport
+	sdkServer, ok := handler.GetServer().Unwrap().(*mcp.Server)
+	s.Require().True(ok, "failed to unwrap SDK server")
+	wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
 
 	// Start server in background
 	go func() {
-		if err := server.Run(ctx, serverTransport); err != nil && !errors.Is(err, context.Canceled) {
+		if err := wrappedServer.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			s.T().Errorf("server run error: %v", err)
 		}
 	}()
@@ -131,30 +134,23 @@ func (s *DungeonMasterTestSuite) triggerSkillCheck(ctx context.Context, action s
 func (s *DungeonMasterTestSuite) TestToolListing() {
 	ctx := s.T().Context()
 
-	serverBuilder := func() (*mcp.Server, error) {
-		cryptState, err := crypt.NewState()
-		if err != nil {
-			return nil, err
-		}
+	cryptState, err := crypt.NewState()
+	s.Require().NoError(err)
 
-		gameState := &GameState{
-			narrative: narrative.NewState(),
-			dice:      dice.NewState(&dice.Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 1.0}),
-			crypt:     cryptState,
-			config: &Config{
-				summarizationThreshold: 4,
-				summarizeMaxTokens:     100,
-				narrativeMaxTokens:     100,
-			},
-		}
-		handler, err := buildHandler(gameState)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
+	gameState := &GameState{
+		narrative: narrative.NewState(),
+		dice:      dice.NewState(&dice.Config{GracePeriodMin: 0, GracePeriodMax: 0, SkillCheckFrequency: 1.0}),
+		crypt:     cryptState,
+		config: &Config{
+			summarizationThreshold: 4,
+			summarizeMaxTokens:     100,
+			narrativeMaxTokens:     100,
+		},
 	}
+	handler, err := buildHandler(gameState)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		result, err := session.ListTools(ctx, &mcp.ListToolsParams{})
 		s.Require().NoError(err)
 		s.Require().Len(result.Tools, 3)
@@ -295,16 +291,17 @@ func (s *DungeonMasterTestSuite) TestMultipleTurnsWithoutSkillChecks() {
 	}
 	handler, err := buildHandler(gameState)
 	s.Require().NoError(err)
-	server := handler.GetServer()
 
-	// Create transports
-	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	// Create in-memory server with transport
+	sdkServer, ok := handler.GetServer().Unwrap().(*mcp.Server)
+	s.Require().True(ok, "failed to unwrap SDK server")
+	wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
 
 	// Start server
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	defer serverCancel()
 	go func() {
-		if err := server.Run(serverCtx, serverTransport); err != nil && !errors.Is(err, context.Canceled) {
+		if err := wrappedServer.Run(serverCtx); err != nil && !errors.Is(err, context.Canceled) {
 			s.T().Errorf("server run error: %v", err)
 		}
 	}()
@@ -416,16 +413,17 @@ func (s *DungeonMasterTestSuite) TestDuplicateActionSubmission() {
 	}
 	handler, err := buildHandler(gameState)
 	s.Require().NoError(err)
-	server := handler.GetServer()
 
-	// Create transports
-	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	// Create in-memory server with transport
+	sdkServer, ok := handler.GetServer().Unwrap().(*mcp.Server)
+	s.Require().True(ok, "failed to unwrap SDK server")
+	wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
 
 	// Start server
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	defer serverCancel()
 	go func() {
-		if err := server.Run(serverCtx, serverTransport); err != nil && !errors.Is(err, context.Canceled) {
+		if err := wrappedServer.Run(serverCtx); err != nil && !errors.Is(err, context.Canceled) {
 			s.T().Errorf("server run error: %v", err)
 		}
 	}()

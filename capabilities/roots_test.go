@@ -1,7 +1,6 @@
 package capabilities_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -60,7 +59,7 @@ func TestListRoots(t *testing.T) {
 		mockSession.On("ListRoots", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		roots, err := session.ListRoots(context.Background())
+		roots, err := session.ListRoots(t.Context())
 
 		require.NoError(t, err)
 		require.Len(t, roots, 2)
@@ -79,7 +78,7 @@ func TestListRoots(t *testing.T) {
 		mockSession.On("ListRoots", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		roots, err := session.ListRoots(context.Background())
+		roots, err := session.ListRoots(t.Context())
 
 		require.NoError(t, err)
 		assert.Empty(t, roots)
@@ -92,7 +91,7 @@ func TestListRoots(t *testing.T) {
 		mockSession.On("ListRoots", mock.Anything, mock.Anything).Return(nil, expectedErr)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		roots, err := session.ListRoots(context.Background())
+		roots, err := session.ListRoots(t.Context())
 
 		require.Error(t, err)
 		require.ErrorIs(t, err, expectedErr)

@@ -12,20 +12,20 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type HandlerIntegrationTestSuite struct {
+type ToolIntegrationTestSuite struct {
 	testutil.IntegrationSuite
 }
 
-func TestHandlerIntegrationTestSuite(t *testing.T) {
-	suite.Run(t, new(HandlerIntegrationTestSuite))
+func TestToolIntegrationTestSuite(t *testing.T) {
+	suite.Run(t, new(ToolIntegrationTestSuite))
 }
 
-func (s *HandlerIntegrationTestSuite) TestToolHandlerIntegration() {
+func (s *ToolIntegrationTestSuite) TestToolHandlerIntegration() {
 	s.Run("ToUpper", func() {
 		// Create the server with the same tools as cli-tool
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("text-processor"),
-			mcpio.WithTool("to_upper", "Convert text to uppercase", func(ctx context.Context, input struct {
+			mcpio.WithTool("to_upper", "Convert text to uppercase", func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 				Text string `json:"text"`
 			}) (struct {
 				Result string `json:"result"`
@@ -56,7 +56,7 @@ func (s *HandlerIntegrationTestSuite) TestToolHandlerIntegration() {
 		// Create server with count tool
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("text-processor"),
-			mcpio.WithTool("count", "Count words or characters in text", func(ctx context.Context, input struct {
+			mcpio.WithTool("count", "Count words or characters in text", func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 				Text string `json:"text"`
 				Type string `json:"type"`
 			}) (struct {
@@ -93,7 +93,7 @@ func (s *HandlerIntegrationTestSuite) TestToolHandlerIntegration() {
 	s.Run("ValidationError", func() {
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("text-processor"),
-			mcpio.WithTool("count", "Count words or characters in text", func(ctx context.Context, input struct {
+			mcpio.WithTool("count", "Count words or characters in text", func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 				Text string `json:"text"`
 				Type string `json:"type"`
 			}) (struct {
@@ -140,7 +140,7 @@ func (s *HandlerIntegrationTestSuite) TestToolHandlerIntegration() {
 			mcpio.WithName("error-test"),
 			mcpio.WithRawTool("validate", "Test error code preservation",
 				`{"type":"object","properties":{"input":{"type":"string"}}}`,
-				func(ctx context.Context, input []byte) ([]byte, error) {
+				func(ctx context.Context, toolCtx mcpio.RequestContext, input []byte) ([]byte, error) {
 					// Return an error with code
 					return nil, mcpio.NewToolErrorWithCode("validation failed", mcpio.ErrorCodeValidation)
 				},
@@ -172,7 +172,7 @@ func (s *HandlerIntegrationTestSuite) TestToolHandlerIntegration() {
 			mcpio.WithName("error-test"),
 			mcpio.WithRawTool("process", "Test error without code",
 				`{"type":"object","properties":{"input":{"type":"string"}}}`,
-				func(ctx context.Context, input []byte) ([]byte, error) {
+				func(ctx context.Context, toolCtx mcpio.RequestContext, input []byte) ([]byte, error) {
 					// Return an error without code
 					return nil, mcpio.NewToolError("processing failed")
 				},

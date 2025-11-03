@@ -15,7 +15,8 @@ This library wraps the official [MCP SDK](https://github.com/modelcontextprotoco
 - **Graceful Error Handling**: Configuration errors return meaningful error messages instead of panicking
 - **Functional Options Constructors**: Composable API using the functional options pattern
 - **Type-Safe Tools**: Define MCP resources with Go generics to specify the in/out schema shapes
-- **Multiple Transports**: HTTP, SSE, and stdio support through a single handler
+- **Interface-Based Parameters**: Functions accept RequestContext interface for dependency injection and testing
+- **Multiple Transports**: Streamable HTTP and stdio support through a single handler
 - **Sentinel Error Types**: Errors return specific types that can be checked with `errors.Is`
 - **Extensive Examples**: Includes examples demonstrating MCP features and usage patterns
 
@@ -51,7 +52,7 @@ type TextOutput struct {
 }
 
 // Tool function
-func toUpper(ctx context.Context, input TextInput) (TextOutput, error) {
+func toUpper(ctx context.Context, toolCtx mcpio.RequestContext, input TextInput) (TextOutput, error) {
 	return TextOutput{Result: strings.ToUpper(input.Text)}, nil
 }
 
@@ -193,7 +194,7 @@ type DivideOutput struct {
     Result float64 `json:"result" jsonschema:"Division result rounded to specified precision"`
 }
 
-func divide(ctx context.Context, input DivideInput) (DivideOutput, error) {
+func divide(ctx context.Context, toolCtx mcpio.RequestContext, input DivideInput) (DivideOutput, error) {
     if input.Denominator == 0 {
         return DivideOutput{}, mcpio.NewToolError("division by zero")
     }
@@ -225,6 +226,22 @@ func main() {
     }
 }
 ```
+
+### Request Context Interface
+
+Handler functions receive a `RequestContext` interface parameter for accessing request metadata and session capabilities:
+
+```go
+type RequestContext interface {
+    GetSession() *capabilities.Session  // Access session capabilities
+    GetIdentifier() string              // Tool name, prompt name, or resource URI
+    GetTokenInfo() *auth.TokenInfo      // OAuth token information
+    GetHeaders() http.Header            // HTTP headers from request
+    GetMeta() map[string]any            // Request metadata
+}
+```
+
+The MCP SDK passes concrete request types to handlers, requiring functions to depend on SDK struct layout. This library uses an interface instead, decoupling handler signatures from SDK implementation details. The interface approach enables dependency injection for testing, where mock implementations satisfy the interface contract without SDK types.
 
 ### Tool Metadata and Multiple Tools Per Server
 
@@ -276,8 +293,7 @@ Tool annotations guide LLM decision-making per the MCP specification, helping cl
 A single handler instance supports multiple transport types. Choose one transport at runtime based on your deployment needs:
 
 - **stdio** - Process communication via standard input/output (recommended default)
-- **HTTP** - Standard HTTP POST/GET requests (Streamable HTTP transport)
-- **SSE** - Server-Sent Events for streaming (part of Streamable HTTP)
+- **Streamable HTTP** - HTTP transport supporting both request/response and streaming (MCP 2025-03-26 spec)
 
 For details on MCP transport protocols, see the [official specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports).
 
@@ -294,7 +310,7 @@ import (
 )
 
 func main() {
-    transport := flag.String("transport", "stdio", "Transport type: http, sse, or stdio")
+    transport := flag.String("transport", "stdio", "Transport type: http or stdio")
     flag.Parse()
 
     handler, err := mcpio.NewHandler(
@@ -308,15 +324,9 @@ func main() {
 
     switch *transport {
     case "http":
-        // HTTP - for standard HTTP clients
+        // Streamable HTTP - for HTTP clients (supports both request/response and streaming)
         http.Handle("/mcp", handler)
-        log.Printf("Starting HTTP server on :8080/mcp")
-        log.Fatal(http.ListenAndServe(":8080", nil))
-
-    case "sse":
-        // SSE - for browser clients with server-sent events
-        http.Handle("/mcp-sse", http.HandlerFunc(handler.ServeSSE))
-        log.Printf("Starting SSE server on :8080/mcp-sse")
+        log.Printf("Starting Streamable HTTP server on :8080/mcp")
         log.Fatal(http.ListenAndServe(":8080", nil))
 
     case "stdio":
@@ -353,7 +363,7 @@ type ConfirmDeletion struct {
     Confirm string `json:"confirm" jsonschema:"Type DELETE to confirm deletion"`
 }
 
-func deleteRecords(ctx context.Context, input DeleteRecordsInput) (map[string]any, error) {
+func deleteRecords(ctx context.Context, toolCtx mcpio.RequestContext, input DeleteRecordsInput) (map[string]any, error) {
     // Preview what will be deleted
     records := getRecords(input.UserID) // Returns []Record from database
 
@@ -367,8 +377,9 @@ func deleteRecords(ctx context.Context, input DeleteRecordsInput) (map[string]an
         len(records), input.UserID, formatRecordList(records),
     )
 
-    // Ask user to confirm with elicitation
-    result, err := mcpio.ElicitTyped[ConfirmDeletion](ctx, message)
+    // Create elicitor and ask user to confirm
+    elicitor := mcpio.NewElicitor(toolCtx)
+    result, err := mcpio.ElicitTyped[ConfirmDeletion](ctx, elicitor, message)
     if err != nil {
         // Handle clients that don't support elicitation
         if errors.Is(err, mcpio.ErrElicitationNotSupported) {
@@ -428,8 +439,8 @@ type AdventureInput struct {
     Action string `json:"action" jsonschema:"What the player does"`
 }
 
-func dungeonMaster(ctx context.Context, input AdventureInput) (map[string]any, error) {
-    session := mcpio.GetSession(ctx)
+func dungeonMaster(ctx context.Context, toolCtx mcpio.RequestContext, input AdventureInput) (map[string]any, error) {
+    session := toolCtx.GetSession()
     if session == nil {
         return nil, fmt.Errorf("no session available")
     }
@@ -490,8 +501,8 @@ npx @modelcontextprotocol/inspector --cli go run -C examples/simple_dungeon_mast
 Send progress updates to the MCP client, useful for keeping users informed while long-running events are being processed by the MCP server.
 
 ```go
-func processDataTool(ctx context.Context, input struct{ Files []string }) (map[string]any, error) {
-    session := mcpio.GetSession(ctx)
+func processDataTool(ctx context.Context, toolCtx mcpio.RequestContext, input struct{ Files []string }) (map[string]any, error) {
+    session := toolCtx.GetSession()
     if session == nil {
         return nil, fmt.Errorf("no session available")
     }
@@ -515,14 +526,16 @@ func processDataTool(ctx context.Context, input struct{ Files []string }) (map[s
 Send structured log messages to the client for debugging and monitoring.
 
 ```go
-func myTool(ctx context.Context, input MyInput) (MyOutput, error) {
-    mcpio.LogInfo(ctx, "Processing started", map[string]any{
+func myTool(ctx context.Context, toolCtx mcpio.RequestContext, input MyInput) (MyOutput, error) {
+    session := toolCtx.GetSession()
+
+    session.LogInfo(ctx, "Processing started", map[string]any{
         "itemCount": len(input.Items),
     })
 
     // Do work...
 
-    mcpio.LogDebug(ctx, "Detailed state", map[string]any{
+    session.LogDebug(ctx, "Detailed state", map[string]any{
         "processed": processed,
         "remaining": remaining,
     })
@@ -531,38 +544,32 @@ func myTool(ctx context.Context, input MyInput) (MyOutput, error) {
 }
 ```
 
-Available logging functions:
-- `LogDebug(ctx, message, data)` - Debug-level logs
-- `LogInfo(ctx, message, data)` - Informational logs
-- `LogWarn(ctx, message, data)` - Warning logs
-- `LogError(ctx, message, data)` - Error logs
-
 **Note**: Future releases will add functional options to support logger names and metadata for complex multi-subsystem tools.
 
 ### Request Metadata Access
 
-Access request-specific metadata including OAuth tokens, HTTP headers, and resource identifiers through context helpers. This metadata is automatically injected when handlers are invoked by MCP clients.
+Access request-specific metadata including OAuth tokens, HTTP headers, and resource identifiers through the `ToolContext` parameter. This metadata is automatically injected when handlers are invoked by MCP clients.
 
-**Security Note**: MCP logs (`LogInfo`, `LogDebug`, etc.) are sent to the LLM as context. Never log sensitive data like OAuth tokens, session IDs, or internal identifiers to MCP logs. Use a separate logging backend (slog, standard logger, metrics system) for audit trails and analytics.
+**Security Note**: MCP logs (via `session.LogInfo()`, `session.LogDebug()`, etc.) are sent to the LLM as context. Never log sensitive data like OAuth tokens, session IDs, or internal identifiers to MCP logs. Use a separate logging backend (slog, standard logger, metrics system) for audit trails and analytics.
 
-Available helpers:
-- `GetIdentifier(ctx)` - Returns the tool name, prompt name, or resource URI for the current request
-- `GetTokenInfo(ctx)` - Returns OAuth token information if the client provided authentication
-- `GetRequestHeader(ctx, key)` - Returns a specific HTTP header value from the request
-- `GetRequestHeaders(ctx)` - Returns all HTTP headers from the request
+Available methods on `toolCtx`:
+- `toolCtx.GetIdentifier()` - Returns the tool name, prompt name, or resource URI for the current request
+- `toolCtx.GetTokenInfo()` - Returns OAuth token information if the client provided authentication
+- `toolCtx.GetHeaders().Get(key)` - Returns a specific HTTP header value from the request
+- `toolCtx.GetHeaders()` - Returns all HTTP headers from the request
 
 **Example: Accessing request context**
 
 ```go
 import "log/slog"
 
-func myTool(ctx context.Context, input MyInput) (MyOutput, error) {
+func myTool(ctx context.Context, toolCtx mcpio.RequestContext, input MyInput) (MyOutput, error) {
     // Get the tool/prompt/resource identifier
-    identifier := mcpio.GetIdentifier(ctx)
+    identifier := toolCtx.GetIdentifier()
 
     // Read custom HTTP headers from the client
-    clientVersion := mcpio.GetRequestHeader(ctx, "X-Client-Version")
-    deploymentEnv := mcpio.GetRequestHeader(ctx, "X-Deployment-Env")
+    clientVersion := toolCtx.GetHeaders().Get("X-Client-Version")
+    deploymentEnv := toolCtx.GetHeaders().Get("X-Deployment-Env")
 
     // Use backend logger for analytics/audit (NOT MCP logs which go to LLM)
     slog.Info("Request received",
@@ -578,13 +585,13 @@ func myTool(ctx context.Context, input MyInput) (MyOutput, error) {
 
 ### Session Interface Access
 
-Access the `SessionCapability` interface directly to check capabilities, call session methods, or access features not yet available through convenience helpers.
+Access the `Session` interface directly via `toolCtx` to check capabilities, call session methods, or access features not yet available through convenience helpers.
 
-**Note**: This returns mcp-io's `SessionCapability` interface, NOT the underlying MCP SDK's `*mcp.ServerSession`. You're still using mcp-io's abstraction layer, which means you're subject to the same incomplete implementations (missing Logger, ProgressToken, Meta fields, etc.). For direct MCP SDK access, use `handler.GetServer()` to access the raw `*mcp.Server`.
+**Note**: This returns mcp-io's `Session` interface, NOT the underlying MCP SDK's `*mcp.ServerSession`. You're still using mcp-io's abstraction layer, which means you're subject to the same incomplete implementations (missing Logger, ProgressToken, Meta fields, etc.). For direct MCP SDK access, use `handler.GetServer()` to access the raw `*mcp.Server`.
 
 ```go
-func advancedTool(ctx context.Context, _ struct{}) (map[string]any, error) {
-    session := mcpio.GetSession(ctx)
+func advancedTool(ctx context.Context, toolCtx mcpio.RequestContext, _ struct{}) (map[string]any, error) {
+    session := toolCtx.GetSession()
     if session == nil {
         return nil, errors.New("no session available")
     }
@@ -641,7 +648,7 @@ import (
 )
 
 // Example: A tool that validates and reformats any JSON input
-validateJSON := func(ctx context.Context, input []byte) ([]byte, error) {
+validateJSON := func(ctx context.Context, toolCtx mcpio.RequestContext, input []byte) ([]byte, error) {
     // Unmarshal to confirm it's valid JSON
     var jsonData any
     if err := json.Unmarshal(input, &jsonData); err != nil {
@@ -791,12 +798,12 @@ func greet(ctx context.Context, req *mcpSDK.CallToolRequest, input GreetInput) (
 mcpSDK.AddTool(server, tool, greet) // Schema auto-generated from types
 ```
 
-**mcp-io**: Simplified signature for common cases
+**mcp-io**: Simplified signature with RequestContext parameter
 ```go
-// Cleaner signature - just input and output
-func greet(ctx context.Context, input GreetInput) (GreetOutput, error) {
-    // Session available via context, if needed.
-    session := mcpio.GetSession(ctx)
+// Clean signature with toolCtx parameter for metadata access
+func greet(ctx context.Context, toolCtx mcpio.RequestContext, input GreetInput) (GreetOutput, error) {
+    // Session available via toolCtx, if needed
+    session := toolCtx.GetSession()
 
     return GreetOutput{Greeting: "Hello " + input.Name}, nil
 }
@@ -807,21 +814,45 @@ handler, err := mcpio.NewHandler(
 )
 ```
 
+### Request Context Pattern
+
+**MCP SDK**: Functions receive concrete request types
+```go
+func handler(ctx context.Context, req *mcpSDK.CallToolRequest, input T) (*mcpSDK.CallToolResult, T, error) {
+    token := req.Extra.TokenInfo
+    session := req.Session
+    toolName := req.Params.Name
+    // ...
+}
+```
+
+**mcp-io**: Functions receive an interface
+```go
+func handler(ctx context.Context, toolCtx mcpio.RequestContext, input T) (T, error) {
+    token := toolCtx.GetTokenInfo()
+    session := toolCtx.GetSession()
+    toolName := toolCtx.GetIdentifier()
+    // ...
+}
+```
+
+The interface decouples handlers from SDK struct layout, enabling dependency injection and simpler testing with mock implementations.
+
 **Comparison**:
 
 | Feature | MCP SDK | mcp-io (current) | mcp-io (planned) |
 |---------|---------|------------------|------------------|
 | Auto-generate schemas | ✅ Yes | ✅ Yes | ✅ Yes |
-| Simple handler signature | ⚠️ 5 params | ✅ 2 params | ✅ 2 params |
-| Access session capabilities | ✅ Via request param | ✅ Via context | ✅ Via context |
-| Access OAuth tokens | ✅ Via `req.Extra.TokenInfo` | ✅ Via `GetTokenInfo(ctx)` | N/A |
-| Access HTTP headers | ✅ Via `req.Extra.Header` | ✅ Via `GetRequestHeader(ctx)` | N/A |
-| Access tool name | ✅ Via `req.Params.Name` | ✅ Via `GetIdentifier(ctx)` | N/A |
+| Simple handler signature | ⚠️ 5 params | ✅ 3 params | ✅ 3 params |
+| Access session capabilities | ✅ Via request param | ✅ Via toolCtx | ✅ Via toolCtx |
+| Access OAuth tokens | ✅ Via `req.Extra.TokenInfo` | ✅ Via `toolCtx.GetTokenInfo()` | N/A |
+| Access HTTP headers | ✅ Via `req.Extra.Header` | ✅ Via `toolCtx.GetHeaders()` | N/A |
+| Access tool name | ✅ Via `req.Params.Name` | ✅ Via `toolCtx.GetIdentifier()` | N/A |
 | Control output format | ✅ Via `CallToolResult` | ❌ Auto-wrapped | ⚠️ Raw handler option |
 | Escape hatch to MCP SDK | N/A | ⚠️ Via `GetServer()` | ✅ `WithRawToolHandler` |
 
 
-Request metadata (OAuth tokens, HTTP headers, tool/prompt/resource identifiers) is accessible via context helpers: `GetTokenInfo(ctx)`, `GetRequestHeader(ctx, key)`, `GetRequestHeaders(ctx)`, and `GetIdentifier(ctx)`. See [Request Metadata Access](#request-metadata-access) for details.
+Request metadata (OAuth tokens, HTTP headers, tool/prompt/resource identifiers) is accessible via the `toolCtx` parameter: `toolCtx.GetTokenInfo()`, `toolCtx.GetHeaders().Get(key)`, `toolCtx.GetHeaders()`, and `toolCtx.GetIdentifier()`. See [Request Metadata Access](#request-metadata-access) for details.
 
 ## License
 

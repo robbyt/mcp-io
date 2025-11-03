@@ -8,8 +8,9 @@ import (
 )
 
 // ResourceFunc is the function signature for user-defined resource handlers.
-// The function receives a context and a URI string, and returns ResourceContent with an optional error.
-type ResourceFunc func(context.Context, string) (*ResourceContent, error)
+// The function receives a context, request context with metadata, and returns ResourceContent with an optional error.
+// The URI can be accessed via reqCtx.GetIdentifier().
+type ResourceFunc func(context.Context, RequestContext) (*ResourceContent, error)
 
 // ResourceContent represents the content of a resource
 type ResourceContent struct {
@@ -20,11 +21,11 @@ type ResourceContent struct {
 // createResourceHandler wraps a user function to match MCP ResourceHandler signature
 func createResourceHandler(fn ResourceFunc) mcp.ResourceHandler {
 	return func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-		// Inject request context (session + metadata)
-		ctx = withMCPContext(ctx, newRequestContext(req.Params.URI, req.Session, req.Extra))
+		// Create request context with all MCP metadata
+		reqCtx := newRequestContext(req.Params.URI, req.Params, req.Session, req.Extra)
 
-		// Execute user function
-		content, err := fn(ctx, req.Params.URI)
+		// Execute user function with request context
+		content, err := fn(ctx, reqCtx)
 		if err != nil {
 			// Return all errors as protocol-level errors
 			// Prompts and resources follow the same pattern: errors are protocol-level,

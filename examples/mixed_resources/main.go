@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -31,14 +30,14 @@ type AnalysisOutput struct {
 }
 
 // Tool functions
-func formatText(ctx context.Context, input TextInput) (TextOutput, error) {
+func formatText(ctx context.Context, toolCtx mcpio.RequestContext, input TextInput) (TextOutput, error) {
 	// Clean up text: trim whitespace, normalize spacing
 	cleaned := strings.TrimSpace(input.Text)
 	cleaned = strings.Join(strings.Fields(cleaned), " ")
 	return TextOutput{Result: cleaned}, nil
 }
 
-func analyzeText(ctx context.Context, input AnalysisInput) (AnalysisOutput, error) {
+func analyzeText(ctx context.Context, toolCtx mcpio.RequestContext, input AnalysisInput) (AnalysisOutput, error) {
 	text := input.Text
 
 	// Word count
@@ -73,7 +72,8 @@ func analyzeText(ctx context.Context, input AnalysisInput) (AnalysisOutput, erro
 }
 
 // Resource handler - provides sample documents and templates
-func documentResource(ctx context.Context, uri string) (*mcpio.ResourceContent, error) {
+func documentResource(ctx context.Context, reqCtx mcpio.RequestContext) (*mcpio.ResourceContent, error) {
+	uri := reqCtx.GetIdentifier()
 	var content []byte
 	var mimeType string
 
@@ -101,7 +101,7 @@ func documentResource(ctx context.Context, uri string) (*mcpio.ResourceContent, 
 }
 
 // Prompt handler - generates document writing prompts
-func documentPrompt(ctx context.Context, args map[string]any) (*mcpio.PromptResult, error) {
+func documentPrompt(ctx context.Context, reqCtx mcpio.RequestContext, args map[string]any) (*mcpio.PromptResult, error) {
 	documentType, _ := args["document_type"].(string)
 	topic, _ := args["topic"].(string)
 	tone, _ := args["tone"].(string)
@@ -164,7 +164,7 @@ func main() {
 	}
 
 	// Serve via stdio (standard for CLI MCP servers)
-	if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+	if err := handler.ServeStdio(context.Background()); err != nil {
 		log.Fatalf("Failed to serve MCP via stdio: %v", err)
 	}
 }

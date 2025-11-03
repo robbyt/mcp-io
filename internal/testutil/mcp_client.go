@@ -2,6 +2,8 @@ package testutil
 
 import (
 	"context"
+	"errors"
+	"log"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -37,14 +39,25 @@ func ConnectInMemory(t *testing.T, handler *mcpio.Handler) *MCPSession {
 
 	// Create in-memory transports
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
-	ctx := context.Background()
+	ctx := t.Context()
 
-	// Start server in background
-	go func() {
-		if runErr := handler.GetServer().Run(ctx, serverTransport); runErr != nil {
-			t.Logf("server run error: %v", runErr)
-		}
-	}()
+	// Set the transport on the server before running
+	server := handler.GetServer()
+	if mcpServer, ok := server.Unwrap().(*mcp.Server); ok {
+		// Need to get the wrapper and set transport
+		// For in-memory testing, we need to use the SDK server directly
+		go func() {
+			if runErr := mcpServer.Run(ctx, serverTransport); runErr != nil {
+				// Don't log expected context cancellation when test ends
+				if !errors.Is(runErr, context.Canceled) {
+					// Use log.Printf instead of t.Logf to avoid data race
+					log.Printf("server run error: %v", runErr)
+				}
+			}
+		}()
+	} else {
+		t.Fatal("failed to unwrap MCP server for in-memory testing")
+	}
 
 	// Connect client
 	client := mcp.NewClient(DefaultTestImplementation(), nil)

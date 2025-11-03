@@ -13,6 +13,12 @@ type Root struct {
 	Name string // Optional human-readable name for display purposes
 }
 
+// RootsCapabilities indicates the client supports roots.
+type RootsCapabilities struct {
+	// ListChanged indicates whether the client supports notifications for changes to the roots list.
+	ListChanged bool
+}
+
 // SupportsRoots returns true if the client supports filesystem roots with change notifications.
 //
 // NOTE: Due to a Go SDK design limitation, this only detects clients that support

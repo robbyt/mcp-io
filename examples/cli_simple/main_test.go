@@ -34,20 +34,14 @@ func TestCliSimpleSuite(t *testing.T) {
 func (s *CliSimpleTestSuite) TestToUpper() {
 	ctx := s.T().Context()
 
-	// Create server using the same logic as main()
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("simple-text-processor"),
-			mcpio.WithVersion("1.0.0"),
-			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("simple-text-processor"),
+		mcpio.WithVersion("1.0.0"),
+		mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
+	)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		testCases := []struct {
 			name     string
 			input    string
@@ -81,19 +75,14 @@ func (s *CliSimpleTestSuite) TestToUpper() {
 func (s *CliSimpleTestSuite) TestToolListing() {
 	ctx := s.T().Context()
 
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("simple-text-processor"),
-			mcpio.WithVersion("1.0.0"),
-			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("simple-text-processor"),
+		mcpio.WithVersion("1.0.0"),
+		mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
+	)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		result, err := session.ListTools(ctx, &mcp.ListToolsParams{})
 		s.Require().NoError(err)
 		s.Require().Len(result.Tools, 1)
@@ -108,19 +97,14 @@ func (s *CliSimpleTestSuite) TestToolListing() {
 func (s *CliSimpleTestSuite) TestErrorHandling() {
 	ctx := s.T().Context()
 
-	serverBuilder := func() (*mcp.Server, error) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("simple-text-processor"),
-			mcpio.WithVersion("1.0.0"),
-			mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
-		)
-		if err != nil {
-			return nil, err
-		}
-		return handler.GetServer(), nil
-	}
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("simple-text-processor"),
+		mcpio.WithVersion("1.0.0"),
+		mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
+	)
+	s.Require().NoError(err)
 
-	s.WithMCPSession(serverBuilder, func(session *mcp.ClientSession) {
+	s.WithMCPSession(handler, func(session *mcp.ClientSession) {
 		// Test calling non-existent tool
 		_, err := session.CallTool(ctx, &mcp.CallToolParams{
 			Name:      "non_existent",

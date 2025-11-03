@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 
 	mcpio "github.com/robbyt/mcp-io"
 )
 
-func greeterPrompt(ctx context.Context, args map[string]any) (*mcpio.PromptResult, error) {
+func greeterPrompt(ctx context.Context, reqCtx mcpio.RequestContext, args map[string]any) (*mcpio.PromptResult, error) {
 	name, _ := args["name"].(string)
 	if name == "" {
 		name = "World"
@@ -37,7 +36,7 @@ type DocumentPromptArgs struct {
 }
 
 // documentPrompt demonstrates a typed prompt function with automatic schema generation
-func documentPrompt(ctx context.Context, args DocumentPromptArgs) (*mcpio.PromptResult, error) {
+func documentPrompt(ctx context.Context, reqCtx mcpio.RequestContext, args DocumentPromptArgs) (*mcpio.PromptResult, error) {
 	// Use typed arguments directly - no casting needed!
 	content := fmt.Sprintf("Write a %s about %s using a %s tone", args.DocumentType, args.Topic, args.Tone)
 	if args.Length != "" {
@@ -69,7 +68,7 @@ func main() {
 		log.Fatal("Failed to create MCP handler:", err)
 	}
 
-	if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+	if err := handler.ServeStdio(context.Background()); err != nil {
 		log.Fatal("Failed to serve MCP via stdio:", err)
 	}
 }

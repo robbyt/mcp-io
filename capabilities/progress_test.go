@@ -1,7 +1,6 @@
 package capabilities_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/robbyt/mcp-io/capabilities"
@@ -19,7 +18,7 @@ func TestNotifyProgress(t *testing.T) {
 		mockSession.On("NotifyProgress", mock.Anything, mock.Anything).Return(nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		err := session.NotifyProgress(context.Background(), 0.5, 1.0)
+		err := session.NotifyProgress(t.Context(), 0.5, 1.0)
 
 		require.NoError(t, err)
 		mockSession.AssertExpectations(t)
@@ -30,7 +29,7 @@ func TestNotifyProgress(t *testing.T) {
 		mockSession.On("NotifyProgress", mock.Anything, mock.Anything).Return(nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		err := session.NotifyProgress(context.Background(), 0.0, 1.0)
+		err := session.NotifyProgress(t.Context(), 0.0, 1.0)
 
 		require.NoError(t, err)
 		mockSession.AssertExpectations(t)
@@ -41,7 +40,7 @@ func TestNotifyProgress(t *testing.T) {
 		mockSession.On("NotifyProgress", mock.Anything, mock.Anything).Return(nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		err := session.NotifyProgress(context.Background(), 1.0, 1.0)
+		err := session.NotifyProgress(t.Context(), 1.0, 1.0)
 
 		require.NoError(t, err)
 		mockSession.AssertExpectations(t)
@@ -53,7 +52,7 @@ func TestNotifyProgress(t *testing.T) {
 		mockSession.On("NotifyProgress", mock.Anything, mock.Anything).Return(expectedErr)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		err := session.NotifyProgress(context.Background(), 0.5, 1.0)
+		err := session.NotifyProgress(t.Context(), 0.5, 1.0)
 
 		require.Error(t, err)
 		require.ErrorIs(t, err, expectedErr)

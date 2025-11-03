@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/mcpwrapper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,11 +24,11 @@ type testOutput struct {
 }
 
 // Test helper functions
-func testToolFunc(ctx context.Context, input testInput) (testOutput, error) {
+func testToolFunc(ctx context.Context, toolCtx RequestContext, input testInput) (testOutput, error) {
 	return testOutput{Result: input.Value + "_processed"}, nil
 }
 
-func testRawToolFunc(ctx context.Context, input []byte) ([]byte, error) {
+func testRawToolFunc(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 	return input, nil
 }
 
@@ -233,7 +234,7 @@ func TestOptionErrorConditions(t *testing.T) {
 	assert.Equal(t, "1.0.0", cfg.version)
 }
 
-func TestWithServerOptions(t *testing.T) {
+func TestWithServerConfig(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -267,7 +268,7 @@ func TestWithServerOptions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &handlerConfig{}
-			option := WithServerOptions(tt.opts)
+			option := WithServerConfig(tt.opts)
 			err := option(cfg)
 
 			if tt.wantErr != nil {
@@ -280,68 +281,172 @@ func TestWithServerOptions(t *testing.T) {
 	}
 }
 
-func TestWithStreamableHTTPOptions(t *testing.T) {
+func TestWithServerOptions(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name    string
-		opts    *mcp.StreamableHTTPOptions
-		wantErr error
-	}{
-		{
-			name: "stateless mode enabled",
-			opts: &mcp.StreamableHTTPOptions{
-				Stateless: true,
-			},
-			wantErr: nil,
-		},
-		{
-			name: "JSON response mode enabled",
-			opts: &mcp.StreamableHTTPOptions{
-				JSONResponse: true,
-			},
-			wantErr: nil,
-		},
-		{
-			name: "both options enabled",
-			opts: &mcp.StreamableHTTPOptions{
-				Stateless:    true,
-				JSONResponse: true,
-			},
-			wantErr: nil,
-		},
-		{
-			name:    "valid empty streamable HTTP options",
-			opts:    &mcp.StreamableHTTPOptions{},
-			wantErr: nil,
-		},
-		{
-			name:    "nil streamable HTTP options should return error",
-			opts:    nil,
-			wantErr: ErrNilValue,
-		},
-	}
+	t.Run("defaults are preserved when no options provided", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions()
+		err := option(cfg)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &handlerConfig{}
-			option := WithStreamableHTTPOptions(tt.opts)
-			err := option(cfg)
+		require.NoError(t, err)
+		assert.Empty(t, cfg.serverOptions.Instructions)
+		assert.Equal(t, 0, cfg.serverOptions.PageSize)
+		assert.False(t, cfg.serverOptions.HasPrompts)
+		assert.False(t, cfg.serverOptions.HasResources)
+		assert.False(t, cfg.serverOptions.HasTools)
+	})
 
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.opts, cfg.streamableHTTPOptions)
-			}
-		})
-	}
+	t.Run("WithInstructions sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions(mcpwrapper.WithInstructions("Test instructions"))
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, "Test instructions", cfg.serverOptions.Instructions)
+	})
+
+	t.Run("WithPageSize sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions(mcpwrapper.WithPageSize(50))
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, 50, cfg.serverOptions.PageSize)
+	})
+
+	t.Run("WithCapabilityPrompts sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions(mcpwrapper.WithCapabilityPrompts())
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.True(t, cfg.serverOptions.HasPrompts)
+	})
+
+	t.Run("WithCapabilityResources sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions(mcpwrapper.WithCapabilityResources())
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.True(t, cfg.serverOptions.HasResources)
+	})
+
+	t.Run("WithCapabilityTools sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions(mcpwrapper.WithCapabilityTools())
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.True(t, cfg.serverOptions.HasTools)
+	})
+
+	t.Run("multiple sub-options can be combined", func(t *testing.T) {
+		cfg := &handlerConfig{
+			serverOptions: &mcp.ServerOptions{},
+		}
+		option := WithServerOptions(
+			mcpwrapper.WithInstructions("Combined test"),
+			mcpwrapper.WithPageSize(100),
+			mcpwrapper.WithCapabilityPrompts(),
+			mcpwrapper.WithCapabilityResources(),
+			mcpwrapper.WithCapabilityTools(),
+		)
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, "Combined test", cfg.serverOptions.Instructions)
+		assert.Equal(t, 100, cfg.serverOptions.PageSize)
+		assert.True(t, cfg.serverOptions.HasPrompts)
+		assert.True(t, cfg.serverOptions.HasResources)
+		assert.True(t, cfg.serverOptions.HasTools)
+	})
+}
+
+func TestWithHTTPTransport(t *testing.T) {
+	t.Parallel()
+
+	t.Run("defaults are preserved when no options provided", func(t *testing.T) {
+		cfg := &handlerConfig{
+			httpOpts: &mcp.StreamableHTTPOptions{
+				Stateless:    false,
+				JSONResponse: false,
+			},
+		}
+		option := WithHTTPTransport()
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.False(t, cfg.httpOpts.Stateless)
+		assert.False(t, cfg.httpOpts.JSONResponse)
+	})
+
+	t.Run("WithStateless sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			httpOpts: &mcp.StreamableHTTPOptions{
+				Stateless:    false,
+				JSONResponse: false,
+			},
+		}
+		option := WithHTTPTransport(mcpwrapper.WithStateless())
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.True(t, cfg.httpOpts.Stateless)
+		assert.False(t, cfg.httpOpts.JSONResponse)
+	})
+
+	t.Run("WithJSONResponse sub-option modifies defaults", func(t *testing.T) {
+		cfg := &handlerConfig{
+			httpOpts: &mcp.StreamableHTTPOptions{
+				Stateless:    false,
+				JSONResponse: false,
+			},
+		}
+		option := WithHTTPTransport(mcpwrapper.WithJSONResponse())
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.False(t, cfg.httpOpts.Stateless)
+		assert.True(t, cfg.httpOpts.JSONResponse)
+	})
+
+	t.Run("multiple sub-options can be combined", func(t *testing.T) {
+		cfg := &handlerConfig{
+			httpOpts: &mcp.StreamableHTTPOptions{
+				Stateless:    false,
+				JSONResponse: false,
+			},
+		}
+		option := WithHTTPTransport(
+			mcpwrapper.WithStateless(),
+			mcpwrapper.WithJSONResponse(),
+		)
+		err := option(cfg)
+
+		require.NoError(t, err)
+		assert.True(t, cfg.httpOpts.Stateless)
+		assert.True(t, cfg.httpOpts.JSONResponse)
+	})
 }
 
 func TestPromptOptions(t *testing.T) {
 	t.Parallel()
 
-	testPromptFunc := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+	testPromptFunc := func(ctx context.Context, reqCtx RequestContext, args map[string]any) (*PromptResult, error) {
 		return &PromptResult{
 			Messages: []PromptMessage{{Role: "user", Content: "test"}},
 		}, nil
@@ -489,11 +594,11 @@ func TestPromptOptions(t *testing.T) {
 func TestResourceOptions(t *testing.T) {
 	t.Parallel()
 
-	resourceFunc := func(ctx context.Context, uri string) (*ResourceContent, error) {
+	resourceFunc := func(ctx context.Context, reqCtx RequestContext) (*ResourceContent, error) {
 		return &ResourceContent{Content: []byte("test content"), MIMEType: "text/plain"}, nil
 	}
 
-	templateFunc := func(ctx context.Context, uri string) (*ResourceContent, error) {
+	templateFunc := func(ctx context.Context, reqCtx RequestContext) (*ResourceContent, error) {
 		return &ResourceContent{Content: []byte("template content"), MIMEType: "application/json"}, nil
 	}
 
@@ -557,15 +662,15 @@ type GreetOutput struct {
 }
 
 // Test helper functions for tool tests
-func greetFunc(ctx context.Context, input GreetInput) (GreetOutput, error) {
+func greetFunc(ctx context.Context, toolCtx RequestContext, input GreetInput) (GreetOutput, error) {
 	return GreetOutput{Message: "Hello, " + input.Name}, nil
 }
 
-func farewellFunc(ctx context.Context, input GreetInput) (GreetOutput, error) {
+func farewellFunc(ctx context.Context, toolCtx RequestContext, input GreetInput) (GreetOutput, error) {
 	return GreetOutput{Message: "Goodbye, " + input.Name}, nil
 }
 
-func rawToolFunc(ctx context.Context, input []byte) ([]byte, error) {
+func rawToolFunc(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 	return []byte(`{"result": "processed"}`), nil
 }
 
@@ -686,18 +791,19 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("success path with valid JSON", func(t *testing.T) {
 		// Raw function that returns valid JSON
-		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return []byte(`{"result": "success", "input_length": ` + strconv.Itoa(len(input)) + `}`), nil
 		}
 
-		handler := createRawToolHandler(rawFunc)
+		h := &Handler{}
+		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{
 			"test": "value",
 			"num":  42,
 		})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		require.NoError(t, err)
 		assert.NotNil(t, result)
@@ -711,11 +817,12 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("input marshaling error", func(t *testing.T) {
 		// Raw function (won't be called due to marshaling error)
-		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return []byte(`{"result": "should not reach"}`), nil
 		}
 
-		handler := createRawToolHandler(rawFunc)
+		h := &Handler{}
+		handler := createRawToolHandler(h, rawFunc)
 
 		// Create request with invalid JSON that will cause marshaling to fail
 		// We'll pass invalid JSON as RawMessage directly
@@ -725,7 +832,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			},
 		}
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		require.NoError(t, err) // Handler should not return protocol error
 		assert.NotNil(t, result)
@@ -739,15 +846,16 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("raw function returns ToolError", func(t *testing.T) {
 		// Raw function that returns a ToolError
-		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return nil, NewToolError("validation failed")
 		}
 
-		handler := createRawToolHandler(rawFunc)
+		h := &Handler{}
+		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		require.NoError(t, err) // Handler should not return protocol error
 		assert.NotNil(t, result)
@@ -761,15 +869,16 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("raw function returns ToolError with code", func(t *testing.T) {
 		// Raw function that returns a ToolError with error code
-		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return nil, ValidationError("invalid input format")
 		}
 
-		handler := createRawToolHandler(rawFunc)
+		h := &Handler{}
+		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"data": "invalid"})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		require.NoError(t, err) // Handler should not return protocol error
 		assert.NotNil(t, result)
@@ -786,15 +895,16 @@ func TestCreateRawToolHandler(t *testing.T) {
 		errDatabaseFailed := errors.New("database connection failed")
 
 		// Raw function that returns a regular Go error (protocol error)
-		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return nil, errDatabaseFailed
 		}
 
-		handler := createRawToolHandler(rawFunc)
+		h := &Handler{}
+		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"query": "test"})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		// Protocol errors should be returned as Go errors, not CallToolResult
 		require.ErrorIs(t, err, errDatabaseFailed)
@@ -803,15 +913,16 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("invalid JSON output", func(t *testing.T) {
 		// Raw function that returns invalid JSON
-		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return []byte(`{invalid json:`), nil
 		}
 
-		handler := createRawToolHandler(rawFunc)
+		h := &Handler{}
+		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		// Invalid JSON should be a protocol error
 		require.Error(t, err)
@@ -821,15 +932,16 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("empty JSON object output", func(t *testing.T) {
 		// Raw function that returns empty JSON object
-		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return []byte(`{}`), nil
 		}
 
-		handler := createRawToolHandler(rawFunc)
+		h := &Handler{}
+		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		require.NoError(t, err)
 		assert.NotNil(t, result)
@@ -843,15 +955,16 @@ func TestCreateRawToolHandler(t *testing.T) {
 
 	t.Run("JSON array output", func(t *testing.T) {
 		// Raw function that returns JSON array
-		rawFunc := func(ctx context.Context, input []byte) ([]byte, error) {
+		rawFunc := func(ctx context.Context, toolCtx RequestContext, input []byte) ([]byte, error) {
 			return []byte(`[1, 2, 3]`), nil
 		}
 
-		handler := createRawToolHandler(rawFunc)
+		h := &Handler{}
+		handler := createRawToolHandler(h, rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"count": 3})
 
-		result, err := handler(context.Background(), req)
+		result, err := handler(t.Context(), req)
 
 		require.NoError(t, err)
 		assert.NotNil(t, result)

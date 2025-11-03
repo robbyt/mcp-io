@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 	"strings"
 
 	mcpio "github.com/robbyt/mcp-io"
@@ -14,7 +13,8 @@ var data = map[string]string{
 	"farewell": "Goodbye, World!",
 }
 
-func resourceReader(ctx context.Context, uri string) (*mcpio.ResourceContent, error) {
+func resourceReader(ctx context.Context, reqCtx mcpio.RequestContext) (*mcpio.ResourceContent, error) {
+	uri := reqCtx.GetIdentifier()
 	key := strings.TrimPrefix(uri, "res://kv/")
 	if value, ok := data[key]; ok {
 		return &mcpio.ResourceContent{
@@ -34,7 +34,7 @@ func main() {
 		log.Fatal("Failed to create MCP handler:", err)
 	}
 
-	if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+	if err := handler.ServeStdio(context.Background()); err != nil {
 		log.Fatal("Failed to serve MCP via stdio:", err)
 	}
 }

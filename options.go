@@ -2,12 +2,11 @@ package mcpio
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/mcpwrapper"
 	"github.com/robbyt/mcp-io/primitives/tool"
 )
 
@@ -47,8 +46,10 @@ func WithServer(server *mcp.Server) Option {
 	}
 }
 
-// WithServerOptions sets the MCP server options
-func WithServerOptions(opts *mcp.ServerOptions) Option {
+// WithServerConfig sets the complete MCP server options struct.
+// Use this for advanced configurations requiring handler functions.
+// For simple configurations, prefer WithServerOptions with functional options.
+func WithServerConfig(opts *mcp.ServerOptions) Option {
 	return func(cfg *handlerConfig) error {
 		if opts == nil {
 			return fmt.Errorf("server options cannot be nil: %w", ErrNilValue)
@@ -58,13 +59,43 @@ func WithServerOptions(opts *mcp.ServerOptions) Option {
 	}
 }
 
-// WithStreamableHTTPOptions sets the streamable HTTP handler options
-func WithStreamableHTTPOptions(opts *mcp.StreamableHTTPOptions) Option {
+// WithHTTPTransport configures the Streamable HTTP transport.
+// Accepts variadic TransportOption functions for configuration (e.g., mcp.WithStateless()).
+//
+// Example:
+//
+//	mcpio.WithHTTPTransport(
+//	    mcp.WithStateless(),
+//	    mcp.WithJSONResponse(),
+//	)
+func WithHTTPTransport(opts ...mcpwrapper.TransportOptionStreamableHTTP) Option {
 	return func(cfg *handlerConfig) error {
-		if opts == nil {
-			return fmt.Errorf("streamable HTTP options cannot be nil: %w", ErrNilValue)
+		// Apply options to existing httpOpts (modify defaults)
+		for _, opt := range opts {
+			if err := opt(cfg.httpOpts); err != nil {
+				return err
+			}
 		}
-		cfg.streamableHTTPOptions = opts
+		return nil
+	}
+}
+
+// WithServerOptions configures MCP server options using functional options.
+// Accepts variadic ServerOption functions for configuration.
+//
+// Example:
+//
+//	mcpio.WithServerOptions(
+//	    mcp.WithInstructions("Use this server for data processing"),
+//	    mcp.WithPageSize(50),
+//	    mcp.WithCapabilityPrompts(),
+//	)
+func WithServerOptions(opts ...mcpwrapper.ServerOption) Option {
+	return func(cfg *handlerConfig) error {
+		// Apply options to existing serverOptions (modify defaults)
+		for _, opt := range opts {
+			opt(cfg.serverOptions)
+		}
 		return nil
 	}
 }
@@ -196,9 +227,10 @@ func WithResourceTemplate(uriTemplate, description string, fn ResourceFunc) Opti
 }
 
 // ToolFunc is the function signature for typed tools with automatic schema generation.
-// The function receives a context and typed input, and returns typed output with an optional error.
+// The function receives a context, RequestContext for accessing session/metadata, typed input,
+// and returns typed output with an optional error.
 // Schema generation is handled automatically based on the TIn and TOut types.
-type ToolFunc[TIn, TOut any] func(context.Context, TIn) (TOut, error)
+type ToolFunc[TIn, TOut any] func(context.Context, RequestContext, TIn) (TOut, error)
 
 // WithTool adds a type-safe tool with automatic schema generation from Go types.
 //
@@ -222,7 +254,7 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 			return fmt.Errorf("tool name cannot be empty: %w", ErrEmptyValue)
 		}
 
-		registerFunc := func(server *mcp.Server) error {
+		registerFunc := func(handler *Handler, server *mcp.Server) error {
 			// Create tool with metadata
 			mcpTool := &mcp.Tool{
 				Name:        name,
@@ -236,8 +268,8 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 				}
 			}
 
-			handler := createTypedHandler(fn)
-			mcp.AddTool(server, mcpTool, handler) // Auto-generates InputSchema from TIn
+			handlerFunc := createTypedHandler(handler, fn)
+			mcp.AddTool(server, mcpTool, handlerFunc) // Auto-generates InputSchema from TIn
 			return nil
 		}
 
@@ -247,9 +279,10 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 }
 
 // RawToolFunc is the function signature for raw JSON tools.
-// The function receives a context and raw JSON bytes as input, and returns JSON bytes as output.
+// The function receives a context, RequestContext for accessing session/metadata,
+// and raw JSON bytes as input, and returns JSON bytes as output.
 // Schema must be provided explicitly when using WithRawTool.
-type RawToolFunc func(context.Context, []byte) ([]byte, error)
+type RawToolFunc func(context.Context, RequestContext, []byte) ([]byte, error)
 
 // WithRawTool adds a tool with manual JSON handling and explicit schema.
 // Use this when you need direct control over JSON processing or dynamic schemas.
@@ -279,71 +312,20 @@ func WithRawTool(name, description string, inputSchema any, fn RawToolFunc, opts
 		}
 
 		// Create registration function
-		registerFunc := func(server *mcp.Server) error {
+		registerFunc := func(handler *Handler, server *mcp.Server) error {
 			// Use primitives/tool to construct the tool
 			mcpTool, err := tool.New(name, description, inputSchema, opts...)
 			if err != nil {
 				return err
 			}
 
-			handler := createRawToolHandler(fn)
-			server.AddTool(mcpTool, handler)
+			handlerFunc := createRawToolHandler(handler, fn)
+			server.AddTool(mcpTool, handlerFunc)
 			return nil
 		}
 
 		cfg.tools = append(cfg.tools, registerFunc)
 
 		return nil
-	}
-}
-
-// createRawToolHandler wraps a raw function to match the MCP ToolHandler signature
-func createRawToolHandler(fn RawToolFunc) mcp.ToolHandler {
-	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// Inject request context (session + metadata)
-		ctx = withMCPContext(ctx, newRequestContext(req.Params.Name, req.Session, req.Extra))
-
-		// Marshal input arguments to JSON bytes
-		inputJSON, err := json.Marshal(req.Params.Arguments)
-		if err != nil {
-			return &mcp.CallToolResult{
-				Content: []mcp.Content{
-					&mcp.TextContent{Text: fmt.Sprintf("Failed to marshal input: %v", err)},
-				},
-				IsError: true,
-			}, nil
-		}
-
-		// Execute raw function
-		outputJSON, err := fn(ctx, inputJSON)
-		if err != nil {
-			// Check if it's a tool error
-			var toolErr *ToolError
-			if errors.As(err, &toolErr) {
-				return &mcp.CallToolResult{
-					Content: []mcp.Content{
-						&mcp.TextContent{Text: toolErr.Error()},
-					},
-					IsError: true,
-				}, nil
-			}
-			// Protocol error
-			return nil, err
-		}
-
-		// Parse output for structured response
-		var output any
-		if err := json.Unmarshal(outputJSON, &output); err != nil {
-			// Raw tools must return valid JSON
-			return nil, errors.Join(ErrInvalidJSON, err)
-		}
-
-		// Return structured output
-		outputJSONStr := string(outputJSON)
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: outputJSONStr},
-			},
-		}, nil
 	}
 }

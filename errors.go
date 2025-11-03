@@ -129,8 +129,19 @@ var (
 )
 
 // Session-related errors
-var (
-	ErrNoSession               = errors.New("no session available in context")
-	ErrSamplingNotSupported    = errors.New("client does not support sampling")
-	ErrElicitationNotSupported = errors.New("client does not support elicitation")
-)
+
+// ErrNoSession is returned when a session-dependent operation is attempted
+// without an active MCP session in the context. This typically occurs when
+// calling sampling, elicitation, or logging functions outside of a proper
+// tool, prompt, or resource handler execution.
+var ErrNoSession = errors.New("no session available in context")
+
+// ErrSamplingNotSupported is returned when attempting to use CreateMessage
+// (sampling) with a client that doesn't support the sampling capability.
+// Check capabilities.Session.SupportsSampling() before calling CreateMessage.
+var ErrSamplingNotSupported = errors.New("client does not support sampling")
+
+// ErrElicitationNotSupported is returned when attempting to elicit user input
+// from a client that doesn't support the elicitation capability.
+// Check capabilities.Session.SupportsElicitation() before calling elicitation functions.
+var ErrElicitationNotSupported = errors.New("client does not support elicitation")

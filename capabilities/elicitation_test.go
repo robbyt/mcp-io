@@ -1,7 +1,6 @@
 package capabilities_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -50,7 +49,7 @@ func TestElicit(t *testing.T) {
 		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		result, err := session.Elicit(context.Background(), "Enter data", map[string]any{"type": "object"})
+		result, err := session.Elicit(t.Context(), "Enter data", map[string]any{"type": "object"})
 
 		require.NoError(t, err)
 		assert.Equal(t, "accept", result.Action)
@@ -67,7 +66,7 @@ func TestElicit(t *testing.T) {
 		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		result, err := session.Elicit(context.Background(), "Enter data", map[string]any{"type": "object"})
+		result, err := session.Elicit(t.Context(), "Enter data", map[string]any{"type": "object"})
 
 		require.NoError(t, err)
 		assert.Equal(t, "decline", result.Action)
@@ -84,7 +83,7 @@ func TestElicit(t *testing.T) {
 		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		result, err := session.Elicit(context.Background(), "Enter data", map[string]any{"type": "object"})
+		result, err := session.Elicit(t.Context(), "Enter data", map[string]any{"type": "object"})
 
 		require.NoError(t, err)
 		assert.Equal(t, "cancel", result.Action)
@@ -98,7 +97,7 @@ func TestElicit(t *testing.T) {
 		mockSession.On("Elicit", mock.Anything, mock.Anything).Return(nil, expectedErr)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		result, err := session.Elicit(context.Background(), "Enter data", map[string]any{"type": "object"})
+		result, err := session.Elicit(t.Context(), "Enter data", map[string]any{"type": "object"})
 
 		require.Error(t, err)
 		require.ErrorIs(t, err, expectedErr)

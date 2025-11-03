@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/mcpwrapper"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -59,18 +61,18 @@ func (s *ExampleTestSuite) BinaryPath() string {
 }
 
 // WithMCPSession tests an MCP server using in-memory transport
-func (s *ExampleTestSuite) WithMCPSession(serverBuilder func() (*mcp.Server, error), testFunc func(*mcp.ClientSession)) {
+func (s *ExampleTestSuite) WithMCPSession(handler *mcpio.Handler, testFunc func(*mcp.ClientSession)) {
 	ctx := s.T().Context()
-	// Create server
-	server, err := serverBuilder()
-	s.Require().NoError(err)
 
-	// Create in-memory transports
-	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	// Get SDK server and create in-memory server
+	sdkServer, ok := handler.GetServer().Unwrap().(*mcp.Server)
+	s.Require().True(ok, "failed to unwrap SDK server")
 
-	// Start server
+	wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
+
+	// Start server with embedded transport
 	go func() {
-		err := server.Run(ctx, serverTransport)
+		err := wrappedServer.Run(ctx)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			s.T().Errorf("server run error: %v", err)
 		}

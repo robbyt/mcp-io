@@ -6,6 +6,9 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// ElicitationCapabilities indicates the client supports elicitation.
+type ElicitationCapabilities struct{}
+
 // SupportsElicitation returns true if the client supports elicitation (user input requests).
 func (s *Session) SupportsElicitation() bool {
 	return s.session.InitializeParams().Capabilities.Elicitation != nil

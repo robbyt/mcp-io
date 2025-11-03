@@ -23,6 +23,9 @@ type TextContent struct {
 	Text string
 }
 
+// SamplingCapabilities indicates the client supports LLM sampling.
+type SamplingCapabilities struct{}
+
 // SupportsSampling returns true if the client supports LLM sampling (CreateMessage).
 func (s *Session) SupportsSampling() bool {
 	return s.session.InitializeParams().Capabilities.Sampling != nil

@@ -13,11 +13,13 @@ import (
 )
 
 // PromptFunc is the function signature for user-defined prompt handlers.
-// The function receives a context and a map of arguments, and returns a PromptResult with an optional error.
-type PromptFunc func(context.Context, map[string]any) (*PromptResult, error)
+// The function receives a context, request context with metadata, and a map of arguments,
+// and returns a PromptResult with an optional error.
+type PromptFunc func(context.Context, RequestContext, map[string]any) (*PromptResult, error)
 
 // TypedPromptFunc is the function signature for typed prompts with automatic schema generation.
-// The function receives a context and typed arguments, and returns a PromptResult with an optional error.
+// The function receives a context, request context with metadata, and typed arguments,
+// and returns a PromptResult with an optional error.
 // Schema generation is handled automatically based on the TArgs type.
 //
 // Example:
@@ -26,8 +28,8 @@ type PromptFunc func(context.Context, map[string]any) (*PromptResult, error)
 //		DocumentType string `json:"document_type" jsonschema:"description:Type of document"`
 //		Topic        string `json:"topic" jsonschema:"description:Main topic"`
 //	}
-//	func myPrompt(ctx context.Context, args DocumentArgs) (*PromptResult, error) { ... }
-type TypedPromptFunc[TArgs any] func(context.Context, TArgs) (*PromptResult, error)
+//	func myPrompt(ctx context.Context, reqCtx mcpio.RequestContext, args DocumentArgs) (*PromptResult, error) { ... }
+type TypedPromptFunc[TArgs any] func(context.Context, RequestContext, TArgs) (*PromptResult, error)
 
 // PromptResult represents the result of prompt generation
 type PromptResult struct {
@@ -44,8 +46,8 @@ type PromptMessage struct {
 // createPromptHandler wraps a user function to match MCP PromptHandler signature
 func createPromptHandler(fn PromptFunc) mcp.PromptHandler {
 	return func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-		// Inject request context (session + metadata)
-		ctx = withMCPContext(ctx, newRequestContext(req.Params.Name, req.Session, req.Extra))
+		// Create request context with all MCP metadata
+		reqCtx := newRequestContext(req.Params.Name, req.Params, req.Session, req.Extra)
 
 		// Convert MCP request to user-friendly args
 		args := make(map[string]any)
@@ -56,8 +58,8 @@ func createPromptHandler(fn PromptFunc) mcp.PromptHandler {
 			}
 		}
 
-		// Execute user function
-		result, err := fn(ctx, args)
+		// Execute user function with request context
+		result, err := fn(ctx, reqCtx, args)
 		if err != nil {
 			// Return all errors as protocol-level errors
 			// Prompts and resources follow the same pattern: errors are protocol-level,
@@ -84,8 +86,8 @@ func createPromptHandler(fn PromptFunc) mcp.PromptHandler {
 // createTypedPromptHandler wraps a typed prompt function to match MCP PromptHandler signature
 func createTypedPromptHandler[TArgs any](fn TypedPromptFunc[TArgs]) mcp.PromptHandler {
 	return func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-		// Inject request context (session + metadata)
-		ctx = withMCPContext(ctx, newRequestContext(req.Params.Name, req.Session, req.Extra))
+		// Create request context with all MCP metadata
+		reqCtx := newRequestContext(req.Params.Name, req.Params, req.Session, req.Extra)
 
 		// Convert MCP request arguments to typed struct
 		var args TArgs
@@ -101,8 +103,8 @@ func createTypedPromptHandler[TArgs any](fn TypedPromptFunc[TArgs]) mcp.PromptHa
 			}
 		}
 
-		// Execute user function with typed arguments
-		result, err := fn(ctx, args)
+		// Execute user function with request context and typed arguments
+		result, err := fn(ctx, reqCtx, args)
 		if err != nil {
 			// Return all errors as protocol-level errors
 			return nil, err

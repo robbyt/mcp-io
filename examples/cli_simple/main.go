@@ -5,7 +5,6 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
 	mcpio "github.com/robbyt/mcp-io"
@@ -22,7 +21,7 @@ type TextOutput struct {
 }
 
 // Tool function
-func toUpper(ctx context.Context, input TextInput) (TextOutput, error) {
+func toUpper(ctx context.Context, toolCtx mcpio.RequestContext, input TextInput) (TextOutput, error) {
 	return TextOutput{Result: strings.ToUpper(input.Text)}, nil
 }
 
@@ -46,7 +45,7 @@ func main() {
 		log.Fatal(http.ListenAndServe(*listen, nil))
 	} else {
 		// Stdio transport
-		if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+		if err := handler.ServeStdio(context.Background()); err != nil {
 			log.Fatalf("Server error: %v", err)
 		}
 	}

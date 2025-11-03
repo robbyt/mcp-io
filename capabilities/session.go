@@ -7,22 +7,11 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// sessionContextKey is the context key for storing Session instances.
-type sessionContextKey struct{}
-
-// WithSession injects a Session into the context.
-// This is used by both production code (via handlers) and test code.
-func WithSession(ctx context.Context, session *Session) context.Context {
-	return context.WithValue(ctx, sessionContextKey{}, session)
-}
-
-// GetSession extracts the Session from the context.
-// Returns nil if no session is available in the context.
-func GetSession(ctx context.Context) *Session {
-	if session, ok := ctx.Value(sessionContextKey{}).(*Session); ok {
-		return session
-	}
-	return nil
+// ClientCapabilities represents the capabilities declared by the client.
+type ClientCapabilities struct {
+	Elicitation *ElicitationCapabilities
+	Sampling    *SamplingCapabilities
+	Roots       *RootsCapabilities
 }
 
 // serverSession defines the interface for MCP server session operations.
@@ -40,14 +29,14 @@ type serverSession interface {
 }
 
 // Session provides access to all MCP session features.
-// It is automatically injected into the context for all tool, prompt, and resource handlers.
-// Access it using GetSession(ctx).
+// It is automatically provided to handlers via the RequestContext parameter.
+// Access it using reqCtx.GetSession() or toolCtx.GetSession().
 //
 // Example:
 //
-//	func myTool(ctx context.Context, input Input) (Output, error) {
-//	    session := mcpio.GetSession(ctx)
-//	    if session != nil && session.SupportsSampling() {
+//	func myTool(ctx context.Context, toolCtx mcpio.RequestContext, input Input) (Output, error) {
+//	    session := toolCtx.GetSession()
+//	    if session.SupportsSampling() {
 //	        result, _ := session.CreateMessage(ctx, messages, 1000)
 //	    }
 //	    return output, nil
@@ -95,4 +84,25 @@ func (s *Session) Wait() error {
 // Close closes this session and the underlying connection.
 func (s *Session) Close() error {
 	return s.session.Close()
+}
+
+// ClientCapabilities returns the capabilities the client declared during initialization.
+func (s *Session) ClientCapabilities() *ClientCapabilities {
+	initParams := s.session.InitializeParams()
+	caps := &ClientCapabilities{}
+
+	if initParams.Capabilities.Elicitation != nil {
+		caps.Elicitation = &ElicitationCapabilities{}
+	}
+	if initParams.Capabilities.Sampling != nil {
+		caps.Sampling = &SamplingCapabilities{}
+	}
+	// Roots capability - check if ListChanged is supported
+	if initParams.Capabilities.Roots.ListChanged {
+		caps.Roots = &RootsCapabilities{
+			ListChanged: true,
+		}
+	}
+
+	return caps
 }

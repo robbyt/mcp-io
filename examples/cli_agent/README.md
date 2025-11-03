@@ -90,11 +90,8 @@ Sampling is an MCP capability that allows servers to send messages to the client
 ## Usage Example
 
 ```go
-func analyzeTool(ctx context.Context, input AnalyzeInput) (AnalyzeOutput, error) {
-    session := mcpio.GetSession(ctx)
-    if session == nil {
-        return AnalyzeOutput{}, fmt.Errorf("no session available")
-    }
+func analyzeTool(ctx context.Context, toolCtx mcpio.RequestContext, input AnalyzeInput) (AnalyzeOutput, error) {
+    session := toolCtx.GetSession()
 
     // Check if client supports sampling
     if !session.SupportsSampling() {

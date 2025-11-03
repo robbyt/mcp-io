@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"os"
 	"strings"
 
 	mcpio "github.com/robbyt/mcp-io"
@@ -19,12 +18,12 @@ type TextOutput struct {
 	Result string `json:"result" jsonschema:"Processed text"`
 }
 
-func toUpper(ctx context.Context, input TextInput) (TextOutput, error) {
+func toUpper(ctx context.Context, toolCtx mcpio.RequestContext, input TextInput) (TextOutput, error) {
 	return TextOutput{Result: strings.ToUpper(input.Text)}, nil
 }
 
 // Generic tool function that works with any JSON - raw version for WithRawTool
-func processJSON(ctx context.Context, input []byte) ([]byte, error) {
+func processJSON(ctx context.Context, toolCtx mcpio.RequestContext, input []byte) ([]byte, error) {
 	var params map[string]any
 	if err := json.Unmarshal(input, &params); err != nil {
 		return nil, err
@@ -52,7 +51,7 @@ func main() {
 	}`
 
 	// Calculator function - raw version for WithRawTool
-	calculator := func(ctx context.Context, input []byte) ([]byte, error) {
+	calculator := func(ctx context.Context, toolCtx mcpio.RequestContext, input []byte) ([]byte, error) {
 		var params map[string]any
 		if err := json.Unmarshal(input, &params); err != nil {
 			return nil, err
@@ -110,7 +109,7 @@ func main() {
 	log.Println("  - process_json: WithRawTool with json.RawMessage schema (maximum performance)")
 	log.Println()
 
-	if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+	if err := handler.ServeStdio(context.Background()); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }

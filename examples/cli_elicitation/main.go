@@ -33,14 +33,6 @@ type CreateRecordInput struct {
 	Age    int    `json:"age"    jsonschema:"description:Age in years,minimum:18,maximum:120"`
 }
 
-// ReportConfig represents database report preferences
-type ReportConfig struct {
-	Format       string `json:"format"           jsonschema:"description:Report format,enum:summary,enum:detailed,enum:analysis"`
-	Status       string `json:"status,omitempty" jsonschema:"description:Filter by status (optional),enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
-	SortBy       string `json:"sortBy"           jsonschema:"description:Sort order,enum:name,enum:created,enum:updated,enum:status"`
-	IncludeStats bool   `json:"includeStats"     jsonschema:"description:Include database statistics"`
-}
-
 // Global in-memory database with thread safety
 var (
 	database = make(map[string]*Record)
@@ -71,7 +63,7 @@ func validateConfirmation(result *mcpio.ElicitationResult, expectedValue string)
 // Standard database operations (no elicitation needed)
 
 // readRecord retrieves a record by ID - standard tool operation
-func readRecord(ctx context.Context, input struct {
+func readRecord(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 	ID string `json:"id" jsonschema:"description:Record ID to retrieve"`
 },
 ) (map[string]any, error) {
@@ -93,7 +85,7 @@ func readRecord(ctx context.Context, input struct {
 }
 
 // listRecords returns all records, optionally filtered by status
-func listRecords(ctx context.Context, input struct {
+func listRecords(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 	Status string `json:"status,omitempty" jsonschema:"description:Optional status filter,enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 },
 ) (map[string]any, error) {
@@ -123,11 +115,12 @@ func listRecords(ctx context.Context, input struct {
 // Elicitation-based operations
 
 // createRecord demonstrates elicitation for gathering structured data
-func createRecord(ctx context.Context, _ struct{}) (map[string]any, error) {
+func createRecord(ctx context.Context, toolCtx mcpio.RequestContext, _ struct{}) (map[string]any, error) {
 	slog.Debug("createRecord starting", "operation", "elicitation")
 
 	// Server pauses to elicit structured record data
-	result, err := mcpio.ElicitTyped[CreateRecordInput](ctx, "To create a new database record, please provide the following information. This data will be stored in the local database and can be updated or deleted later:")
+	elicitor := mcpio.NewElicitor(toolCtx)
+	result, err := mcpio.ElicitTyped[CreateRecordInput](ctx, elicitor, "To create a new database record, please provide the following information. This data will be stored in the local database and can be updated or deleted later:")
 	if err != nil {
 		slog.Error("createRecord elicitation failed", "error", err)
 		return nil, fmt.Errorf("failed to elicit record data: %w", err)
@@ -193,7 +186,7 @@ func createRecord(ctx context.Context, _ struct{}) (map[string]any, error) {
 }
 
 // updateRecord demonstrates elicitation for confirming destructive changes
-func updateRecord(ctx context.Context, input struct {
+func updateRecord(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 	ID     string `json:"id"               jsonschema:"description:Record ID to update"`
 	Name   string `json:"name,omitempty"   jsonschema:"description:New name (optional),minLength:1,maxLength:100"`
 	Email  string `json:"email,omitempty"  jsonschema:"format:email,description:New email (optional),maxLength:255"`
@@ -239,7 +232,8 @@ func updateRecord(ctx context.Context, input struct {
 	changesSummary := strings.Join(changes, "\n")
 	confirmationMessage := fmt.Sprintf("Update record '%s'?\n\nChanges:\n%s\n\nThis will overwrite the existing data.", input.ID, changesSummary)
 
-	result, err := mcpio.ElicitSimple(ctx, confirmationMessage, "confirm", "Type 'UPDATE' to confirm these changes")
+	elicitor := mcpio.NewElicitor(toolCtx)
+	result, err := elicitor.ElicitSimple(ctx, confirmationMessage, "confirm", "Type 'UPDATE' to confirm these changes")
 	if err != nil {
 		return nil, fmt.Errorf("failed to elicit confirmation: %w", err)
 	}
@@ -276,7 +270,7 @@ func updateRecord(ctx context.Context, input struct {
 }
 
 // deleteRecord demonstrates critical operation confirmation
-func deleteRecord(ctx context.Context, input struct {
+func deleteRecord(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
 	ID string `json:"id" jsonschema:"description:Record ID to delete"`
 },
 ) (map[string]any, error) {
@@ -296,7 +290,8 @@ func deleteRecord(ctx context.Context, input struct {
 	confirmationMessage := fmt.Sprintf("Delete record '%s'?\n\nRecord details:\n- Name: %s\n- Email: %s\n- Status: %s\n- Age: %d\n\nThis action cannot be undone.",
 		record.ID, record.Name, record.Email, record.Status, record.Age)
 
-	result, err := mcpio.ElicitSimple(ctx, confirmationMessage, "confirm", fmt.Sprintf("Type '%s' to confirm deletion", record.ID))
+	elicitor := mcpio.NewElicitor(toolCtx)
+	result, err := elicitor.ElicitSimple(ctx, confirmationMessage, "confirm", fmt.Sprintf("Type '%s' to confirm deletion", record.ID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to elicit confirmation: %w", err)
 	}
@@ -316,77 +311,6 @@ func deleteRecord(ctx context.Context, input struct {
 	return map[string]any{
 		"status":         "deleted",
 		"deleted_record": record,
-	}, nil
-}
-
-// databaseReport demonstrates elicitation within prompts
-func databaseReport(ctx context.Context, args map[string]any) (*mcpio.PromptResult, error) {
-	// Server pauses to elicit report preferences
-	result, err := mcpio.ElicitTyped[ReportConfig](ctx, "To generate a customized database report, please specify your preferences. These settings will determine the format, filtering, and content of the generated report:")
-	if err != nil {
-		return nil, fmt.Errorf("failed to elicit report preferences: %w", err)
-	}
-
-	// Default preferences if user declines
-	reportConfig := ReportConfig{
-		Format:       "summary",
-		Status:       "",
-		SortBy:       "created",
-		IncludeStats: true,
-	}
-
-	if result.IsAccepted() {
-		if err := result.DecodeContent(&reportConfig); err != nil {
-			slog.Error("Failed to decode report preferences, using defaults", "error", err)
-		}
-	}
-
-	// Generate database snapshot
-	dbMutex.RLock()
-	totalRecords := len(database)
-	statuses := make(map[string]int)
-	for _, record := range database {
-		statuses[record.Status]++
-	}
-	dbMutex.RUnlock()
-
-	// Build system message based on preferences
-	var systemMessage strings.Builder
-	systemMessage.WriteString("You are a database analyst. Generate a ")
-	systemMessage.WriteString(reportConfig.Format)
-	systemMessage.WriteString(" report for an in-memory database.\n\n")
-
-	systemMessage.WriteString("Database Overview:\n")
-	systemMessage.WriteString(fmt.Sprintf("- Total records: %d\n", totalRecords))
-
-	if reportConfig.IncludeStats {
-		systemMessage.WriteString("- Status breakdown:\n")
-		for status, count := range statuses {
-			if status == "" {
-				status = "unspecified"
-			}
-			systemMessage.WriteString(fmt.Sprintf("  - %s: %d\n", status, count))
-		}
-	}
-
-	if reportConfig.Status != "" {
-		systemMessage.WriteString(fmt.Sprintf("\nFocus on '%s' status records only.\n", reportConfig.Status))
-	}
-
-	systemMessage.WriteString(fmt.Sprintf("\nSort results by: %s\n", reportConfig.SortBy))
-	systemMessage.WriteString("\nProvide insights and recommendations based on the data patterns.")
-
-	userMessage := fmt.Sprintf("Create a %s database report", reportConfig.Format)
-	if reportConfig.Status != "" {
-		userMessage += fmt.Sprintf(" for %s records", reportConfig.Status)
-	}
-
-	return &mcpio.PromptResult{
-		Description: fmt.Sprintf("Database %s report with custom preferences", reportConfig.Format),
-		Messages: []mcpio.PromptMessage{
-			{Role: "system", Content: systemMessage.String()},
-			{Role: "user", Content: userMessage},
-		},
 	}, nil
 }
 
@@ -411,7 +335,6 @@ func main() {
 		mcpio.WithTool("delete_record", "Delete a record with confirmation", deleteRecord),
 
 		// Elicitation-enhanced prompt
-		mcpio.WithPrompt("database_report", "Generate database reports with custom preferences", databaseReport),
 	)
 	if err != nil {
 		slog.Error("Failed to create handler", "error", err)
@@ -419,7 +342,7 @@ func main() {
 	}
 
 	// Run the server on stdio transport
-	if err := handler.ServeStdio(context.Background(), nil, nil); err != nil {
+	if err := handler.ServeStdio(context.Background()); err != nil {
 		slog.Error("Server failed", "error", err)
 		os.Exit(1)
 	}

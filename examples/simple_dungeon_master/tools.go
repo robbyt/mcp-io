@@ -5,14 +5,15 @@ import (
 	"fmt"
 
 	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/dice"
 	"github.com/robbyt/mcp-io/examples/simple_dungeon_master/narrative"
 )
 
 // RollDiceTool simulates rolling a 20-sided dice and stores it in history
 // Uses turn-based roll (idempotent - multiple calls return the same roll for this turn)
-func (state *GameState) RollDiceTool(ctx context.Context, input dice.RollInput) (dice.Roll, error) {
-	mcpio.LogDebug(ctx, "RollDiceTool called", map[string]any{"input": input}) //nolint:errcheck
+func (state *GameState) RollDiceTool(ctx context.Context, toolCtx mcpio.RequestContext, input dice.RollInput) (dice.Roll, error) {
+	toolCtx.GetSession().Log(ctx, capabilities.LogLevelDebug, "RollDiceTool called", map[string]any{"input": input}) //nolint:errcheck
 	pendingCheck := state.narrative.GetPendingSkillCheck()
 
 	// Perform turn-based roll (idempotent for this turn)
@@ -30,14 +31,14 @@ func (state *GameState) RollDiceTool(ctx context.Context, input dice.RollInput) 
 		roll.EncryptedData = encrypted
 	}
 
-	mcpio.LogDebug(ctx, "Dice rolled", map[string]any{"result": roll.Result, "encrypted": roll.EncryptedData != ""}) //nolint:errcheck
+	toolCtx.GetSession().Log(ctx, capabilities.LogLevelDebug, "Dice rolled", map[string]any{"result": roll.Result, "encrypted": roll.EncryptedData != ""}) //nolint:errcheck
 
 	return roll, nil
 }
 
 // NarrativeActionTool coordinates narrative generation across dice and narrative packages
-func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative.ActionInput) (narrative.Response, error) {
-	mcpio.LogDebug(ctx, "NarrativeActionTool called", map[string]any{"input": input}) //nolint:errcheck
+func (state *GameState) NarrativeActionTool(ctx context.Context, toolCtx mcpio.RequestContext, input narrative.ActionInput) (narrative.Response, error) {
+	toolCtx.GetSession().Log(ctx, capabilities.LogLevelDebug, "NarrativeActionTool called", map[string]any{"input": input}) //nolint:errcheck
 
 	// Get current turn counter for this action
 	turnCounter := state.getTurnCounter()
@@ -85,7 +86,7 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 		state.narrative.ClearPendingSkillCheck()
 
 		//nolint:errcheck
-		mcpio.LogDebug(ctx, "Skill check validated", map[string]any{
+		toolCtx.GetSession().Log(ctx, capabilities.LogLevelDebug, "Skill check validated", map[string]any{
 			"result": pendingCheckResult,
 			"passed": passedSkillCheck,
 		})
@@ -109,9 +110,9 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 
 	// Generate draft narrative
 	draftPrompt := state.narrative.BuildTurnPrompt(promptConfig)
-	draftNarrative, err := state.llmFunc(ctx, draftPrompt, state.config.narrativeMaxTokens, state.config.preferredModel)
+	draftNarrative, err := state.llmFunc(ctx, toolCtx, draftPrompt, state.config.narrativeMaxTokens, state.config.preferredModel)
 	if err != nil {
-		mcpio.LogError(ctx, "LLM error generating draft", map[string]any{"error": err.Error()}) //nolint:errcheck
+		toolCtx.GetSession().Log(ctx, capabilities.LogLevelError, "LLM error generating draft", map[string]any{"error": err.Error()}) //nolint:errcheck
 		return narrative.Response{
 			TurnNumber:   turnCounter,
 			ErrorMessage: fmt.Sprintf("LLM error: %v", err),
@@ -122,12 +123,12 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 	var narrativeText string
 	if turnCounter == 0 {
 		narrativeText = draftNarrative
-		mcpio.LogDebug(ctx, "Skipping narrative review for turn 0", nil) //nolint:errcheck
+		toolCtx.GetSession().Log(ctx, capabilities.LogLevelDebug, "Skipping narrative review for turn 0", nil) //nolint:errcheck
 	} else {
 		reviewPrompt := state.narrative.BuildReviewPrompt(promptConfig, draftNarrative)
-		narrativeText, err = state.llmFunc(ctx, reviewPrompt, state.config.narrativeMaxTokens, state.config.preferredModel)
+		narrativeText, err = state.llmFunc(ctx, toolCtx, reviewPrompt, state.config.narrativeMaxTokens, state.config.preferredModel)
 		if err != nil {
-			mcpio.LogError(ctx, "LLM error during review", map[string]any{"error": err.Error()}) //nolint:errcheck
+			toolCtx.GetSession().Log(ctx, capabilities.LogLevelError, "LLM error during review", map[string]any{"error": err.Error()}) //nolint:errcheck
 			// Fall back to draft if review fails
 			narrativeText = draftNarrative
 		}
@@ -139,18 +140,18 @@ func (state *GameState) NarrativeActionTool(ctx context.Context, input narrative
 
 	// Log if skill check is required for next turn
 	if nextSkillCheck > 0 {
-		mcpio.LogDebug(ctx, "New skill check set for next turn", map[string]any{"nextSkillCheck": nextSkillCheck}) //nolint:errcheck
+		toolCtx.GetSession().Log(ctx, capabilities.LogLevelDebug, "New skill check set for next turn", map[string]any{"nextSkillCheck": nextSkillCheck}) //nolint:errcheck
 	}
 
 	// PHASE 3: Summarize if history is growing too long
 	if state.narrative.ShouldSummarize(state.config.summarizationThreshold) {
 		summaryPrompt := state.narrative.BuildSummaryPrompt()
-		summaryText, err := state.llmFunc(ctx, summaryPrompt, state.config.summarizeMaxTokens, state.config.preferredModel)
+		summaryText, err := state.llmFunc(ctx, toolCtx, summaryPrompt, state.config.summarizeMaxTokens, state.config.preferredModel)
 		if err != nil {
-			mcpio.LogError(ctx, "Summarization failed", map[string]any{"error": err.Error()}) //nolint:errcheck
+			toolCtx.GetSession().Log(ctx, capabilities.LogLevelError, "Summarization failed", map[string]any{"error": err.Error()}) //nolint:errcheck
 		} else {
 			state.narrative.RecordSummary(summaryText)
-			mcpio.LogDebug(ctx, "History summarized", map[string]any{"turns": len(state.narrative.GetTurns())}) //nolint:errcheck
+			toolCtx.GetSession().Log(ctx, capabilities.LogLevelDebug, "History summarized", map[string]any{"turns": len(state.narrative.GetTurns())}) //nolint:errcheck
 		}
 	}
 

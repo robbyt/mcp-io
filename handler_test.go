@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/robbyt/mcp-io/mcpwrapper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +24,7 @@ type SimpleOutput struct {
 }
 
 // Test helper functions for handler-specific tests
-func simpleEchoFunc(ctx context.Context, input SimpleInput) (SimpleOutput, error) {
+func simpleEchoFunc(ctx context.Context, toolCtx RequestContext, input SimpleInput) (SimpleOutput, error) {
 	return SimpleOutput{Message: input.Text}, nil
 }
 
@@ -73,20 +74,23 @@ func TestServerWithTransport(t *testing.T) {
 	t.Parallel()
 
 	t.Run("server with InMemoryTransport and context cancellation", func(t *testing.T) {
-		serverTransport, clientTransport := mcp.NewInMemoryTransports()
-
 		handler, err := NewHandler(
 			WithName("test-server"),
 			WithTool("echo", "Echo input", simpleEchoFunc),
 		)
 		require.NoError(t, err)
 
+		// Create in-memory server with transport
+		sdkServer, ok := handler.server.Unwrap().(*mcp.Server)
+		require.True(t, ok, "failed to unwrap SDK server")
+		wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
+
 		// Run server with cancellable context
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		serverDone := make(chan error, 1)
 
 		go func() {
-			err := handler.server.Run(ctx, serverTransport)
+			err := wrappedServer.Run(ctx)
 			serverDone <- err
 		}()
 
@@ -95,11 +99,11 @@ func TestServerWithTransport(t *testing.T) {
 			Name: "test-client",
 		}, nil)
 
-		session, err := client.Connect(context.Background(), clientTransport, nil)
+		session, err := client.Connect(t.Context(), clientTransport, nil)
 		require.NoError(t, err)
 
 		// Test tool execution
-		result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		result, err := session.CallTool(t.Context(), &mcp.CallToolParams{
 			Name:      "echo",
 			Arguments: map[string]any{"text": "hello"},
 		})
@@ -128,20 +132,23 @@ func TestServerWithTransport(t *testing.T) {
 		cancels := make([]context.CancelFunc, numServers)
 
 		for i := range numServers {
-			serverTransport, clientTransport := mcp.NewInMemoryTransports()
-
 			handler, err := NewHandler(
 				WithName("test-server"),
 				WithTool("echo", "Echo input", simpleEchoFunc),
 			)
 			require.NoError(t, err)
 
+			// Create in-memory server with transport
+			sdkServer, ok := handler.server.Unwrap().(*mcp.Server)
+			require.True(t, ok, "failed to unwrap SDK server")
+			wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
+
 			serverDone[i] = make(chan error, 1)
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			cancels[i] = cancel
 
 			go func(idx int) {
-				err := handler.server.Run(ctx, serverTransport)
+				err := wrappedServer.Run(ctx)
 				serverDone[idx] <- err
 			}(i)
 
@@ -150,10 +157,10 @@ func TestServerWithTransport(t *testing.T) {
 				Name: "test-client",
 			}, nil)
 
-			session, err := client.Connect(context.Background(), clientTransport, nil)
+			session, err := client.Connect(t.Context(), clientTransport, nil)
 			require.NoError(t, err)
 
-			err = session.Ping(context.Background(), &mcp.PingParams{})
+			err = session.Ping(t.Context(), &mcp.PingParams{})
 			require.NoError(t, err, "server %d should respond to ping", i)
 
 			err = session.Close()
@@ -187,10 +194,10 @@ func TestGetServer(t *testing.T) {
 	require.NoError(t, err)
 
 	retrievedServer := handler.GetServer()
-	assert.Equal(t, server, retrievedServer)
+	assert.Equal(t, server, retrievedServer.Unwrap())
 }
 
-func TestServeSSE(t *testing.T) {
+func TestServeHTTP_BasicResponse(t *testing.T) {
 	t.Parallel()
 	handler, err := NewHandler(
 		WithName("test-server"),
@@ -199,10 +206,10 @@ func TestServeSSE(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create test server using httptest
-	server := httptest.NewServer(http.HandlerFunc(handler.ServeSSE))
+	server := httptest.NewServer(http.HandlerFunc(handler.ServeHTTP))
 	defer server.Close()
 
-	// Test basic SSE response (should delegate to ServeHTTP)
+	// Test basic Streamable HTTP response
 	// TODO: switch to httptest.Client and do a full MCP call
 	resp, err := http.Get(server.URL)
 	require.NoError(t, err)
@@ -213,69 +220,6 @@ func TestServeSSE(t *testing.T) {
 
 	// The MCP handler should respond (even if with an error for GET request)
 	assert.NotEqual(t, 0, resp.StatusCode)
-}
-
-func TestCreateTypedHandlerSuccess(t *testing.T) {
-	t.Parallel()
-	handler := createTypedHandler(simpleEchoFunc)
-
-	req := &mcp.CallToolRequest{
-		Params: &mcp.CallToolParamsRaw{Name: "test_tool"},
-	}
-
-	input := SimpleInput{Text: "hello world"}
-	result, output, err := handler(context.Background(), req, input)
-
-	require.NoError(t, err)
-	assert.Nil(t, result)
-	assert.Equal(t, "hello world", output.Message)
-}
-
-func TestCreateTypedHandlerToolError(t *testing.T) {
-	t.Parallel()
-	// Function that returns a tool error
-	errorFunc := func(ctx context.Context, input SimpleInput) (SimpleOutput, error) {
-		return SimpleOutput{}, NewToolError("tool failed")
-	}
-
-	handler := createTypedHandler(errorFunc)
-
-	req := &mcp.CallToolRequest{
-		Params: &mcp.CallToolParamsRaw{Name: "test_tool"},
-	}
-
-	input := SimpleInput{Text: "test"}
-	result, output, err := handler(context.Background(), req, input)
-
-	require.Error(t, err)
-	assert.Nil(t, result)
-	assert.Equal(t, SimpleOutput{}, output)
-
-	var toolErr *ToolError
-	require.ErrorAs(t, err, &toolErr)
-	assert.Equal(t, "tool failed", toolErr.Message)
-}
-
-func TestCreateTypedHandlerProtocolError(t *testing.T) {
-	t.Parallel()
-	// Function that returns a non-tool error
-	errorFunc := func(ctx context.Context, input SimpleInput) (SimpleOutput, error) {
-		return SimpleOutput{}, errors.New("protocol error")
-	}
-
-	handler := createTypedHandler(errorFunc)
-
-	req := &mcp.CallToolRequest{
-		Params: &mcp.CallToolParamsRaw{Name: "test_tool"},
-	}
-
-	input := SimpleInput{Text: "test"}
-	result, output, err := handler(context.Background(), req, input)
-
-	require.Error(t, err)
-	assert.Nil(t, result)
-	assert.Equal(t, SimpleOutput{}, output)
-	assert.Equal(t, "protocol error", err.Error())
 }
 
 func TestNewHandlerWithCustomServer(t *testing.T) {
@@ -299,7 +243,7 @@ func TestNewHandlerWithCustomServer(t *testing.T) {
 	assert.NotNil(t, handler)
 
 	// Verify the custom server is used
-	assert.Equal(t, customServer, handler.GetServer())
+	assert.Equal(t, customServer, handler.GetServer().Unwrap())
 }
 
 func TestNewHandlerOptionError(t *testing.T) {
@@ -370,12 +314,12 @@ func TestNewHandler_Unified(t *testing.T) {
 	t.Parallel()
 
 	// Test tool function
-	addTool := func(ctx context.Context, input struct{ A, B int }) (struct{ Sum int }, error) {
+	addTool := func(ctx context.Context, toolCtx RequestContext, input struct{ A, B int }) (struct{ Sum int }, error) {
 		return struct{ Sum int }{Sum: input.A + input.B}, nil
 	}
 
 	// Test prompt function
-	greetingPrompt := func(ctx context.Context, args map[string]any) (*PromptResult, error) {
+	greetingPrompt := func(ctx context.Context, reqCtx RequestContext, args map[string]any) (*PromptResult, error) {
 		name, ok := args["name"].(string)
 		if !ok {
 			name = "World"
@@ -388,7 +332,7 @@ func TestNewHandler_Unified(t *testing.T) {
 	}
 
 	// Test resource function
-	configResource := func(ctx context.Context, uri string) (*ResourceContent, error) {
+	configResource := func(ctx context.Context, reqCtx RequestContext) (*ResourceContent, error) {
 		return &ResourceContent{
 			Content:  []byte("config data"),
 			MIMEType: "text/plain",
@@ -468,11 +412,11 @@ func TestServeStdioActualCall(t *testing.T) {
 	}
 
 	// Use a context that's already cancelled to ensure ServeStdio returns quickly
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel() // Cancel immediately before calling
 
 	// This should return quickly due to cancelled context
-	err = handler.ServeStdio(ctx, nil, nil)
+	err = handler.ServeStdio(ctx)
 
 	// Expect context cancellation error
 	require.Error(t, err)
@@ -486,7 +430,7 @@ func TestNewHandlerToolRegistrationError(t *testing.T) {
 
 	// Create a tool registration function that will fail
 	failingToolOption := func(cfg *handlerConfig) error {
-		failingRegistration := func(server *mcp.Server) error {
+		failingRegistration := func(handler *Handler, server *mcp.Server) error {
 			return errToolRegistration
 		}
 		cfg.tools = append(cfg.tools, failingRegistration)
@@ -577,7 +521,7 @@ func TestNewHandlerMixedRegistrationsSuccess(t *testing.T) {
 
 	// Create successful registration functions
 	successToolOption := func(cfg *handlerConfig) error {
-		successRegistration := func(server *mcp.Server) error {
+		successRegistration := func(handler *Handler, server *mcp.Server) error {
 			return nil // Success
 		}
 		cfg.tools = append(cfg.tools, successRegistration)
@@ -647,7 +591,7 @@ func TestServeStdioInternalBehavior(t *testing.T) {
 	assert.NotNil(t, transport)
 
 	// Verify context handling that ServeStdio would use
-	ctx := context.Background()
+	ctx := t.Context()
 	assert.NotNil(t, ctx)
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
@@ -727,7 +671,7 @@ func TestToolRegistration(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, handler)
-	assert.Equal(t, server, handler.GetServer())
+	assert.Equal(t, server, handler.GetServer().Unwrap())
 }
 
 func TestConcurrentAccess(t *testing.T) {
