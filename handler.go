@@ -15,9 +15,14 @@ type (
 	promptRegisterFunc           func(*mcp.Server) error
 	resourceRegisterFunc         func(*mcp.Server) error
 	resourceTemplateRegisterFunc func(*mcp.Server) error
+
+	// toolRegisterFunc is an internal function type that registers a tool on an MCP server.
+	// This is used internally by the option functions to defer tool registration.
+	// It receives both the handler (for creating tool handlers) and the server (for registration).
+	toolRegisterFunc func(*Handler, *mcp.Server) error
 )
 
-// handlerConfig holds the configuration built by options
+// handlerConfig holds the configuration built by options while setting up a Handler instance
 type handlerConfig struct {
 	name              string
 	version           string
@@ -30,8 +35,7 @@ type handlerConfig struct {
 	httpOpts          *mcp.StreamableHTTPOptions
 }
 
-// MCPServer provides an interface to the MCP SDK server, allowing for
-// dependency injection in tests and decoupling from the concrete SDK types.
+// MCPServer provides an interface to the concrete MCP SDK server instance.
 //
 // The Unwrap method provides an escape hatch for power users who need
 // access to features not yet wrapped by mcp-io.
@@ -62,16 +66,6 @@ type MCPServer interface {
 type Handler struct {
 	server MCPServer
 }
-
-// GetServer returns the underlying MCP server for advanced usage
-func (h *Handler) GetServer() MCPServer {
-	return h.server
-}
-
-// toolRegisterFunc is an internal function type that registers a tool on an MCP server.
-// This is used internally by the option functions to defer tool registration.
-// It receives both the handler (for creating tool handlers) and the server (for registration).
-type toolRegisterFunc func(*Handler, *mcp.Server) error
 
 // NewHandler creates a new MCP handler that supports any combination of MCP resources.
 // This is the unified constructor that can handle tools, prompts, resources, and resource templates.
@@ -143,6 +137,11 @@ func NewHandler(opts ...Option) (*Handler, error) {
 	}
 
 	return handler, nil
+}
+
+// GetServer returns the underlying MCP server for advanced usage
+func (h *Handler) GetServer() MCPServer {
+	return h.server
 }
 
 // ServeHTTP implements http.Handler for Streamable HTTP transport.
