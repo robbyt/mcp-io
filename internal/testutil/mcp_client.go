@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"sync"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -78,4 +79,62 @@ func ConnectInMemory(t *testing.T, handler *mcpio.Handler) *MCPSession {
 	})
 
 	return mcpSession
+}
+
+// ConnectWithProgressCapture sets up an in-memory MCP client/server connection
+// that captures progress notifications. Returns the session and a function to
+// retrieve captured notifications (thread-safe).
+func ConnectWithProgressCapture(t *testing.T, handler *mcpio.Handler) (*MCPSession, func() []*mcp.ProgressNotificationParams) {
+	t.Helper()
+
+	// Capture progress notifications with mutex for thread safety
+	var notifications []*mcp.ProgressNotificationParams
+	var mu sync.Mutex
+
+	// Create in-memory transports
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	ctx := t.Context()
+
+	// Set up server
+	server := handler.GetServer()
+	mcpServer, ok := server.Unwrap().(*mcp.Server)
+	if !ok {
+		t.Fatal("failed to unwrap MCP server")
+	}
+
+	go func() {
+		if runErr := mcpServer.Run(ctx, serverTransport); runErr != nil {
+			if !errors.Is(runErr, context.Canceled) {
+				log.Printf("server run error: %v", runErr)
+			}
+		}
+	}()
+
+	// Connect client with progress handler
+	client := mcp.NewClient(DefaultTestImplementation(), &mcp.ClientOptions{
+		ProgressNotificationHandler: func(ctx context.Context, req *mcp.ProgressNotificationClientRequest) {
+			mu.Lock()
+			defer mu.Unlock()
+			notifications = append(notifications, req.Params)
+		},
+	})
+
+	session, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("failed to connect MCP client: %v", err)
+	}
+
+	mcpSession := &MCPSession{ClientSession: session, t: t}
+	t.Cleanup(func() { mcpSession.Close() })
+
+	// Return getter that returns a copy for thread safety
+	getNotifications := func() []*mcp.ProgressNotificationParams {
+		mu.Lock()
+		defer mu.Unlock()
+		result := make([]*mcp.ProgressNotificationParams, len(notifications))
+		copy(result, notifications)
+		return result
+	}
+
+	return mcpSession, getNotifications
 }

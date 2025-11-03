@@ -23,6 +23,25 @@ type AnalyzeOutput struct {
 	SamplingUsed bool     `json:"samplingUsed" jsonschema:"Whether sampling was available"`
 }
 
+// notifyProgress sends a progress notification if supported.
+// Treats progress as best-effort - logs failures but never aborts tool execution.
+func notifyProgress(ctx context.Context, session *capabilities.Session, reqCtx mcpio.RequestContext,
+	progress, total float64, message string,
+) {
+	opts := []capabilities.ProgressOption{
+		capabilities.WithProgressToken(reqCtx.GetProgressToken()),
+	}
+	if message != "" {
+		opts = append(opts, capabilities.WithProgressMessage(message))
+	}
+
+	if err := session.NotifyProgress(ctx, progress, total, opts...); err != nil {
+		// Log failure but don't abort - progress is best-effort
+		_ = session.LogWarning(ctx, "Failed to send progress notification", //nolint:errcheck
+			map[string]any{"error": err.Error()})
+	}
+}
+
 // analyzeTool uses the client's LLM (sampling) to analyze code
 func analyzeTool(ctx context.Context, toolCtx mcpio.RequestContext, input AnalyzeInput) (AnalyzeOutput, error) {
 	session := toolCtx.GetSession()
@@ -40,20 +59,12 @@ func analyzeTool(ctx context.Context, toolCtx mcpio.RequestContext, input Analyz
 		}, nil
 	}
 
-	// Send progress notification with token and message
-	if err := session.NotifyProgress(ctx, 0.0, 1.0,
-		capabilities.WithProgressToken(toolCtx.GetProgressToken()),
-		capabilities.WithProgressMessage("Starting code analysis")); err != nil {
-		return AnalyzeOutput{}, fmt.Errorf("failed to send progress notification: %w", err)
-	}
-
-	// Log analysis start
-	if err := session.LogInfo(ctx, "Starting code analysis", map[string]any{
+	// Send progress notification and log analysis start (best-effort)
+	notifyProgress(ctx, session, toolCtx, 0.0, 1.0, "Starting code analysis")
+	_ = session.LogInfo(ctx, "Starting code analysis", map[string]any{ //nolint:errcheck
 		"language":  input.Language,
 		"code_size": len(input.Code),
-	}); err != nil {
-		return AnalyzeOutput{}, fmt.Errorf("failed to log analysis start: %w", err)
-	}
+	})
 
 	// Build prompt for the LLM
 	prompt := "Analyze this code for bugs, security issues, and potential improvements:\n\n"
@@ -74,29 +85,20 @@ func analyzeTool(ctx context.Context, toolCtx mcpio.RequestContext, input Analyz
 		return AnalyzeOutput{}, fmt.Errorf("sampling failed: %w", err)
 	}
 
-	if err := session.NotifyProgress(ctx, 0.5, 1.0,
-		capabilities.WithProgressToken(toolCtx.GetProgressToken()),
-		capabilities.WithProgressMessage("Processing AI response")); err != nil {
-		return AnalyzeOutput{}, fmt.Errorf("failed to send progress notification: %w", err)
-	}
+	notifyProgress(ctx, session, toolCtx, 0.5, 1.0, "Processing AI response")
 
 	// Parse the response to extract suggestions
 	analysis := result.Content.Text
 	suggestions := extractSuggestions(analysis)
 	issuesFound := countIssues(analysis)
 
-	// Log completion
-	if err := session.LogInfo(ctx, "Analysis completed", map[string]any{
+	// Log completion (best-effort)
+	_ = session.LogInfo(ctx, "Analysis completed", map[string]any{ //nolint:errcheck
 		"issues_found": issuesFound,
 		"suggestions":  len(suggestions),
-	}); err != nil {
-		return AnalyzeOutput{}, fmt.Errorf("failed to log completion: %w", err)
-	}
+	})
 
-	if err := session.NotifyProgress(ctx, 1.0, 1.0,
-		capabilities.WithProgressToken(toolCtx.GetProgressToken())); err != nil {
-		return AnalyzeOutput{}, fmt.Errorf("failed to send final progress notification: %w", err)
-	}
+	notifyProgress(ctx, session, toolCtx, 1.0, 1.0, "")
 
 	return AnalyzeOutput{
 		Analysis:     analysis,

@@ -25,10 +25,6 @@ func TestToolIntegrationTestSuite(t *testing.T) {
 
 func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 	s.Run("BasicProgress", func() {
-		// Capture progress notifications
-		var notifications []*mcp.ProgressNotificationParams
-
-		// Create handler
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("progress-test"),
 			mcpio.WithTool("process", "Test basic progress", func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
@@ -56,26 +52,8 @@ func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 		)
 		s.Require().NoError(err)
 
-		// Set up client with progress handler
-		clientTransport, serverTransport := mcp.NewInMemoryTransports()
-		server := handler.GetServer()
-		mcpServer, ok := server.Unwrap().(*mcp.Server)
-		s.Require().True(ok)
+		session, getNotifications := testutil.ConnectWithProgressCapture(s.T(), handler)
 
-		go func() {
-			_ = mcpServer.Run(s.Ctx, serverTransport) //nolint:errcheck
-		}()
-
-		client := mcp.NewClient(testutil.DefaultTestImplementation(), &mcp.ClientOptions{
-			ProgressNotificationHandler: func(ctx context.Context, req *mcp.ProgressNotificationClientRequest) {
-				notifications = append(notifications, req.Params)
-			},
-		})
-		session, err := client.Connect(s.Ctx, clientTransport, nil)
-		s.Require().NoError(err)
-		defer session.Close() //nolint:errcheck
-
-		// Call tool
 		result, err := session.CallTool(s.Ctx, &mcp.CallToolParams{
 			Name:      "process",
 			Arguments: map[string]any{"items": 3},
@@ -84,6 +62,7 @@ func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 		s.False(result.IsError)
 
 		// Verify notifications were received
+		notifications := getNotifications()
 		s.Require().Len(notifications, 3)
 		s.InEpsilon(1.0, notifications[0].Progress, 0.0001)
 		s.InEpsilon(2.0, notifications[1].Progress, 0.0001)
@@ -92,8 +71,6 @@ func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 	})
 
 	s.Run("WithToken", func() {
-		var notifications []*mcp.ProgressNotificationParams
-
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("progress-test"),
 			mcpio.WithTool("process", "Test progress with token", func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
@@ -122,25 +99,8 @@ func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 		)
 		s.Require().NoError(err)
 
-		clientTransport, serverTransport := mcp.NewInMemoryTransports()
-		server := handler.GetServer()
-		mcpServer, ok := server.Unwrap().(*mcp.Server)
-		s.Require().True(ok)
+		session, getNotifications := testutil.ConnectWithProgressCapture(s.T(), handler)
 
-		go func() {
-			_ = mcpServer.Run(s.Ctx, serverTransport) //nolint:errcheck
-		}()
-
-		client := mcp.NewClient(testutil.DefaultTestImplementation(), &mcp.ClientOptions{
-			ProgressNotificationHandler: func(ctx context.Context, req *mcp.ProgressNotificationClientRequest) {
-				notifications = append(notifications, req.Params)
-			},
-		})
-		session, err := client.Connect(s.Ctx, clientTransport, nil)
-		s.Require().NoError(err)
-		defer session.Close() //nolint:errcheck
-
-		// Call tool with progress token in meta
 		result, err := session.CallTool(s.Ctx, &mcp.CallToolParams{
 			Name:      "process",
 			Arguments: map[string]any{"count": 2},
@@ -150,14 +110,13 @@ func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 		s.False(result.IsError)
 
 		// Verify token was echoed back
+		notifications := getNotifications()
 		s.Require().Len(notifications, 2)
 		s.Equal("test-token-123", notifications[0].ProgressToken)
 		s.Equal("test-token-123", notifications[1].ProgressToken)
 	})
 
 	s.Run("WithMessage", func() {
-		var notifications []*mcp.ProgressNotificationParams
-
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("progress-test"),
 			mcpio.WithTool("process", "Test progress with message", func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
@@ -186,23 +145,7 @@ func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 		)
 		s.Require().NoError(err)
 
-		clientTransport, serverTransport := mcp.NewInMemoryTransports()
-		server := handler.GetServer()
-		mcpServer, ok := server.Unwrap().(*mcp.Server)
-		s.Require().True(ok)
-
-		go func() {
-			_ = mcpServer.Run(s.Ctx, serverTransport) //nolint:errcheck
-		}()
-
-		client := mcp.NewClient(testutil.DefaultTestImplementation(), &mcp.ClientOptions{
-			ProgressNotificationHandler: func(ctx context.Context, req *mcp.ProgressNotificationClientRequest) {
-				notifications = append(notifications, req.Params)
-			},
-		})
-		session, err := client.Connect(s.Ctx, clientTransport, nil)
-		s.Require().NoError(err)
-		defer session.Close() //nolint:errcheck
+		session, getNotifications := testutil.ConnectWithProgressCapture(s.T(), handler)
 
 		result, err := session.CallTool(s.Ctx, &mcp.CallToolParams{
 			Name:      "process",
@@ -212,14 +155,13 @@ func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 		s.False(result.IsError)
 
 		// Verify messages
+		notifications := getNotifications()
 		s.Require().Len(notifications, 2)
 		s.Equal("Processing file1.txt (1/2)", notifications[0].Message)
 		s.Equal("Processing file2.txt (2/2)", notifications[1].Message)
 	})
 
 	s.Run("AllOptions", func() {
-		var notifications []*mcp.ProgressNotificationParams
-
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("progress-test"),
 			mcpio.WithTool("process", "Test progress with all options", func(ctx context.Context, toolCtx mcpio.RequestContext, input struct{}) (struct {
@@ -254,23 +196,7 @@ func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 		)
 		s.Require().NoError(err)
 
-		clientTransport, serverTransport := mcp.NewInMemoryTransports()
-		server := handler.GetServer()
-		mcpServer, ok := server.Unwrap().(*mcp.Server)
-		s.Require().True(ok)
-
-		go func() {
-			_ = mcpServer.Run(s.Ctx, serverTransport) //nolint:errcheck
-		}()
-
-		client := mcp.NewClient(testutil.DefaultTestImplementation(), &mcp.ClientOptions{
-			ProgressNotificationHandler: func(ctx context.Context, req *mcp.ProgressNotificationClientRequest) {
-				notifications = append(notifications, req.Params)
-			},
-		})
-		session, err := client.Connect(s.Ctx, clientTransport, nil)
-		s.Require().NoError(err)
-		defer session.Close() //nolint:errcheck
+		session, getNotifications := testutil.ConnectWithProgressCapture(s.T(), handler)
 
 		result, err := session.CallTool(s.Ctx, &mcp.CallToolParams{
 			Name:      "process",
@@ -281,6 +207,7 @@ func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 		s.False(result.IsError)
 
 		// Verify all fields
+		notifications := getNotifications()
 		s.Require().Len(notifications, 2)
 
 		// First notification
@@ -299,9 +226,6 @@ func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 	})
 
 	s.Run("ConcurrentRequests", func() {
-		var notifications []*mcp.ProgressNotificationParams
-		var notificationsMu sync.Mutex
-
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("progress-test"),
 			mcpio.WithTool("process", "Test concurrent progress", func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
@@ -331,25 +255,7 @@ func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 		)
 		s.Require().NoError(err)
 
-		clientTransport, serverTransport := mcp.NewInMemoryTransports()
-		server := handler.GetServer()
-		mcpServer, ok := server.Unwrap().(*mcp.Server)
-		s.Require().True(ok)
-
-		go func() {
-			_ = mcpServer.Run(s.Ctx, serverTransport) //nolint:errcheck
-		}()
-
-		client := mcp.NewClient(testutil.DefaultTestImplementation(), &mcp.ClientOptions{
-			ProgressNotificationHandler: func(ctx context.Context, req *mcp.ProgressNotificationClientRequest) {
-				notificationsMu.Lock()
-				defer notificationsMu.Unlock()
-				notifications = append(notifications, req.Params)
-			},
-		})
-		session, err := client.Connect(s.Ctx, clientTransport, nil)
-		s.Require().NoError(err)
-		defer session.Close() //nolint:errcheck
+		session, getNotifications := testutil.ConnectWithProgressCapture(s.T(), handler)
 
 		// Make concurrent calls with different tokens
 		var wg sync.WaitGroup
@@ -373,9 +279,7 @@ func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
 		wg.Wait()
 
 		// Verify we got notifications for all tokens
-		notificationsMu.Lock()
-		defer notificationsMu.Unlock()
-
+		notifications := getNotifications()
 		s.Require().Len(notifications, 6) // 3 requests × 2 steps each
 
 		// Verify each token appears twice
