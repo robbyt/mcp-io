@@ -38,8 +38,8 @@ func TestDatabaseSuite(t *testing.T) {
 	suite.Run(t, new(DatabaseTestSuite))
 }
 
-// mockToolContext creates a mock tool context for unit tests
-func mockToolContext() mcpio.RequestContext {
+// mockRequestContext creates a mock RequestContext for unit tests
+func mockRequestContext() mcpio.RequestContext {
 	return testutil.NewMockRequestContext(nil)
 }
 
@@ -65,7 +65,7 @@ func (s *DatabaseTestSuite) TestReadRecord() {
 			ID string `json:"id" jsonschema:"description:Record ID to retrieve"`
 		}{ID: "test1"}
 
-		result, err := readRecord(ctx, mockToolContext(), input)
+		result, err := readRecord(ctx, mockRequestContext(), input)
 		s.Require().NoError(err)
 
 		s.Equal("found", result["status"])
@@ -79,7 +79,7 @@ func (s *DatabaseTestSuite) TestReadRecord() {
 			ID string `json:"id" jsonschema:"description:Record ID to retrieve"`
 		}{ID: "nonexistent"}
 
-		result, err := readRecord(ctx, mockToolContext(), input)
+		result, err := readRecord(ctx, mockRequestContext(), input)
 		s.Require().NoError(err)
 
 		s.Equal("not_found", result["status"])
@@ -95,7 +95,7 @@ func (s *DatabaseTestSuite) TestListRecords() {
 			Status string `json:"status,omitempty" jsonschema:"description:Optional status filter,enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 		}{}
 
-		result, err := listRecords(ctx, mockToolContext(), input)
+		result, err := listRecords(ctx, mockRequestContext(), input)
 		s.Require().NoError(err)
 
 		s.Equal("success", result["status"])
@@ -111,7 +111,7 @@ func (s *DatabaseTestSuite) TestListRecords() {
 			Status string `json:"status,omitempty" jsonschema:"description:Optional status filter,enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 		}{}
 
-		result, err := listRecords(ctx, mockToolContext(), input)
+		result, err := listRecords(ctx, mockRequestContext(), input)
 		s.Require().NoError(err)
 
 		s.Equal("success", result["status"])
@@ -128,7 +128,7 @@ func (s *DatabaseTestSuite) TestListRecords() {
 			Status string `json:"status,omitempty" jsonschema:"description:Optional status filter,enum:,enum:active,enum:inactive,enum:pending,enum:archived"`
 		}{Status: "active"}
 
-		result, err := listRecords(ctx, mockToolContext(), input)
+		result, err := listRecords(ctx, mockRequestContext(), input)
 		s.Require().NoError(err)
 
 		s.Equal("success", result["status"])
