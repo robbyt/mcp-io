@@ -177,12 +177,6 @@ func TestReadmeExamples(t *testing.T) {
 		var toolErr *mcpio.ToolError
 		require.ErrorAs(t, err, &toolErr)
 	})
-
-	t.Run("AdvancedFeatures_RawJSON", func(t *testing.T) {
-		handler, err := createRawToolHandler()
-		require.NoError(t, err)
-		assert.NotNil(t, handler)
-	})
 }
 
 func TestToolMetadata_MultipleTools(t *testing.T) {
@@ -636,6 +630,17 @@ func TestSessionCapabilities(t *testing.T) {
 	})
 }
 
+func TestAdvancedFeatures(t *testing.T) {
+	t.Parallel()
+
+	t.Run("RawJSONTools", func(t *testing.T) {
+		// Test the validateJSON raw tool example from README Advanced Features section
+		handler, err := createRawToolHandler()
+		require.NoError(t, err)
+		assert.NotNil(t, handler)
+	})
+}
+
 func TestSchemaTypeOptions(t *testing.T) {
 	t.Parallel()
 
@@ -700,6 +705,42 @@ func TestSchemaTypeOptions(t *testing.T) {
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler)
+	})
+}
+
+func TestSDKComparison(t *testing.T) {
+	t.Parallel()
+
+	// Types from README SDK Comparison section
+	type GreetInput struct {
+		Name string `json:"name" jsonschema:"User's name"`
+	}
+
+	type GreetOutput struct {
+		Greeting string `json:"greeting" jsonschema:"The greeting message"`
+	}
+
+	// mcp-io simplified signature (from README line 787-793)
+	greet := func(ctx context.Context, toolCtx mcpio.RequestContext, input GreetInput) (GreetOutput, error) {
+		// Session available via toolCtx, if needed
+		_ = toolCtx.GetSession()
+		return GreetOutput{Greeting: "Hello " + input.Name}, nil
+	}
+
+	t.Run("SimplifiedSignature", func(t *testing.T) {
+		// Create handler with greet tool
+		handler, err := mcpio.NewHandler(
+			mcpio.WithName("greeter"),
+			mcpio.WithTool("greet", "Greet user", greet),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, handler)
+
+		// Test the function directly
+		mockToolCtx := testutil.NewMockRequestContext(nil)
+		result, err := greet(t.Context(), mockToolCtx, GreetInput{Name: "World"})
+		require.NoError(t, err)
+		assert.Equal(t, "Hello World", result.Greeting)
 	})
 }
 

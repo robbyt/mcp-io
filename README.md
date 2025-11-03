@@ -15,6 +15,7 @@ This library wraps the official [MCP SDK](https://github.com/modelcontextprotoco
 - **Graceful Error Handling**: Configuration errors return meaningful error messages instead of panicking
 - **Functional Options Constructors**: Composable API using the functional options pattern
 - **Type-Safe Tools**: Define MCP resources with Go generics to specify the in/out schema shapes
+- **Interface-Based Parameters**: Functions accept RequestContext interface for dependency injection and testing
 - **Multiple Transports**: Streamable HTTP and stdio support through a single handler
 - **Sentinel Error Types**: Errors return specific types that can be checked with `errors.Is`
 - **Extensive Examples**: Includes examples demonstrating MCP features and usage patterns
@@ -225,6 +226,22 @@ func main() {
     }
 }
 ```
+
+### Request Context Interface
+
+Handler functions receive a `RequestContext` interface parameter for accessing request metadata and session capabilities:
+
+```go
+type RequestContext interface {
+    GetSession() *capabilities.Session  // Access session capabilities
+    GetIdentifier() string              // Tool name, prompt name, or resource URI
+    GetTokenInfo() *auth.TokenInfo      // OAuth token information
+    GetHeaders() http.Header            // HTTP headers from request
+    GetMeta() map[string]any            // Request metadata
+}
+```
+
+The MCP SDK passes concrete request types to handlers, requiring functions to depend on SDK struct layout. This library uses an interface instead, decoupling handler signatures from SDK implementation details. The interface approach enables dependency injection for testing, where mock implementations satisfy the interface contract without SDK types.
 
 ### Tool Metadata and Multiple Tools Per Server
 
@@ -796,6 +813,30 @@ handler, err := mcpio.NewHandler(
     mcpio.WithTool("greet", "Greet user", greet), // Schema auto-generated
 )
 ```
+
+### Request Context Pattern
+
+**MCP SDK**: Functions receive concrete request types
+```go
+func handler(ctx context.Context, req *mcpSDK.CallToolRequest, input T) (*mcpSDK.CallToolResult, T, error) {
+    token := req.Extra.TokenInfo
+    session := req.Session
+    toolName := req.Params.Name
+    // ...
+}
+```
+
+**mcp-io**: Functions receive an interface
+```go
+func handler(ctx context.Context, toolCtx mcpio.RequestContext, input T) (T, error) {
+    token := toolCtx.GetTokenInfo()
+    session := toolCtx.GetSession()
+    toolName := toolCtx.GetIdentifier()
+    // ...
+}
+```
+
+The interface decouples handlers from SDK struct layout, enabling dependency injection and simpler testing with mock implementations.
 
 **Comparison**:
 
