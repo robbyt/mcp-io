@@ -2,6 +2,7 @@ package mcpwrapper
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	mcpSDK "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -181,5 +182,28 @@ func WithUnsubscribeHandler(handler func(context.Context, *mcpSDK.UnsubscribeReq
 func WithSessionIDGenerator(generator func() string) ServerOption {
 	return func(opts *mcpSDK.ServerOptions) {
 		opts.GetSessionID = generator
+	}
+}
+
+// WithServerLogger sets the logger for server-side MCP protocol operations.
+//
+// The logger receives events about internal server activity including
+// connection lifecycle, message routing, protocol errors, and session management.
+// Log output goes to your logging backend, NOT to the MCP client.
+//
+// For logging that is visible to LLMs and MCP clients, use session.LogInfo(),
+// session.LogWarning(), or session.LogError() in your tool handlers instead.
+//
+// If not set, the SDK uses a discard logger (no output).
+//
+// Example:
+//
+//	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+//	    Level: slog.LevelDebug,
+//	}))
+//	mcp.WithServerLogger(logger)
+func WithServerLogger(logger *slog.Logger) ServerOption {
+	return func(opts *mcpSDK.ServerOptions) {
+		opts.Logger = logger
 	}
 }
