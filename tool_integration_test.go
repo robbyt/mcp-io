@@ -4,10 +4,12 @@ package mcpio_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	"github.com/stretchr/testify/suite"
 )
@@ -18,6 +20,204 @@ type ToolIntegrationTestSuite struct {
 
 func TestToolIntegrationTestSuite(t *testing.T) {
 	suite.Run(t, new(ToolIntegrationTestSuite))
+}
+
+func (s *ToolIntegrationTestSuite) TestProgressNotificationIntegration() {
+	s.Run("BasicProgress", func() {
+		handler, err := mcpio.NewHandler(
+			mcpio.WithName("progress-test"),
+			mcpio.WithTool("process", "Test basic progress", func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
+				Items int `json:"items"`
+			}) (struct {
+				Result string `json:"result"`
+			}, error,
+			) {
+				session := toolCtx.GetSession()
+				total := float64(input.Items)
+
+				// Send progress notifications
+				for i := 0; i < input.Items; i++ {
+					if err := session.NotifyProgress(ctx, float64(i+1), total); err != nil {
+						return struct {
+							Result string `json:"result"`
+						}{}, err
+					}
+				}
+
+				return struct {
+					Result string `json:"result"`
+				}{Result: "done"}, nil
+			}),
+		)
+		s.Require().NoError(err)
+
+		session, getNotifications := testutil.ConnectWithProgressCapture(s.T(), handler)
+
+		result, err := session.CallTool(s.Ctx, &mcp.CallToolParams{
+			Name:      "process",
+			Arguments: map[string]any{"items": 3},
+		})
+		s.Require().NoError(err)
+		s.False(result.IsError)
+
+		// Verify notifications were received
+		notifications := getNotifications()
+		s.Require().Len(notifications, 3)
+		s.InEpsilon(1.0, notifications[0].Progress, 0.0001)
+		s.InEpsilon(2.0, notifications[1].Progress, 0.0001)
+		s.InEpsilon(3.0, notifications[2].Progress, 0.0001)
+		s.InEpsilon(3.0, notifications[0].Total, 0.0001)
+	})
+
+	s.Run("WithToken", func() {
+		handler, err := mcpio.NewHandler(
+			mcpio.WithName("progress-test"),
+			mcpio.WithTool("process", "Test progress with token", func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
+				Count int `json:"count"`
+			}) (struct {
+				Result string `json:"result"`
+			}, error,
+			) {
+				session := toolCtx.GetSession()
+				token := toolCtx.GetProgressToken()
+
+				// Send progress with token
+				for i := 0; i < input.Count; i++ {
+					if err := session.NotifyProgress(ctx, float64(i+1), float64(input.Count),
+						capabilities.WithProgressToken(token)); err != nil {
+						return struct {
+							Result string `json:"result"`
+						}{}, err
+					}
+				}
+
+				return struct {
+					Result string `json:"result"`
+				}{Result: "done"}, nil
+			}),
+		)
+		s.Require().NoError(err)
+
+		session, getNotifications := testutil.ConnectWithProgressCapture(s.T(), handler)
+
+		result, err := session.CallTool(s.Ctx, &mcp.CallToolParams{
+			Name:      "process",
+			Arguments: map[string]any{"count": 2},
+			Meta:      mcp.Meta{"progressToken": "test-token-123"},
+		})
+		s.Require().NoError(err)
+		s.False(result.IsError)
+
+		// Verify token was echoed back
+		notifications := getNotifications()
+		s.Require().Len(notifications, 2)
+		s.Equal("test-token-123", notifications[0].ProgressToken)
+		s.Equal("test-token-123", notifications[1].ProgressToken)
+	})
+
+	s.Run("WithMessage", func() {
+		handler, err := mcpio.NewHandler(
+			mcpio.WithName("progress-test"),
+			mcpio.WithTool("process", "Test progress with message", func(ctx context.Context, toolCtx mcpio.RequestContext, input struct {
+				Files []string `json:"files"`
+			}) (struct {
+				Result string `json:"result"`
+			}, error,
+			) {
+				session := toolCtx.GetSession()
+				total := float64(len(input.Files))
+
+				for i, file := range input.Files {
+					msg := fmt.Sprintf("Processing %s (%d/%d)", file, i+1, len(input.Files))
+					if err := session.NotifyProgress(ctx, float64(i+1), total,
+						capabilities.WithProgressMessage(msg)); err != nil {
+						return struct {
+							Result string `json:"result"`
+						}{}, err
+					}
+				}
+
+				return struct {
+					Result string `json:"result"`
+				}{Result: "done"}, nil
+			}),
+		)
+		s.Require().NoError(err)
+
+		session, getNotifications := testutil.ConnectWithProgressCapture(s.T(), handler)
+
+		result, err := session.CallTool(s.Ctx, &mcp.CallToolParams{
+			Name:      "process",
+			Arguments: map[string]any{"files": []string{"file1.txt", "file2.txt"}},
+		})
+		s.Require().NoError(err)
+		s.False(result.IsError)
+
+		// Verify messages
+		notifications := getNotifications()
+		s.Require().Len(notifications, 2)
+		s.Equal("Processing file1.txt (1/2)", notifications[0].Message)
+		s.Equal("Processing file2.txt (2/2)", notifications[1].Message)
+	})
+
+	s.Run("AllOptions", func() {
+		handler, err := mcpio.NewHandler(
+			mcpio.WithName("progress-test"),
+			mcpio.WithTool("process", "Test progress with all options", func(ctx context.Context, toolCtx mcpio.RequestContext, input struct{}) (struct {
+				Result string `json:"result"`
+			}, error,
+			) {
+				session := toolCtx.GetSession()
+				token := toolCtx.GetProgressToken()
+
+				if err := session.NotifyProgress(ctx, 1.0, 2.0,
+					capabilities.WithProgressToken(token),
+					capabilities.WithProgressMessage("Processing step 1"),
+					capabilities.WithProgressMeta(map[string]any{"step": "analyze"})); err != nil {
+					return struct {
+						Result string `json:"result"`
+					}{}, err
+				}
+
+				if err := session.NotifyProgress(ctx, 2.0, 2.0,
+					capabilities.WithProgressToken(token),
+					capabilities.WithProgressMessage("Processing step 2"),
+					capabilities.WithProgressMeta(map[string]any{"step": "finalize"})); err != nil {
+					return struct {
+						Result string `json:"result"`
+					}{}, err
+				}
+
+				return struct {
+					Result string `json:"result"`
+				}{Result: "done"}, nil
+			}),
+		)
+		s.Require().NoError(err)
+
+		session, getNotifications := testutil.ConnectWithProgressCapture(s.T(), handler)
+
+		result, err := session.CallTool(s.Ctx, &mcp.CallToolParams{
+			Name:      "process",
+			Arguments: map[string]any{},
+			Meta:      mcp.Meta{"progressToken": 789},
+		})
+		s.Require().NoError(err)
+		s.False(result.IsError)
+
+		// Verify all optional fields present
+		notifications := getNotifications()
+		s.Require().Len(notifications, 2)
+
+		// First notification - verify all options present
+		s.Equal(float64(789), notifications[0].ProgressToken) //nolint:testifylint
+		s.Equal("Processing step 1", notifications[0].Message)
+		s.Equal("analyze", notifications[0].Meta["step"])
+
+		// Second notification - verify options carried through
+		s.Equal("Processing step 2", notifications[1].Message)
+		s.Equal("finalize", notifications[1].Meta["step"])
+	})
 }
 
 func (s *ToolIntegrationTestSuite) TestToolHandlerIntegration() {

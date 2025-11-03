@@ -496,28 +496,45 @@ npx @modelcontextprotocol/inspector --cli go run -C examples/simple_dungeon_mast
 
 ### Progress Notifications
 
-⚠️ **Work in Progress**: The current `NotifyProgress` implementation is incomplete and missing required MCP protocol fields (`ProgressToken`, `Message`). This means progress notifications won't properly associate with concurrent requests and can't include descriptive messages.
+Send progress updates to the MCP client during long-running operations using functional options to control notification behavior.
 
-Send progress updates to the MCP client, useful for keeping users informed while long-running events are being processed by the MCP server.
-
+**Basic Progress** (no options):
 ```go
-func processDataTool(ctx context.Context, toolCtx mcpio.RequestContext, input struct{ Files []string }) (map[string]any, error) {
+func backgroundTask(ctx context.Context, toolCtx mcpio.RequestContext, input TaskInput) (TaskOutput, error) {
     session := toolCtx.GetSession()
-    if session == nil {
-        return nil, fmt.Errorf("no session available")
-    }
+    total := len(input.Items)
 
-    total := float64(len(input.Files))
-    for i, file := range input.Files {
-        session.NotifyProgress(ctx, float64(i), total)
-        // Process file...
+    for i, item := range input.Items {
+        session.NotifyProgress(ctx, float64(i+1), float64(total))
+        // Process item...
     }
-    session.NotifyProgress(ctx, total, total) // Mark complete
-    return map[string]any{"status": "done"}, nil
+    return output, nil
 }
 ```
 
-**Note**: This API will be enhanced in a future release to support all MCP protocol fields.
+**Request-Specific Progress** (with token and message):
+```go
+func processBatch(ctx context.Context, toolCtx mcpio.RequestContext, input struct{ Files []string }) (map[string]any, error) {
+    session := toolCtx.GetSession()
+    token := toolCtx.GetProgressToken()
+    total := len(input.Files)
+
+    for i, file := range input.Files {
+        session.NotifyProgress(ctx, float64(i+1), float64(total),
+            capabilities.WithProgressToken(token),
+            capabilities.WithProgressMessage(fmt.Sprintf("Processing %s (%d/%d)", file, i+1, total)))
+        // Process file...
+    }
+
+    session.NotifyProgress(ctx, float64(total), float64(total), capabilities.WithProgressToken(token))
+    return map[string]any{"status": "done", "processed": total}, nil
+}
+```
+
+**Available Options:**
+- `capabilities.WithProgressToken(token)` - Associate notification with specific request for concurrent tracking (token is int or string)
+- `capabilities.WithProgressMessage(message)` - Add descriptive message
+- `capabilities.WithProgressMeta(meta)` - Add custom metadata
 
 ### Logging
 

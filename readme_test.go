@@ -477,29 +477,40 @@ func TestSessionCapabilities(t *testing.T) {
 	})
 
 	t.Run("ProgressNotifications", func(t *testing.T) {
-		// Tool from README
-		processDataTool := func(ctx context.Context, toolCtx mcpio.RequestContext, input struct{ Files []string }) (map[string]any, error) {
-			session := toolCtx.GetSession()
-			if session == nil {
-				return nil, fmt.Errorf("no session available")
-			}
+		// Tool from README - Basic Progress example
+		type TaskInput struct {
+			Items []string `json:"items"`
+		}
+		type TaskOutput struct {
+			Status string `json:"status"`
+		}
 
-			total := float64(len(input.Files))
-			for i, file := range input.Files {
-				session.NotifyProgress(ctx, float64(i), total) //nolint:errcheck
-				// Process file...
-				_ = file
+		backgroundTask := func(ctx context.Context, toolCtx mcpio.RequestContext, input TaskInput) (TaskOutput, error) {
+			session := toolCtx.GetSession()
+			total := len(input.Items)
+
+			for i, item := range input.Items {
+				session.NotifyProgress(ctx, float64(i+1), float64(total)) //nolint:errcheck
+				// Process item...
+				_ = item
 			}
-			session.NotifyProgress(ctx, total, total) //nolint:errcheck
-			return map[string]any{"status": "done"}, nil
+			return TaskOutput{Status: "done"}, nil
 		}
 
 		handler, err := mcpio.NewHandler(
 			mcpio.WithName("progress-server"),
-			mcpio.WithTool("process", "Process files", processDataTool),
+			mcpio.WithTool("process", "Process items", backgroundTask),
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, handler)
+
+		// Test execution
+		mockSession := testutil.NewMockSession()
+		mockSession.On("NotifyProgress", mock.Anything, mock.Anything).Return(nil)
+		mockToolCtx := testutil.NewMockRequestContext(mockSession.Session)
+		result, err := backgroundTask(t.Context(), mockToolCtx, TaskInput{Items: []string{"a", "b", "c"}})
+		require.NoError(t, err)
+		assert.Equal(t, "done", result.Status)
 	})
 
 	t.Run("LoggingExample", func(t *testing.T) {

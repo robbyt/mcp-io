@@ -32,6 +32,13 @@ type RequestContext interface {
 
 	// GetHeaders returns HTTP headers from the request.
 	GetHeaders() http.Header
+
+	// GetProgressToken returns the progress token from the request params if present.
+	// Progress tokens are opaque identifiers (int or string per MCP specification) that
+	// associate progress notifications with their originating request, enabling proper
+	// concurrent request tracking. The token must be echoed back exactly as received
+	// for client-side matching to work correctly. Returns nil if no token is present.
+	GetProgressToken() any
 }
 
 // MCPRequestContext holds all MCP request metadata and implements the RequestContext interface.
@@ -113,3 +120,16 @@ func (r *MCPRequestContext) GetTokenInfo() *auth.TokenInfo { return r.TokenInfo 
 // GetHeaders returns all HTTP headers from the request.
 // Never returns nil - returns empty http.Header{} if no headers present.
 func (r *MCPRequestContext) GetHeaders() http.Header { return r.Headers }
+
+// GetProgressToken returns the progress token from the request params if available.
+// Returns nil if the params don't support progress tokens or no token is present.
+func (r *MCPRequestContext) GetProgressToken() any {
+	type progressTokenGetter interface {
+		GetProgressToken() any
+	}
+
+	if getter, ok := r.Params.(progressTokenGetter); ok {
+		return getter.GetProgressToken()
+	}
+	return nil
+}

@@ -23,6 +23,29 @@ type AnalyzeOutput struct {
 	SamplingUsed bool     `json:"samplingUsed" jsonschema:"Whether sampling was available"`
 }
 
+// notifyProgress sends a progress notification if supported.
+// Treats progress as best-effort - logs failures but never aborts tool execution.
+func notifyProgress(
+	ctx context.Context,
+	session *capabilities.Session,
+	reqCtx mcpio.RequestContext,
+	progress, total float64,
+	message string,
+) {
+	opts := []capabilities.ProgressOption{
+		capabilities.WithProgressToken(reqCtx.GetProgressToken()),
+	}
+	if message != "" {
+		opts = append(opts, capabilities.WithProgressMessage(message))
+	}
+
+	if err := session.NotifyProgress(ctx, progress, total, opts...); err != nil {
+		// Log failure but don't abort - progress notifications are best-effort
+		_ = session.LogWarning(ctx, "Failed to send progress notification", //nolint:errcheck
+			map[string]any{"error": err.Error()})
+	}
+}
+
 // analyzeTool uses the client's LLM (sampling) to analyze code
 func analyzeTool(ctx context.Context, toolCtx mcpio.RequestContext, input AnalyzeInput) (AnalyzeOutput, error) {
 	session := toolCtx.GetSession()
@@ -40,11 +63,9 @@ func analyzeTool(ctx context.Context, toolCtx mcpio.RequestContext, input Analyz
 		}, nil
 	}
 
-	// Send progress notification
-	_ = session.NotifyProgress(ctx, 0.0, 1.0) //nolint:errcheck
-
-	// Log analysis start
-	_ = toolCtx.GetSession().Log(ctx, capabilities.LogLevelInfo, "Starting code analysis", map[string]any{ //nolint:errcheck
+	// Send progress notification and log analysis start (best-effort)
+	notifyProgress(ctx, session, toolCtx, 0.0, 1.0, "Starting code analysis")
+	_ = session.LogInfo(ctx, "Starting code analysis", map[string]any{ //nolint:errcheck
 		"language":  input.Language,
 		"code_size": len(input.Code),
 	})
@@ -63,24 +84,25 @@ func analyzeTool(ctx context.Context, toolCtx mcpio.RequestContext, input Analyz
 		Content: prompt,
 	}}, 2000)
 	if err != nil {
-		_ = toolCtx.GetSession().Log(ctx, capabilities.LogLevelError, "Sampling failed", map[string]any{"error": err.Error()}) //nolint:errcheck
+		// Log error but don't fail if logging fails during error handling
+		_ = session.LogError(ctx, "Sampling failed", map[string]any{"error": err.Error()}) //nolint:errcheck
 		return AnalyzeOutput{}, fmt.Errorf("sampling failed: %w", err)
 	}
 
-	_ = session.NotifyProgress(ctx, 0.5, 1.0) //nolint:errcheck
+	notifyProgress(ctx, session, toolCtx, 0.5, 1.0, "Processing AI response")
 
 	// Parse the response to extract suggestions
 	analysis := result.Content.Text
 	suggestions := extractSuggestions(analysis)
 	issuesFound := countIssues(analysis)
 
-	// Log completion
-	_ = toolCtx.GetSession().Log(ctx, capabilities.LogLevelInfo, "Analysis completed", map[string]any{ //nolint:errcheck
+	// Log completion (best-effort)
+	_ = session.LogInfo(ctx, "Analysis completed", map[string]any{ //nolint:errcheck
 		"issues_found": issuesFound,
 		"suggestions":  len(suggestions),
 	})
 
-	_ = session.NotifyProgress(ctx, 1.0, 1.0) //nolint:errcheck
+	notifyProgress(ctx, session, toolCtx, 1.0, 1.0, "")
 
 	return AnalyzeOutput{
 		Analysis:     analysis,

@@ -120,20 +120,22 @@ func (m *MockSession) SetupNoCapabilities() {
 // MockRequestContext is a mock implementation of mcpio.RequestContext interface
 type MockRequestContext struct {
 	mock.Mock
-	session    *capabilities.Session
-	identifier string
-	tokenInfo  *auth.TokenInfo
-	headers    http.Header
+	session       *capabilities.Session
+	identifier    string
+	tokenInfo     *auth.TokenInfo
+	headers       http.Header
+	progressToken any
 }
 
 // NewMockRequestContext creates a new mock request context with auto-configured mock expectations.
 // Tests can override the default return values by calling .On() methods.
 func NewMockRequestContext(session *capabilities.Session) *MockRequestContext {
 	m := &MockRequestContext{
-		session:    session,
-		identifier: "",
-		tokenInfo:  nil,
-		headers:    http.Header{},
+		session:       session,
+		identifier:    "",
+		tokenInfo:     nil,
+		headers:       http.Header{},
+		progressToken: nil,
 	}
 
 	// Auto-setup default mock expectations
@@ -142,6 +144,7 @@ func NewMockRequestContext(session *capabilities.Session) *MockRequestContext {
 	m.On("GetTokenInfo").Return((*auth.TokenInfo)(nil))
 	m.On("GetHeaders").Return(http.Header{})
 	m.On("GetMeta").Return(map[string]any{})
+	m.On("GetProgressToken").Return(nil)
 
 	return m
 }
@@ -177,4 +180,10 @@ func (m *MockRequestContext) GetMeta() map[string]any {
 		return nil
 	}
 	return args.Get(0).(map[string]any)
+}
+
+// GetProgressToken returns the progress token from the request
+func (m *MockRequestContext) GetProgressToken() any {
+	args := m.Called()
+	return args.Get(0)
 }
