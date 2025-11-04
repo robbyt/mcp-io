@@ -76,10 +76,10 @@ func main() {
 
 ### Running and Testing This Example
 
-Compile and run the example server:
+A slightly more complex version of this example is available in `examples/cli_simple/main.go`. Run the example with an HTTP transport:
 
 ```bash
-go run main.go
+go run ./examples/cli_simple/ --listen :8080
 ```
 
 The server will listen on http://localhost:8080/mcp and can be tested with the MCP Inspector CLI:

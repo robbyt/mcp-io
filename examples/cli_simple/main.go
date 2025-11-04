@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/mcpwrapper"
 )
 
 // Input schema
@@ -33,6 +34,11 @@ func main() {
 		mcpio.WithName("simple-text-processor"),
 		mcpio.WithVersion("1.0.0"),
 		mcpio.WithTool("to_upper", "Convert text to uppercase", toUpper),
+		// WithStateless enables stateless mode for CLI testing tools like the MCP Inspector.
+		// Stateless mode allows single POST requests without session establishment.
+		// For production with full MCP clients (Claude Desktop, SDK-based clients), you can
+		// remove this option to use stateful sessions with Mcp-Session-Id headers.
+		mcpio.WithHTTPTransport(mcpwrapper.WithStateless()),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create handler: %v", err)
