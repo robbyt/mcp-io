@@ -5,9 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+// Elicitation action constants defined by the MCP specification
+const (
+	ElicitActionAccept  = "accept"
+	ElicitActionDecline = "decline"
+	ElicitActionCancel  = "cancel"
 )
 
 // Elicitor provides elicitation functionality for interactive user input.
@@ -112,7 +120,7 @@ type ElicitationResult struct {
 //	    // Convert to your struct...
 //	}
 func (r *ElicitationResult) IsAccepted() bool {
-	return r.Action == "accept"
+	return strings.ToLower(r.Action) == ElicitActionAccept
 }
 
 // IsDeclined returns true if the user explicitly declined the elicitation.
@@ -128,7 +136,7 @@ func (r *ElicitationResult) IsAccepted() bool {
 //	    return map[string]any{"status": "user_declined"}, nil
 //	}
 func (r *ElicitationResult) IsDeclined() bool {
-	return r.Action == "decline"
+	return strings.ToLower(r.Action) == ElicitActionDecline
 }
 
 // IsCancelled returns true if the user cancelled/dismissed the elicitation.
@@ -144,7 +152,7 @@ func (r *ElicitationResult) IsDeclined() bool {
 //	    return map[string]any{"status": "cancelled"}, nil
 //	}
 func (r *ElicitationResult) IsCancelled() bool {
-	return r.Action == "cancel"
+	return strings.ToLower(r.Action) == ElicitActionCancel
 }
 
 // GetContent returns the submitted form data when the action is "accept".
