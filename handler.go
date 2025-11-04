@@ -10,26 +10,17 @@ import (
 	"github.com/robbyt/mcp-io/mcpwrapper"
 )
 
-// Resource registration function types
-type (
-	promptRegisterFunc           func(*mcp.Server) error
-	resourceRegisterFunc         func(*mcp.Server) error
-	resourceTemplateRegisterFunc func(*mcp.Server) error
-
-	// toolRegisterFunc is an internal function type that registers a tool on an MCP server.
-	// This is used internally by the option functions to defer tool registration.
-	// It receives both the handler (for creating tool handlers) and the server (for registration).
-	toolRegisterFunc func(*Handler, *mcp.Server) error
-)
+// registerFunc is used internally to defer resource registration until the server is created
+type registerFunc func(*mcp.Server) error
 
 // handlerConfig holds the configuration built by options while setting up a Handler instance
 type handlerConfig struct {
 	name              string
 	version           string
-	tools             []toolRegisterFunc
-	prompts           []promptRegisterFunc
-	resources         []resourceRegisterFunc
-	resourceTemplates []resourceTemplateRegisterFunc
+	tools             []registerFunc
+	prompts           []registerFunc
+	resources         []registerFunc
+	resourceTemplates []registerFunc
 	server            *mcp.Server
 	serverOptions     *mcp.ServerOptions
 	httpOpts          *mcp.StreamableHTTPOptions
@@ -73,10 +64,10 @@ func NewHandler(opts ...Option) (*Handler, error) {
 	cfg := &handlerConfig{
 		name:              "mcp-server",
 		version:           "1.0.0",
-		tools:             make([]toolRegisterFunc, 0),
-		prompts:           make([]promptRegisterFunc, 0),
-		resources:         make([]resourceRegisterFunc, 0),
-		resourceTemplates: make([]resourceTemplateRegisterFunc, 0),
+		tools:             make([]registerFunc, 0),
+		prompts:           make([]registerFunc, 0),
+		resources:         make([]registerFunc, 0),
+		resourceTemplates: make([]registerFunc, 0),
 		server:            nil, // Will be created if not provided
 		serverOptions:     &mcp.ServerOptions{},
 		httpOpts: &mcp.StreamableHTTPOptions{
@@ -113,7 +104,7 @@ func NewHandler(opts ...Option) (*Handler, error) {
 	// Register all resources
 	errz := make([]error, 0)
 	for _, registerFunc := range cfg.tools {
-		if err := registerFunc(handler, cfg.server); err != nil {
+		if err := registerFunc(cfg.server); err != nil {
 			errz = append(errz, fmt.Errorf("failed to register tool: %w", err))
 		}
 	}

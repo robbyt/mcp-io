@@ -254,7 +254,7 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 			return fmt.Errorf("tool name cannot be empty: %w", ErrEmptyValue)
 		}
 
-		registerFunc := func(handler *Handler, server *mcp.Server) error {
+		registerFunc := func(server *mcp.Server) error {
 			// Create tool with metadata
 			mcpTool := &mcp.Tool{
 				Name:        name,
@@ -268,7 +268,7 @@ func WithTool[TIn, TOut any](name, description string, fn ToolFunc[TIn, TOut], o
 				}
 			}
 
-			handlerFunc := createTypedHandler(handler, fn)
+			handlerFunc := createTypedHandler(fn)
 			mcp.AddTool(server, mcpTool, handlerFunc) // Auto-generates InputSchema from TIn
 			return nil
 		}
@@ -312,14 +312,14 @@ func WithRawTool(name, description string, inputSchema any, fn RawToolFunc, opts
 		}
 
 		// Create registration function
-		registerFunc := func(handler *Handler, server *mcp.Server) error {
+		registerFunc := func(server *mcp.Server) error {
 			// Use primitives/tool to construct the tool
 			mcpTool, err := tool.New(name, description, inputSchema, opts...)
 			if err != nil {
 				return err
 			}
 
-			handlerFunc := createRawToolHandler(handler, fn)
+			handlerFunc := createRawToolHandler(fn)
 			server.AddTool(mcpTool, handlerFunc)
 			return nil
 		}

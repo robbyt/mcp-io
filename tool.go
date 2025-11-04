@@ -26,7 +26,7 @@ import (
 //
 // Returns:
 //   - MCP ToolHandlerFor lambda that bridges user code to SDK interface
-func createTypedHandler[TIn, TOut any](handler *Handler, fn ToolFunc[TIn, TOut]) mcp.ToolHandlerFor[TIn, TOut] {
+func createTypedHandler[TIn, TOut any](fn ToolFunc[TIn, TOut]) mcp.ToolHandlerFor[TIn, TOut] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, input TIn) (*mcp.CallToolResult, TOut, error) {
 		// Create request context with all MCP metadata
 		reqCtx := newRequestContext(req.Params.Name, req.Params, req.Session, req.Extra)
@@ -52,7 +52,7 @@ func createTypedHandler[TIn, TOut any](handler *Handler, fn ToolFunc[TIn, TOut])
 }
 
 // createRawToolHandler wraps a raw function to match the MCP ToolHandler signature
-func createRawToolHandler(handler *Handler, fn RawToolFunc) mcp.ToolHandler {
+func createRawToolHandler(fn RawToolFunc) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		reqCtx := newRequestContext(req.Params.Name, req.Params, req.Session, req.Extra)
 
