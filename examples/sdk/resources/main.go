@@ -77,7 +77,10 @@ func runResources(ctx context.Context) (string, error) {
 	}
 
 	// Set up in-memory transport using mcp-io's wrapper pattern
-	sdkServer := handler.GetServer().Unwrap().(*mcp.Server)
+	sdkServer, ok := handler.GetServer().Unwrap().(*mcp.Server)
+	if !ok {
+		return "", fmt.Errorf("failed to unwrap SDK server")
+	}
 	wrappedServer, clientTransport := mcpwrapper.NewInMemoryServer(sdkServer)
 
 	// Run the server in a goroutine
@@ -141,9 +144,4 @@ func main() {
 	}
 
 	fmt.Println(output)
-
-	// Output:
-	// Resources: [file:///a]
-	// Templates: [file:///dir/{f}]
-	// Contents: [a x error: calling "resources/read": Resource not found]
 }

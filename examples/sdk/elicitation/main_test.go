@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"log"
 	"strings"
 	"testing"
 
@@ -21,4 +24,21 @@ func TestRunElicitationExample(t *testing.T) {
 
 	// Verify the output format matches expected pattern
 	assert.True(t, strings.HasPrefix(output, "Configuration received:"), "output should start with expected prefix")
+}
+
+// Example demonstrates the mcp-io elicitation functionality.
+// This example shows how to use ElicitTyped to gather structured configuration
+// data from the client with automatic schema generation.
+func Example() {
+	ctx := context.Background()
+
+	output, err := runElicitationExample(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(output)
+	// Output:
+	// Server requests: Please provide your configuration settings
+	// Configuration received: Endpoint: https://api.example.com, Max Retries: 3, Logs: true
 }

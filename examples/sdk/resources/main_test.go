@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"log"
 	"strings"
 	"testing"
 
@@ -27,4 +30,21 @@ func TestRunResources(t *testing.T) {
 	// Verify error handling for non-existent resource
 	assert.True(t, strings.Contains(output, "error") || strings.Contains(output, "not found"),
 		"output should contain error for non-existent resource")
+}
+
+// Example demonstrates the mcp-io resource functionality.
+// This example shows how to register both static resources and dynamic
+// resource templates, and how to handle resource read requests.
+func Example() {
+	ctx := context.Background()
+
+	output, err := runResources(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(output)
+	// Output: Resources: [file:///a]
+	// Templates: [file:///dir/{f}]
+	// Contents: [a x error: calling "resources/read": Resource not found]
 }
