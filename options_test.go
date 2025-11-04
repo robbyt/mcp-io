@@ -184,7 +184,7 @@ func TestMultipleOptionsApplication(t *testing.T) {
 	}
 
 	cfg := &handlerConfig{
-		tools: make([]toolRegisterFunc, 0),
+		tools: make([]registerFunc, 0),
 	}
 	options := []Option{
 		WithName("multi-test"),
@@ -490,7 +490,7 @@ func TestPromptOptions(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				cfg := &handlerConfig{
-					prompts: make([]promptRegisterFunc, 0),
+					prompts: make([]registerFunc, 0),
 				}
 				option := WithPrompt(tt.promptName, tt.description, tt.promptFunc)
 				err := option(cfg)
@@ -564,7 +564,7 @@ func TestPromptOptions(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				cfg := &handlerConfig{
-					prompts: make([]promptRegisterFunc, 0),
+					prompts: make([]registerFunc, 0),
 				}
 				option := WithPromptWithArgs(tt.promptName, tt.description, tt.args, tt.promptFunc)
 				err := option(cfg)
@@ -604,7 +604,7 @@ func TestResourceOptions(t *testing.T) {
 
 	t.Run("WithResource", func(t *testing.T) {
 		// Test valid resource
-		cfg := &handlerConfig{resources: make([]resourceRegisterFunc, 0)}
+		cfg := &handlerConfig{resources: make([]registerFunc, 0)}
 		err := WithResource("test://resource", "A test resource", resourceFunc)(cfg)
 		require.NoError(t, err)
 		assert.Len(t, cfg.resources, 1)
@@ -614,13 +614,13 @@ func TestResourceOptions(t *testing.T) {
 		require.ErrorIs(t, err, ErrEmptyValue)
 
 		// Test empty description valid
-		cfg = &handlerConfig{resources: make([]resourceRegisterFunc, 0)}
+		cfg = &handlerConfig{resources: make([]registerFunc, 0)}
 		err = WithResource("test://resource", "", resourceFunc)(cfg)
 		require.NoError(t, err)
 		assert.Len(t, cfg.resources, 1)
 
 		// Test complex URI valid
-		cfg = &handlerConfig{resources: make([]resourceRegisterFunc, 0)}
+		cfg = &handlerConfig{resources: make([]registerFunc, 0)}
 		err = WithResource("file:///path/to/resource.txt", "A file resource", resourceFunc)(cfg)
 		require.NoError(t, err)
 		assert.Len(t, cfg.resources, 1)
@@ -628,7 +628,7 @@ func TestResourceOptions(t *testing.T) {
 
 	t.Run("WithResourceTemplate", func(t *testing.T) {
 		// Valid template test
-		cfg := &handlerConfig{resourceTemplates: make([]resourceTemplateRegisterFunc, 0)}
+		cfg := &handlerConfig{resourceTemplates: make([]registerFunc, 0)}
 		err := WithResourceTemplate("user://{id}", "A user template", templateFunc)(cfg)
 		require.NoError(t, err)
 		assert.Len(t, cfg.resourceTemplates, 1)
@@ -638,13 +638,13 @@ func TestResourceOptions(t *testing.T) {
 		require.ErrorIs(t, err, ErrEmptyValue)
 
 		// Empty description valid test
-		cfg = &handlerConfig{resourceTemplates: make([]resourceTemplateRegisterFunc, 0)}
+		cfg = &handlerConfig{resourceTemplates: make([]registerFunc, 0)}
 		err = WithResourceTemplate("config://{section}", "", templateFunc)(cfg)
 		require.NoError(t, err)
 		assert.Len(t, cfg.resourceTemplates, 1)
 
 		// Multiple placeholders valid test with more detailed checks
-		cfg = &handlerConfig{resourceTemplates: make([]resourceTemplateRegisterFunc, 0)}
+		cfg = &handlerConfig{resourceTemplates: make([]registerFunc, 0)}
 		complexTemplate := "api://v1/users/{userId}/posts/{postId}"
 		err = WithResourceTemplate(complexTemplate, "Complex template", templateFunc)(cfg)
 		require.NoError(t, err)
@@ -795,8 +795,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return []byte(`{"result": "success", "input_length": ` + strconv.Itoa(len(input)) + `}`), nil
 		}
 
-		h := &Handler{}
-		handler := createRawToolHandler(h, rawFunc)
+		handler := createRawToolHandler(rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{
 			"test": "value",
@@ -821,8 +820,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return []byte(`{"result": "should not reach"}`), nil
 		}
 
-		h := &Handler{}
-		handler := createRawToolHandler(h, rawFunc)
+		handler := createRawToolHandler(rawFunc)
 
 		// Create request with invalid JSON that will cause marshaling to fail
 		// We'll pass invalid JSON as RawMessage directly
@@ -850,8 +848,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return nil, NewToolError("validation failed")
 		}
 
-		h := &Handler{}
-		handler := createRawToolHandler(h, rawFunc)
+		handler := createRawToolHandler(rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
 
@@ -873,8 +870,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return nil, ValidationError("invalid input format")
 		}
 
-		h := &Handler{}
-		handler := createRawToolHandler(h, rawFunc)
+		handler := createRawToolHandler(rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"data": "invalid"})
 
@@ -899,8 +895,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return nil, errDatabaseFailed
 		}
 
-		h := &Handler{}
-		handler := createRawToolHandler(h, rawFunc)
+		handler := createRawToolHandler(rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"query": "test"})
 
@@ -917,8 +912,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return []byte(`{invalid json:`), nil
 		}
 
-		h := &Handler{}
-		handler := createRawToolHandler(h, rawFunc)
+		handler := createRawToolHandler(rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
 
@@ -936,8 +930,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return []byte(`{}`), nil
 		}
 
-		h := &Handler{}
-		handler := createRawToolHandler(h, rawFunc)
+		handler := createRawToolHandler(rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"test": "data"})
 
@@ -959,8 +952,7 @@ func TestCreateRawToolHandler(t *testing.T) {
 			return []byte(`[1, 2, 3]`), nil
 		}
 
-		h := &Handler{}
-		handler := createRawToolHandler(h, rawFunc)
+		handler := createRawToolHandler(rawFunc)
 
 		req := createTestCallToolRequest(t, map[string]any{"count": 3})
 

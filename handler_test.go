@@ -430,7 +430,7 @@ func TestNewHandlerToolRegistrationError(t *testing.T) {
 
 	// Create a tool registration function that will fail
 	failingToolOption := func(cfg *handlerConfig) error {
-		failingRegistration := func(handler *Handler, server *mcp.Server) error {
+		failingRegistration := func(server *mcp.Server) error {
 			return errToolRegistration
 		}
 		cfg.tools = append(cfg.tools, failingRegistration)
@@ -521,7 +521,7 @@ func TestNewHandlerMixedRegistrationsSuccess(t *testing.T) {
 
 	// Create successful registration functions
 	successToolOption := func(cfg *handlerConfig) error {
-		successRegistration := func(handler *Handler, server *mcp.Server) error {
+		successRegistration := func(server *mcp.Server) error {
 			return nil // Success
 		}
 		cfg.tools = append(cfg.tools, successRegistration)
