@@ -1,10 +1,10 @@
-package mcpio_test
+package mcpio
 
 import (
 	"context"
 	"testing"
 
-	mcpio "github.com/robbyt/mcp-io"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -12,19 +12,19 @@ import (
 func TestCompletionResult_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		result  *mcpio.CompletionResult
+		result  *CompletionResult
 		wantErr error
 	}{
 		{
 			name: "valid with values only",
-			result: &mcpio.CompletionResult{
+			result: &CompletionResult{
 				Values: []string{"a", "b", "c"},
 			},
 			wantErr: nil,
 		},
 		{
 			name: "valid with total matching length",
-			result: &mcpio.CompletionResult{
+			result: &CompletionResult{
 				Values: []string{"a", "b"},
 				Total:  2,
 			},
@@ -32,7 +32,7 @@ func TestCompletionResult_Validate(t *testing.T) {
 		},
 		{
 			name: "valid with hasmore and higher total",
-			result: &mcpio.CompletionResult{
+			result: &CompletionResult{
 				Values:  []string{"a", "b"},
 				Total:   10,
 				HasMore: true,
@@ -41,7 +41,7 @@ func TestCompletionResult_Validate(t *testing.T) {
 		},
 		{
 			name: "valid with metadata",
-			result: &mcpio.CompletionResult{
+			result: &CompletionResult{
 				Values: []string{"a", "b"},
 				Meta: map[string]any{
 					"source": "cache",
@@ -52,18 +52,18 @@ func TestCompletionResult_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid - no values",
-			result: &mcpio.CompletionResult{
+			result: &CompletionResult{
 				Values: []string{},
 			},
-			wantErr: mcpio.ErrNoCompletions,
+			wantErr: ErrNoCompletions,
 		},
 		{
 			name: "invalid - total less than values",
-			result: &mcpio.CompletionResult{
+			result: &CompletionResult{
 				Values: []string{"a", "b", "c"},
 				Total:  2,
 			},
-			wantErr: mcpio.ErrInvalidTotal,
+			wantErr: ErrInvalidTotal,
 		},
 	}
 
@@ -82,10 +82,10 @@ func TestCompletionResult_Validate(t *testing.T) {
 
 func TestWithCompletion(t *testing.T) {
 	t.Run("valid completion handler", func(t *testing.T) {
-		handler, err := mcpio.NewHandler(
-			mcpio.WithName("test"),
-			mcpio.WithCompletion(func(ctx context.Context, reqCtx mcpio.RequestContext, ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
-				return &mcpio.CompletionResult{Values: []string{"test"}}, nil
+		handler, err := NewHandler(
+			WithName("test"),
+			WithCompletion(func(ctx context.Context, reqCtx RequestContext, ref CompletionRef) (*CompletionResult, error) {
+				return &CompletionResult{Values: []string{"test"}}, nil
 			}),
 		)
 		require.NoError(t, err)
@@ -93,17 +93,58 @@ func TestWithCompletion(t *testing.T) {
 	})
 
 	t.Run("nil completion handler", func(t *testing.T) {
-		_, err := mcpio.NewHandler(
-			mcpio.WithName("test"),
-			mcpio.WithCompletion(nil),
+		_, err := NewHandler(
+			WithName("test"),
+			WithCompletion(nil),
 		)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, mcpio.ErrNilValue)
+		assert.ErrorIs(t, err, ErrNilValue)
 	})
 }
 
 func TestCompletionError(t *testing.T) {
-	err := mcpio.NewCompletionError("test error message")
+	err := NewCompletionError("test error message")
 	require.Error(t, err)
 	assert.Equal(t, "test error message", err.Error())
+}
+
+func TestGetCompletionIdentifier(t *testing.T) {
+	tests := []struct {
+		name     string
+		ref      *mcp.CompleteReference
+		expected string
+	}{
+		{
+			name:     "ref/prompt returns name",
+			ref:      &mcp.CompleteReference{Type: "ref/prompt", Name: "greet"},
+			expected: "greet",
+		},
+		{
+			name:     "ref/resource returns URI",
+			ref:      &mcp.CompleteReference{Type: "ref/resource", URI: "file:///data/"},
+			expected: "file:///data/",
+		},
+		{
+			name:     "unknown type returns type",
+			ref:      &mcp.CompleteReference{Type: "ref/unknown"},
+			expected: "ref/unknown",
+		},
+		{
+			name:     "empty name for prompt returns empty",
+			ref:      &mcp.CompleteReference{Type: "ref/prompt", Name: ""},
+			expected: "",
+		},
+		{
+			name:     "empty URI for resource returns empty",
+			ref:      &mcp.CompleteReference{Type: "ref/resource", URI: ""},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getCompletionIdentifier(tt.ref)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }

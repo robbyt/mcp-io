@@ -253,3 +253,49 @@ func (s *CompletionIntegrationSuite) TestCompletionWithMeta() {
 	s.Equal("cache", result.Meta["source"])
 	s.Equal("2025-01-01T00:00:00Z", result.Meta["timestamp"])
 }
+
+func (s *CompletionIntegrationSuite) TestCompletionIdentifier() {
+	s.Run("ref/prompt uses name as identifier", func() {
+		handler, err := mcpio.NewHandler(
+			mcpio.WithName("completion-test"),
+			mcpio.WithCompletion(func(ctx context.Context, reqCtx mcpio.RequestContext, ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
+				// Verify identifier is the prompt name
+				s.Equal("greet", reqCtx.GetIdentifier())
+				return &mcpio.CompletionResult{Values: []string{"test"}}, nil
+			}),
+		)
+		s.Require().NoError(err)
+
+		client := testutil.ConnectInMemory(s.T(), handler)
+
+		_, err = client.Complete(context.Background(), &mcp.CompleteParams{
+			Ref: &mcp.CompleteReference{
+				Type: "ref/prompt",
+				Name: "greet",
+			},
+		})
+		s.Require().NoError(err)
+	})
+
+	s.Run("ref/resource uses URI as identifier", func() {
+		handler, err := mcpio.NewHandler(
+			mcpio.WithName("completion-test"),
+			mcpio.WithCompletion(func(ctx context.Context, reqCtx mcpio.RequestContext, ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
+				// Verify identifier is the resource URI
+				s.Equal("file:///data/", reqCtx.GetIdentifier())
+				return &mcpio.CompletionResult{Values: []string{"test"}}, nil
+			}),
+		)
+		s.Require().NoError(err)
+
+		client := testutil.ConnectInMemory(s.T(), handler)
+
+		_, err = client.Complete(context.Background(), &mcp.CompleteParams{
+			Ref: &mcp.CompleteReference{
+				Type: "ref/resource",
+				URI:  "file:///data/",
+			},
+		})
+		s.Require().NoError(err)
+	})
+}

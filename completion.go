@@ -77,6 +77,19 @@ func (r *CompletionResult) Validate() error {
 	return nil
 }
 
+// getCompletionIdentifier extracts the appropriate identifier from a completion reference.
+// Returns the prompt name for ref/prompt, resource URI for ref/resource, or the type as fallback.
+func getCompletionIdentifier(ref *mcp.CompleteReference) string {
+	switch ref.Type {
+	case "ref/prompt":
+		return ref.Name
+	case "ref/resource":
+		return ref.URI
+	default:
+		return ref.Type
+	}
+}
+
 // createCompletionHandler wraps a user-provided CompletionFunc to match the SDK's CompletionHandler signature.
 // This adapter follows the same pattern as createToolHandler, createPromptHandler, createResourceHandler.
 //
@@ -89,8 +102,8 @@ func (r *CompletionResult) Validate() error {
 func createCompletionHandler(fn CompletionFunc) func(context.Context, *mcp.CompleteRequest) (*mcp.CompleteResult, error) {
 	return func(ctx context.Context, req *mcp.CompleteRequest) (*mcp.CompleteResult, error) {
 		// Create request context with all MCP metadata
-		// Use empty string as identifier since completions aren't named resources
-		reqCtx := newRequestContext("", req.Params, req.Session, req.Extra)
+		// Use prompt name or resource URI as identifier based on reference type
+		reqCtx := newRequestContext(getCompletionIdentifier(req.Params.Ref), req.Params, req.Session, req.Extra)
 
 		// Extract reference information from SDK request
 		ref := CompletionRef{
