@@ -329,3 +329,42 @@ func WithRawTool(name, description string, inputSchema any, fn RawToolFunc, opts
 		return nil
 	}
 }
+
+// WithCompletion adds a completion handler to the server.
+// The completion handler provides autocomplete suggestions for prompts, resources, or custom reference types.
+//
+// Only ONE completion handler can be registered per server. Multiple calls to WithCompletion
+// will result in only the last handler being used (SDK limitation).
+//
+// Example:
+//
+//	mcpio.WithCompletion(func(ctx context.Context, reqCtx mcpio.RequestContext, ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
+//	    switch ref.Type {
+//	    case "ref/prompt":
+//	        if ref.Name == "greet" && ref.Argument == "language" {
+//	            return &mcpio.CompletionResult{
+//	                Values: []string{"English", "Spanish", "French", "German"},
+//	            }, nil
+//	        }
+//	    case "ref/resource":
+//	        return &mcpio.CompletionResult{
+//	            Values: []string{"file:///data1.txt", "file:///data2.txt"},
+//	        }, nil
+//	    }
+//	    return nil, mcpio.NewCompletionError("unsupported reference type")
+//	})
+func WithCompletion(fn CompletionFunc) Option {
+	return func(cfg *handlerConfig) error {
+		if fn == nil {
+			return fmt.Errorf("completion function cannot be nil: %w", ErrNilValue)
+		}
+
+		// Create the SDK-compatible handler
+		handler := createCompletionHandler(fn)
+
+		// Set in serverOptions (not via registerFunc - handlers are set differently)
+		cfg.serverOptions.CompletionHandler = handler
+
+		return nil
+	}
+}

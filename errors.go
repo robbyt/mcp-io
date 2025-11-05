@@ -145,3 +145,29 @@ var ErrSamplingNotSupported = errors.New("client does not support sampling")
 // from a client that doesn't support the elicitation capability.
 // Check capabilities.Session.SupportsElicitation() before calling elicitation functions.
 var ErrElicitationNotSupported = errors.New("client does not support elicitation")
+
+// Completion-related errors
+
+// ErrNoCompletions is returned when a completion handler provides no suggestions
+var ErrNoCompletions = errors.New("completion handler must return at least one value")
+
+// ErrInvalidTotal is returned when Total is set but is less than the number of Values
+var ErrInvalidTotal = errors.New("total must be 0 (unknown) or >= len(values)")
+
+// ErrUnsupportedRefType is returned when the reference type is not supported
+var ErrUnsupportedRefType = errors.New("unsupported completion reference type")
+
+// CompletionError represents a user-facing completion error.
+// Use this for errors that should be returned to the MCP client (e.g., unsupported ref types).
+type CompletionError struct {
+	msg string
+}
+
+func (e *CompletionError) Error() string {
+	return e.msg
+}
+
+// NewCompletionError creates a new completion error with the given message
+func NewCompletionError(msg string) *CompletionError {
+	return &CompletionError{msg: msg}
+}
