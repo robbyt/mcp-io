@@ -641,40 +641,7 @@ func advancedTool(ctx context.Context, toolCtx mcpio.RequestContext, _ struct{})
 
 ### Completion (Autocomplete)
 
-MCP completion provides autocomplete suggestions for prompt arguments and resource URIs. When a client requests completions, your handler can suggest relevant values based on context.
-
-Example completion handler:
-
-```go
-import mcpio "github.com/robbyt/mcp-io"
-
-handler, err := mcpio.NewHandler(
-    mcpio.WithName("completion-server"),
-    mcpio.WithCompletion(func(ctx context.Context, reqCtx mcpio.RequestContext, ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
-        // Provide completions based on what's being completed
-        switch ref.Type {
-        case "ref/prompt":
-            if ref.Argument == "language" {
-                return &mcpio.CompletionResult{
-                    Values: []string{"English", "Spanish", "French"},
-                }, nil
-            }
-        case "ref/resource":
-            return &mcpio.CompletionResult{
-                Values: []string{"file:///data1.txt", "file:///data2.txt"},
-            }, nil
-        }
-        return nil, mcpio.NewCompletionError("unsupported reference type")
-    }),
-)
-```
-
-The `CompletionRef` parameter provides context about what's being completed:
-- `Type`: Reference type ("ref/prompt" or "ref/resource")
-- `Name`: Name of the prompt or resource
-- `Argument`: Specific argument being completed (for prompts)
-
-See [examples/cli_completion/](examples/cli_completion/) for a complete working example.
+Provide autocomplete suggestions for prompt arguments and resource URIs. Completion handlers can use context from previously-resolved arguments to provide smarter, dependency-aware suggestions. See [examples/cli_completion/](examples/cli_completion/) for usage.
 
 ## Advanced Features
 

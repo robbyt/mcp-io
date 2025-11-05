@@ -128,3 +128,128 @@ func (s *CompletionIntegrationSuite) TestCompletionError() {
 	s.Require().Error(err)
 	s.Contains(err.Error(), "completion not available")
 }
+
+func (s *CompletionIntegrationSuite) TestCompletionWithURI() {
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("completion-test"),
+		mcpio.WithCompletion(func(ctx context.Context, reqCtx mcpio.RequestContext, ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
+			// Verify URI field is populated for ref/resource
+			if ref.Type == "ref/resource" && ref.URI == "file:///data/" {
+				return &mcpio.CompletionResult{
+					Values: []string{"file:///data/users.json", "file:///data/products.json"},
+				}, nil
+			}
+			return &mcpio.CompletionResult{Values: []string{}}, nil
+		}),
+	)
+	s.Require().NoError(err)
+
+	client := testutil.ConnectInMemory(s.T(), handler)
+
+	result, err := client.Complete(context.Background(), &mcp.CompleteParams{
+		Ref: &mcp.CompleteReference{
+			Type: "ref/resource",
+			URI:  "file:///data/",
+		},
+	})
+
+	s.Require().NoError(err)
+	s.Require().Len(result.Completion.Values, 2)
+	s.Contains(result.Completion.Values, "file:///data/users.json")
+}
+
+func (s *CompletionIntegrationSuite) TestCompletionWithValue() {
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("completion-test"),
+		mcpio.WithCompletion(func(ctx context.Context, reqCtx mcpio.RequestContext, ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
+			// Filter based on current input value
+			if ref.Value == "Eng" {
+				return &mcpio.CompletionResult{
+					Values: []string{"English"},
+				}, nil
+			}
+			return &mcpio.CompletionResult{
+				Values: []string{"English", "Spanish", "French"},
+			}, nil
+		}),
+	)
+	s.Require().NoError(err)
+
+	client := testutil.ConnectInMemory(s.T(), handler)
+
+	result, err := client.Complete(context.Background(), &mcp.CompleteParams{
+		Ref: &mcp.CompleteReference{Type: "ref/prompt"},
+		Argument: mcp.CompleteParamsArgument{
+			Name:  "language",
+			Value: "Eng",
+		},
+	})
+
+	s.Require().NoError(err)
+	s.Require().Len(result.Completion.Values, 1)
+	s.Equal("English", result.Completion.Values[0])
+}
+
+func (s *CompletionIntegrationSuite) TestCompletionWithContext() {
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("completion-test"),
+		mcpio.WithCompletion(func(ctx context.Context, reqCtx mcpio.RequestContext, ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
+			// Provide context-aware suggestions
+			if ref.Argument == "style" && ref.Context["language"] == "Spanish" {
+				return &mcpio.CompletionResult{
+					Values: []string{"formal", "informal"},
+				}, nil
+			}
+			return &mcpio.CompletionResult{
+				Values: []string{"casual", "professional"},
+			}, nil
+		}),
+	)
+	s.Require().NoError(err)
+
+	client := testutil.ConnectInMemory(s.T(), handler)
+
+	result, err := client.Complete(context.Background(), &mcp.CompleteParams{
+		Ref: &mcp.CompleteReference{Type: "ref/prompt"},
+		Argument: mcp.CompleteParamsArgument{
+			Name: "style",
+		},
+		Context: &mcp.CompleteContext{
+			Arguments: map[string]string{
+				"language": "Spanish",
+			},
+		},
+	})
+
+	s.Require().NoError(err)
+	s.Require().Len(result.Completion.Values, 2)
+	s.Contains(result.Completion.Values, "formal")
+	s.Contains(result.Completion.Values, "informal")
+}
+
+func (s *CompletionIntegrationSuite) TestCompletionWithMeta() {
+	handler, err := mcpio.NewHandler(
+		mcpio.WithName("completion-test"),
+		mcpio.WithCompletion(func(ctx context.Context, reqCtx mcpio.RequestContext, ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
+			return &mcpio.CompletionResult{
+				Values: []string{"option1", "option2"},
+				Meta: map[string]any{
+					"source":    "cache",
+					"timestamp": "2025-01-01T00:00:00Z",
+				},
+			}, nil
+		}),
+	)
+	s.Require().NoError(err)
+
+	client := testutil.ConnectInMemory(s.T(), handler)
+
+	result, err := client.Complete(context.Background(), &mcp.CompleteParams{
+		Ref: &mcp.CompleteReference{Type: "ref/prompt"},
+	})
+
+	s.Require().NoError(err)
+	s.NotNil(result.Meta)
+	s.Equal("cache", result.Meta["source"])
+	s.Equal("2025-01-01T00:00:00Z", result.Meta["timestamp"])
+}

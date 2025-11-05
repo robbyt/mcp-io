@@ -31,17 +31,47 @@ func myCompletionHandler(ctx context.Context, reqCtx mcpio.RequestContext, ref m
 func handlePromptCompletion(ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
 	// Example: Complete language argument for "greet" prompt
 	if ref.Name == "greet" && ref.Argument == "language" {
+		// Filter based on current input value
+		if ref.Value != "" {
+			filtered := []string{}
+			allLangs := []string{"English", "Spanish", "French", "German", "Italian", "Portuguese"}
+			for _, lang := range allLangs {
+				if strings.HasPrefix(strings.ToLower(lang), strings.ToLower(ref.Value)) {
+					filtered = append(filtered, lang)
+				}
+			}
+			return &mcpio.CompletionResult{Values: filtered}, nil
+		}
+
 		return &mcpio.CompletionResult{
 			Values:  []string{"English", "Spanish", "French", "German", "Italian", "Portuguese"},
 			HasMore: false,
 		}, nil
 	}
 
-	// Example: Complete style argument for "summarize" prompt
-	if ref.Name == "summarize" && ref.Argument == "style" {
+	// Example: Context-aware completion for "style" argument
+	// Provide different style options based on previously-selected language
+	if ref.Name == "greet" && ref.Argument == "style" {
+		if lang, ok := ref.Context["language"]; ok {
+			switch lang {
+			case "Spanish":
+				return &mcpio.CompletionResult{
+					Values: []string{"formal", "informal"},
+				}, nil
+			case "French":
+				return &mcpio.CompletionResult{
+					Values: []string{"formel", "informel"},
+				}, nil
+			default:
+				return &mcpio.CompletionResult{
+					Values: []string{"casual", "professional"},
+				}, nil
+			}
+		}
+
+		// No context available, provide generic styles
 		return &mcpio.CompletionResult{
-			Values:  []string{"concise", "detailed", "technical", "casual"},
-			HasMore: false,
+			Values: []string{"casual", "professional", "formal"},
 		}, nil
 	}
 
@@ -51,10 +81,18 @@ func handlePromptCompletion(ref mcpio.CompletionRef) (*mcpio.CompletionResult, e
 }
 
 func handleResourceCompletion(ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
-	// Example: Complete file paths based on partial input
+	// Example: Complete resource URIs using the URI field
 	// In a real implementation, you might query a filesystem or database
 
-	if strings.HasPrefix(ref.Name, "file:///data") {
+	// Use URI field to determine what to complete
+	if strings.HasPrefix(ref.URI, "file:///data") {
+		// Filter based on current input value if present
+		if ref.Value != "" && strings.Contains(ref.Value, "user") {
+			return &mcpio.CompletionResult{
+				Values: []string{"file:///data/users.json"},
+			}, nil
+		}
+
 		return &mcpio.CompletionResult{
 			Values: []string{
 				"file:///data/users.json",
@@ -87,11 +125,17 @@ func main() {
 		// Add some prompts that use completion
 		mcpio.WithPromptWithArgs("greet", "Generate a greeting", []*mcp.PromptArgument{
 			{Name: "language", Description: "Language for greeting", Required: true},
+			{Name: "style", Description: "Style of greeting", Required: false},
 		}, func(ctx context.Context, reqCtx mcpio.RequestContext, args map[string]any) (*mcpio.PromptResult, error) {
 			lang := args["language"].(string)
+			style, _ := args["style"].(string)
+			prompt := fmt.Sprintf("Say hello in %s", lang)
+			if style != "" {
+				prompt += fmt.Sprintf(" with a %s style", style)
+			}
 			return &mcpio.PromptResult{
 				Messages: []mcpio.PromptMessage{
-					{Role: "user", Content: fmt.Sprintf("Say hello in %s", lang)},
+					{Role: "user", Content: prompt},
 				},
 			}, nil
 		}),

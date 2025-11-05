@@ -40,6 +40,17 @@ func TestCompletionResult_Validate(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "valid with metadata",
+			result: &mcpio.CompletionResult{
+				Values: []string{"a", "b"},
+				Meta: map[string]any{
+					"source": "cache",
+					"ttl":    3600,
+				},
+			},
+			wantErr: nil,
+		},
+		{
 			name: "invalid - no values",
 			result: &mcpio.CompletionResult{
 				Values: []string{},

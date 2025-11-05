@@ -30,11 +30,22 @@ type CompletionRef struct {
 	// Type indicates what kind of reference this is (e.g., "ref/prompt", "ref/resource")
 	Type string
 
-	// Name is the name of the prompt or resource being completed (optional)
+	// Name is the name of the prompt being completed (used with "ref/prompt")
 	Name string
 
-	// Argument is the specific argument name being completed within a prompt (optional)
+	// URI is the resource URI being completed (used with "ref/resource")
+	URI string
+
+	// Argument is the specific argument name being completed within a prompt
 	Argument string
+
+	// Value is the current input value for the argument being completed
+	Value string
+
+	// Context contains previously-resolved arguments for dependency-aware completions.
+	// For example, if completing a "style" argument and the user has already selected
+	// language="Spanish", Context would contain {"language": "Spanish"}.
+	Context map[string]string
 }
 
 // CompletionResult represents completion suggestions returned by a completion handler.
@@ -50,6 +61,9 @@ type CompletionResult struct {
 	// Total indicates the total number of completions available (optional)
 	// Use 0 or omit if unknown. When HasMore is true, Total > len(Values)
 	Total int
+
+	// Meta is protocol-reserved metadata for extensibility (optional)
+	Meta map[string]any
 }
 
 // Validate ensures the CompletionResult is well-formed before returning to the SDK
@@ -82,7 +96,14 @@ func createCompletionHandler(fn CompletionFunc) func(context.Context, *mcp.Compl
 		ref := CompletionRef{
 			Type:     req.Params.Ref.Type,
 			Name:     req.Params.Ref.Name,
+			URI:      req.Params.Ref.URI,
 			Argument: req.Params.Argument.Name,
+			Value:    req.Params.Argument.Value,
+		}
+
+		// Extract context if present (nil-safe)
+		if req.Params.Context != nil {
+			ref.Context = req.Params.Context.Arguments
 		}
 
 		// Execute user function with request context
@@ -111,6 +132,7 @@ func createCompletionHandler(fn CompletionFunc) func(context.Context, *mcp.Compl
 		}
 
 		return &mcp.CompleteResult{
+			Meta: result.Meta,
 			Completion: mcp.CompletionResultDetails{
 				Values:  result.Values,
 				Total:   total,
