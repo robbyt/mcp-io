@@ -39,6 +39,12 @@ Key differences from SDK:
 
 Compare with SDK: https://github.com/modelcontextprotocol/go-sdk/blob/main/mcp/server_example_test.go (Example_resources)
 
+### [Example_completion](./completion_test.go)
+
+Demonstrates completion handler registration for autocomplete functionality.
+
+Compare with SDK: https://github.com/modelcontextprotocol/go-sdk/blob/main/examples/server/completion/main.go
+
 ## Running the Examples
 
 These examples appear in `go doc` output and can be tested:
