@@ -24,7 +24,7 @@ func (s *CompletionIntegrationSuite) TestBasicCompletion() {
 	handler, err := mcpio.NewHandler(
 		mcpio.WithName("completion-test"),
 		mcpio.WithCompletion(func(ctx context.Context, reqCtx mcpio.RequestContext, ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
-			if ref.Type == "ref/prompt" {
+			if ref.Type == mcpio.RefTypePrompt {
 				return &mcpio.CompletionResult{
 					Values: []string{"value1", "value2", "value3"},
 				}, nil
@@ -39,7 +39,7 @@ func (s *CompletionIntegrationSuite) TestBasicCompletion() {
 	// Send completion request
 	result, err := client.Complete(context.Background(), &mcp.CompleteParams{
 		Ref: &mcp.CompleteReference{
-			Type: "ref/prompt",
+			Type: mcpio.RefTypePrompt,
 		},
 	})
 
@@ -65,7 +65,7 @@ func (s *CompletionIntegrationSuite) TestCompletionWithPagination() {
 	client := testutil.ConnectInMemory(s.T(), handler)
 
 	result, err := client.Complete(context.Background(), &mcp.CompleteParams{
-		Ref: &mcp.CompleteReference{Type: "ref/resource"},
+		Ref: &mcp.CompleteReference{Type: mcpio.RefTypeResource},
 	})
 
 	s.Require().NoError(err)
@@ -78,7 +78,7 @@ func (s *CompletionIntegrationSuite) TestCompletionWithPromptArgument() {
 	handler, err := mcpio.NewHandler(
 		mcpio.WithName("completion-test"),
 		mcpio.WithCompletion(func(ctx context.Context, reqCtx mcpio.RequestContext, ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
-			if ref.Type == "ref/prompt" && ref.Name == "greet" && ref.Argument == "language" {
+			if ref.Type == mcpio.RefTypePrompt && ref.Name == "greet" && ref.Argument == "language" {
 				return &mcpio.CompletionResult{
 					Values: []string{"English", "Spanish", "French"},
 				}, nil
@@ -94,7 +94,7 @@ func (s *CompletionIntegrationSuite) TestCompletionWithPromptArgument() {
 
 	result, err := client.Complete(context.Background(), &mcp.CompleteParams{
 		Ref: &mcp.CompleteReference{
-			Type: "ref/prompt",
+			Type: mcpio.RefTypePrompt,
 			Name: "greet",
 		},
 		Argument: mcp.CompleteParamsArgument{
@@ -122,7 +122,7 @@ func (s *CompletionIntegrationSuite) TestCompletionError() {
 	client := testutil.ConnectInMemory(s.T(), handler)
 
 	_, err = client.Complete(context.Background(), &mcp.CompleteParams{
-		Ref: &mcp.CompleteReference{Type: "ref/prompt"},
+		Ref: &mcp.CompleteReference{Type: mcpio.RefTypePrompt},
 	})
 
 	s.Require().Error(err)
@@ -134,7 +134,7 @@ func (s *CompletionIntegrationSuite) TestCompletionWithURI() {
 		mcpio.WithName("completion-test"),
 		mcpio.WithCompletion(func(ctx context.Context, reqCtx mcpio.RequestContext, ref mcpio.CompletionRef) (*mcpio.CompletionResult, error) {
 			// Verify URI field is populated for ref/resource
-			if ref.Type == "ref/resource" && ref.URI == "file:///data/" {
+			if ref.Type == mcpio.RefTypeResource && ref.URI == "file:///data/" {
 				return &mcpio.CompletionResult{
 					Values: []string{"file:///data/users.json", "file:///data/products.json"},
 				}, nil
@@ -148,7 +148,7 @@ func (s *CompletionIntegrationSuite) TestCompletionWithURI() {
 
 	result, err := client.Complete(context.Background(), &mcp.CompleteParams{
 		Ref: &mcp.CompleteReference{
-			Type: "ref/resource",
+			Type: mcpio.RefTypeResource,
 			URI:  "file:///data/",
 		},
 	})
@@ -178,7 +178,7 @@ func (s *CompletionIntegrationSuite) TestCompletionWithValue() {
 	client := testutil.ConnectInMemory(s.T(), handler)
 
 	result, err := client.Complete(context.Background(), &mcp.CompleteParams{
-		Ref: &mcp.CompleteReference{Type: "ref/prompt"},
+		Ref: &mcp.CompleteReference{Type: mcpio.RefTypePrompt},
 		Argument: mcp.CompleteParamsArgument{
 			Name:  "language",
 			Value: "Eng",
@@ -210,7 +210,7 @@ func (s *CompletionIntegrationSuite) TestCompletionWithContext() {
 	client := testutil.ConnectInMemory(s.T(), handler)
 
 	result, err := client.Complete(context.Background(), &mcp.CompleteParams{
-		Ref: &mcp.CompleteReference{Type: "ref/prompt"},
+		Ref: &mcp.CompleteReference{Type: mcpio.RefTypePrompt},
 		Argument: mcp.CompleteParamsArgument{
 			Name: "style",
 		},
@@ -245,7 +245,7 @@ func (s *CompletionIntegrationSuite) TestCompletionWithMeta() {
 	client := testutil.ConnectInMemory(s.T(), handler)
 
 	result, err := client.Complete(context.Background(), &mcp.CompleteParams{
-		Ref: &mcp.CompleteReference{Type: "ref/prompt"},
+		Ref: &mcp.CompleteReference{Type: mcpio.RefTypePrompt},
 	})
 
 	s.Require().NoError(err)
@@ -270,7 +270,7 @@ func (s *CompletionIntegrationSuite) TestCompletionIdentifier() {
 
 		_, err = client.Complete(context.Background(), &mcp.CompleteParams{
 			Ref: &mcp.CompleteReference{
-				Type: "ref/prompt",
+				Type: mcpio.RefTypePrompt,
 				Name: "greet",
 			},
 		})
@@ -292,7 +292,7 @@ func (s *CompletionIntegrationSuite) TestCompletionIdentifier() {
 
 		_, err = client.Complete(context.Background(), &mcp.CompleteParams{
 			Ref: &mcp.CompleteReference{
-				Type: "ref/resource",
+				Type: mcpio.RefTypeResource,
 				URI:  "file:///data/",
 			},
 		})

@@ -19,9 +19,9 @@ func myCompletionHandler(ctx context.Context, reqCtx mcpio.RequestContext, ref m
 		ref.Type, ref.Name, ref.Argument))
 
 	switch ref.Type {
-	case "ref/prompt":
+	case mcpio.RefTypePrompt:
 		return handlePromptCompletion(ref)
-	case "ref/resource":
+	case mcpio.RefTypeResource:
 		return handleResourceCompletion(ref)
 	default:
 		return nil, mcpio.NewCompletionError(fmt.Sprintf("unsupported reference type: %s", ref.Type))

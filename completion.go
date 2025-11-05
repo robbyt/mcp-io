@@ -8,6 +8,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// MCP completion reference types
+const (
+	RefTypePrompt   = "ref/prompt"
+	RefTypeResource = "ref/resource"
+)
+
 // CompletionFunc is the function signature for user-defined completion handlers.
 // The function receives context, request metadata, completion reference details,
 // and returns completion suggestions with optional metadata.
@@ -15,7 +21,7 @@ import (
 // Example:
 //
 //	func myCompletionHandler(ctx context.Context, reqCtx mcpio.RequestContext, ref CompletionRef) (*CompletionResult, error) {
-//	    if ref.Type == "ref/prompt" && ref.Name == "greet" {
+//	    if ref.Type == mcpio.RefTypePrompt && ref.Name == "greet" {
 //	        return &CompletionResult{
 //	            Values: []string{"Hello", "Hi", "Greetings"},
 //	        }, nil
@@ -78,12 +84,12 @@ func (r *CompletionResult) Validate() error {
 }
 
 // getCompletionIdentifier extracts the appropriate identifier from a completion reference.
-// Returns the prompt name for ref/prompt, resource URI for ref/resource, or the type as fallback.
+// Returns the prompt name for RefTypePrompt, resource URI for RefTypeResource, or the type as fallback.
 func getCompletionIdentifier(ref *mcp.CompleteReference) string {
 	switch ref.Type {
-	case "ref/prompt":
+	case RefTypePrompt:
 		return ref.Name
-	case "ref/resource":
+	case RefTypeResource:
 		return ref.URI
 	default:
 		return ref.Type

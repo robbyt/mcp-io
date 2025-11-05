@@ -116,12 +116,12 @@ func TestGetCompletionIdentifier(t *testing.T) {
 	}{
 		{
 			name:     "ref/prompt returns name",
-			ref:      &mcp.CompleteReference{Type: "ref/prompt", Name: "greet"},
+			ref:      &mcp.CompleteReference{Type: RefTypePrompt, Name: "greet"},
 			expected: "greet",
 		},
 		{
 			name:     "ref/resource returns URI",
-			ref:      &mcp.CompleteReference{Type: "ref/resource", URI: "file:///data/"},
+			ref:      &mcp.CompleteReference{Type: RefTypeResource, URI: "file:///data/"},
 			expected: "file:///data/",
 		},
 		{
@@ -131,12 +131,12 @@ func TestGetCompletionIdentifier(t *testing.T) {
 		},
 		{
 			name:     "empty name for prompt returns empty",
-			ref:      &mcp.CompleteReference{Type: "ref/prompt", Name: ""},
+			ref:      &mcp.CompleteReference{Type: RefTypePrompt, Name: ""},
 			expected: "",
 		},
 		{
 			name:     "empty URI for resource returns empty",
-			ref:      &mcp.CompleteReference{Type: "ref/resource", URI: ""},
+			ref:      &mcp.CompleteReference{Type: RefTypeResource, URI: ""},
 			expected: "",
 		},
 	}
