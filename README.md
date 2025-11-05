@@ -639,6 +639,10 @@ func advancedTool(ctx context.Context, toolCtx mcpio.RequestContext, _ struct{})
 }
 ```
 
+### Completion (Autocomplete)
+
+Provide autocomplete suggestions for prompt arguments and resource URIs. Completion handlers can use context from previously-resolved arguments to provide smarter, dependency-aware suggestions. See [examples/cli_completion/](examples/cli_completion/) for usage.
+
 ## Advanced Features
 
 ### Raw JSON Tools
