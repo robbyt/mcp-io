@@ -102,10 +102,10 @@ func analyzeTool(ctx context.Context, toolCtx mcpio.RequestContext, input Analyz
     }
 
     // Send message to client's LLM
-    result, err := mcpio.CreateMessage(ctx, []*mcpio.Message{{
+    result, err := session.CreateMessage(ctx, []*capabilities.Message{{
         Role:    "user",
         Content: "Analyze this code for bugs: " + input.Code,
-    }}, 2000)
+    }}, sampling.WithMaxTokens(2000))
     if err != nil {
         return AnalyzeOutput{}, fmt.Errorf("sampling failed: %w", err)
     }

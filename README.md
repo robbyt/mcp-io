@@ -433,7 +433,10 @@ handler, err := mcpio.NewHandler(
 #### Example: AI Dungeon Master
 
 ```go
-import "github.com/robbyt/mcp-io/capabilities"
+import (
+    "github.com/robbyt/mcp-io/capabilities"
+    "github.com/robbyt/mcp-io/capabilities/sampling"
+)
 
 type AdventureInput struct {
     Action string `json:"action" jsonschema:"What the player does"`
@@ -452,7 +455,7 @@ func dungeonMaster(ctx context.Context, toolCtx mcpio.RequestContext, input Adve
     result, err := session.CreateMessage(ctx, []*capabilities.Message{{
         Role:    "user",
         Content: prompt,
-    }}, 300)
+    }}, sampling.WithMaxTokens(300))
     if err != nil {
         return nil, err
     }

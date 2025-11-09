@@ -7,6 +7,7 @@ import (
 
 	mcpio "github.com/robbyt/mcp-io"
 	"github.com/robbyt/mcp-io/capabilities"
+	"github.com/robbyt/mcp-io/capabilities/sampling"
 )
 
 // AnalyzeInput represents input for code analysis
@@ -82,7 +83,7 @@ func analyzeTool(ctx context.Context, toolCtx mcpio.RequestContext, input Analyz
 	result, err := session.CreateMessage(ctx, []*capabilities.Message{{
 		Role:    "user",
 		Content: prompt,
-	}}, 2000)
+	}}, sampling.WithMaxTokens(2000))
 	if err != nil {
 		// Log error but don't fail if logging fails during error handling
 		_ = session.LogError(ctx, "Sampling failed", map[string]any{"error": err.Error()}) //nolint:errcheck
@@ -152,7 +153,7 @@ func improveTool(ctx context.Context, toolCtx mcpio.RequestContext, input Improv
 	result, err := session.CreateMessage(ctx, []*capabilities.Message{{
 		Role:    "user",
 		Content: prompt,
-	}}, 3000)
+	}}, sampling.WithMaxTokens(3000))
 	if err != nil {
 		return ImproveOutput{}, fmt.Errorf("sampling failed: %w", err)
 	}
