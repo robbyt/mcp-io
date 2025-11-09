@@ -7,23 +7,6 @@ import (
 	"github.com/robbyt/mcp-io/capabilities/sampling"
 )
 
-// Message represents a message for LLM sampling.
-type Message struct {
-	Role    string
-	Content string
-}
-
-// MessageResult represents the result of an LLM sampling request.
-type MessageResult struct {
-	Role    string
-	Content TextContent
-}
-
-// TextContent represents text content in a message.
-type TextContent struct {
-	Text string
-}
-
 // SamplingCapabilities indicates the client supports LLM sampling.
 type SamplingCapabilities struct{}
 
@@ -37,7 +20,7 @@ func (s *Session) SupportsSampling() bool {
 // Options can be provided to configure the sampling behavior (maxTokens, temperature, model preferences, etc).
 // If maxTokens is not specified via WithMaxTokens, defaults to 1000.
 // Returns nil error and empty result if the client doesn't support sampling.
-func (s *Session) CreateMessage(ctx context.Context, messages []*Message, opts ...sampling.MessageOption) (*MessageResult, error) {
+func (s *Session) CreateMessage(ctx context.Context, messages []*sampling.Message, opts ...sampling.MessageOption) (*sampling.MessageResult, error) {
 	// Convert our Message type to mcp.SamplingMessage
 	mcpMessages := make([]*mcp.SamplingMessage, len(messages))
 	for i, msg := range messages {
@@ -62,15 +45,15 @@ func (s *Session) CreateMessage(ctx context.Context, messages []*Message, opts .
 	// Convert result back to our types
 	mcpContent, ok := result.Content.(*mcp.TextContent)
 	if !ok {
-		return &MessageResult{
+		return &sampling.MessageResult{
 			Role:    string(result.Role),
-			Content: TextContent{Text: ""},
+			Content: sampling.TextContent{Text: ""},
 		}, nil
 	}
 
-	return &MessageResult{
+	return &sampling.MessageResult{
 		Role:    string(result.Role),
-		Content: TextContent{Text: mcpContent.Text},
+		Content: sampling.TextContent{Text: mcpContent.Text},
 	}, nil
 }
 

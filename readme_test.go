@@ -13,7 +13,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
-	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/capabilities/sampling"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	toolOption "github.com/robbyt/mcp-io/primitives/tool"
@@ -404,7 +403,7 @@ func TestSessionCapabilities(t *testing.T) {
 			prompt := "You are a dungeon master. The player: \"" + input.Action +
 				"\". Narrate what happens next in 2 sentences. Be dramatic!"
 
-			result, err := session.CreateMessage(ctx, []*capabilities.Message{{
+			result, err := session.CreateMessage(ctx, []*sampling.Message{{
 				Role:    "user",
 				Content: prompt,
 			}}, sampling.WithMaxTokens(300))
@@ -450,7 +449,7 @@ func TestSessionCapabilities(t *testing.T) {
 			if session == nil {
 				return nil, fmt.Errorf("no session available")
 			}
-			result, err := session.CreateMessage(ctx, []*capabilities.Message{{
+			result, err := session.CreateMessage(ctx, []*sampling.Message{{
 				Role:    "user",
 				Content: "Analyze this code and suggest improvements:\n" + input.Code,
 			}}, sampling.WithMaxTokens(2000))

@@ -102,7 +102,7 @@ func analyzeTool(ctx context.Context, toolCtx mcpio.RequestContext, input Analyz
     }
 
     // Send message to client's LLM
-    result, err := session.CreateMessage(ctx, []*capabilities.Message{{
+    result, err := session.CreateMessage(ctx, []*sampling.Message{{
         Role:    "user",
         Content: "Analyze this code for bugs: " + input.Code,
     }}, sampling.WithMaxTokens(2000))
