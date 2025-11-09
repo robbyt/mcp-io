@@ -452,7 +452,7 @@ func dungeonMaster(ctx context.Context, toolCtx mcpio.RequestContext, input Adve
     prompt := "You are a dungeon master. The player: \"" + input.Action +
               "\". Narrate what happens next in 2 sentences. Be dramatic!"
 
-    result, err := session.CreateMessage(ctx, []*capabilities.Message{{
+    result, err := session.CreateMessage(ctx, []*sampling.Message{{
         Role:    "user",
         Content: prompt,
     }}, sampling.WithMaxTokens(300))

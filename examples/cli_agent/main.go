@@ -80,7 +80,7 @@ func analyzeTool(ctx context.Context, toolCtx mcpio.RequestContext, input Analyz
 	prompt += "Provide:\n1. A summary of what the code does\n2. Any issues found (bugs, security, performance)\n3. Specific suggestions for improvement"
 
 	// Send message to client's LLM
-	result, err := session.CreateMessage(ctx, []*capabilities.Message{{
+	result, err := session.CreateMessage(ctx, []*sampling.Message{{
 		Role:    "user",
 		Content: prompt,
 	}}, sampling.WithMaxTokens(2000))
@@ -150,7 +150,7 @@ func improveTool(ctx context.Context, toolCtx mcpio.RequestContext, input Improv
 	prompt += "```\n" + input.Code + "\n```\n\n"
 	prompt += "Provide the improved code and explain what changes were made."
 
-	result, err := session.CreateMessage(ctx, []*capabilities.Message{{
+	result, err := session.CreateMessage(ctx, []*sampling.Message{{
 		Role:    "user",
 		Content: prompt,
 	}}, sampling.WithMaxTokens(3000))

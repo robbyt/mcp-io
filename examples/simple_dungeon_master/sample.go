@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	mcpio "github.com/robbyt/mcp-io"
-	"github.com/robbyt/mcp-io/capabilities"
 	"github.com/robbyt/mcp-io/capabilities/sampling"
 )
 
@@ -23,7 +22,7 @@ func createLLMMessage(ctx context.Context, toolCtx mcpio.RequestContext, prompt 
 		opts = append(opts, sampling.WithModelHints(preferredModel))
 	}
 
-	result, err := session.CreateMessage(ctx, []*capabilities.Message{{
+	result, err := session.CreateMessage(ctx, []*sampling.Message{{
 		Role:    "user",
 		Content: prompt,
 	}}, opts...)

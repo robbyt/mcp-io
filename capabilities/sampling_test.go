@@ -50,7 +50,7 @@ func TestCreateMessage(t *testing.T) {
 		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		result, err := session.CreateMessage(t.Context(), []*capabilities.Message{{
+		result, err := session.CreateMessage(t.Context(), []*sampling.Message{{
 			Role:    "user",
 			Content: "Analyze this code",
 		}}, sampling.WithMaxTokens(2000))
@@ -70,7 +70,7 @@ func TestCreateMessage(t *testing.T) {
 		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		result, err := session.CreateMessage(t.Context(), []*capabilities.Message{
+		result, err := session.CreateMessage(t.Context(), []*sampling.Message{
 			{Role: "user", Content: "First message"},
 			{Role: "assistant", Content: "First response"},
 			{Role: "user", Content: "Second message"},
@@ -87,7 +87,7 @@ func TestCreateMessage(t *testing.T) {
 		mockSession.On("CreateMessage", mock.Anything, mock.Anything).Return(nil, expectedErr)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		result, err := session.CreateMessage(t.Context(), []*capabilities.Message{{
+		result, err := session.CreateMessage(t.Context(), []*sampling.Message{{
 			Role:    "user",
 			Content: "Test",
 		}})
@@ -166,7 +166,7 @@ func TestCreateMessageWithOptions(t *testing.T) {
 		})).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		messages := []*capabilities.Message{
+		messages := []*sampling.Message{
 			{Role: "user", Content: "Hello"},
 		}
 
@@ -195,7 +195,7 @@ func TestCreateMessageWithOptions(t *testing.T) {
 		})).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		messages := []*capabilities.Message{
+		messages := []*sampling.Message{
 			{Role: "user", Content: "Hello"},
 		}
 
@@ -230,7 +230,7 @@ func TestCreateMessageWithOptions(t *testing.T) {
 		})).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		messages := []*capabilities.Message{
+		messages := []*sampling.Message{
 			{Role: "user", Content: "Hello"},
 		}
 
@@ -253,7 +253,7 @@ func TestCreateMessageWithOptions(t *testing.T) {
 		// Should not call CreateMessage due to validation error
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		messages := []*capabilities.Message{
+		messages := []*sampling.Message{
 			{Role: "user", Content: "Hello"},
 		}
 
@@ -271,7 +271,7 @@ func TestCreateMessageWithOptions(t *testing.T) {
 		// Should not call CreateMessage due to validation error
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		messages := []*capabilities.Message{
+		messages := []*sampling.Message{
 			{Role: "user", Content: "Hello"},
 		}
 
@@ -302,7 +302,7 @@ func TestCreateMessageWithOptions(t *testing.T) {
 		})).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		messages := []*capabilities.Message{
+		messages := []*sampling.Message{
 			{Role: "user", Content: "Hello"},
 		}
 
@@ -329,7 +329,7 @@ func TestCreateMessageWithOptions(t *testing.T) {
 		})).Return(expectedResult, nil)
 
 		session := capabilities.NewSession(mockSession.MockServerSession)
-		messages := []*capabilities.Message{
+		messages := []*sampling.Message{
 			{Role: "user", Content: "Hello"},
 		}
 
