@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
+	"github.com/robbyt/mcp-io/capabilities"
+	"github.com/robbyt/mcp-io/capabilities/sampling"
 )
 
 // createLLMMessage sends a prompt to the client's LLM and returns the text response
@@ -15,27 +16,20 @@ func createLLMMessage(ctx context.Context, toolCtx mcpio.RequestContext, prompt 
 		return "", fmt.Errorf("no session available")
 	}
 
-	params := &mcp.CreateMessageParams{
-		Messages: []*mcp.SamplingMessage{{
-			Role:    "user",
-			Content: &mcp.TextContent{Text: prompt},
-		}},
-		MaxTokens: int64(maxTokens),
+	opts := []sampling.MessageOption{
+		sampling.WithMaxTokens(maxTokens),
 	}
 	if preferredModel != "" {
-		params.ModelPreferences = &mcp.ModelPreferences{
-			Hints: []*mcp.ModelHint{{Name: preferredModel}},
-		}
+		opts = append(opts, sampling.WithModelHints(preferredModel))
 	}
-	result, err := session.CreateMessageRaw(ctx, params)
+
+	result, err := session.CreateMessage(ctx, []*capabilities.Message{{
+		Role:    "user",
+		Content: prompt,
+	}}, opts...)
 	if err != nil {
 		return "", err
 	}
 
-	textContent, ok := result.Content.(*mcp.TextContent)
-	if !ok {
-		return "", fmt.Errorf("unexpected content type from LLM")
-	}
-
-	return textContent.Text, nil
+	return result.Content.Text, nil
 }

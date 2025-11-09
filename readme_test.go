@@ -14,6 +14,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpio "github.com/robbyt/mcp-io"
 	"github.com/robbyt/mcp-io/capabilities"
+	"github.com/robbyt/mcp-io/capabilities/sampling"
 	"github.com/robbyt/mcp-io/internal/testutil"
 	toolOption "github.com/robbyt/mcp-io/primitives/tool"
 	"github.com/stretchr/testify/assert"
@@ -406,7 +407,7 @@ func TestSessionCapabilities(t *testing.T) {
 			result, err := session.CreateMessage(ctx, []*capabilities.Message{{
 				Role:    "user",
 				Content: prompt,
-			}}, 300)
+			}}, sampling.WithMaxTokens(300))
 			if err != nil {
 				return nil, err
 			}
@@ -452,7 +453,7 @@ func TestSessionCapabilities(t *testing.T) {
 			result, err := session.CreateMessage(ctx, []*capabilities.Message{{
 				Role:    "user",
 				Content: "Analyze this code and suggest improvements:\n" + input.Code,
-			}}, 2000)
+			}}, sampling.WithMaxTokens(2000))
 			if err != nil {
 				return nil, err
 			}
