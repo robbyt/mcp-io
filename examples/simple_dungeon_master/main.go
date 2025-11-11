@@ -67,7 +67,7 @@ func main() {
 		log.Fatalf("Failed to create handler: %v", err)
 	}
 
-	if err := handler.ServeStdio(context.Background()); err != nil {
+	if err := handler.Run(context.Background()); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }

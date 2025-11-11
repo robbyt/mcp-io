@@ -34,7 +34,7 @@ func main() {
 		log.Fatal("Failed to create MCP handler:", err)
 	}
 
-	if err := handler.ServeStdio(context.Background()); err != nil {
+	if err := handler.Run(context.Background()); err != nil {
 		log.Fatal("Failed to serve MCP via stdio:", err)
 	}
 }

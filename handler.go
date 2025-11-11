@@ -24,6 +24,7 @@ type handlerConfig struct {
 	server            *mcp.Server
 	serverOptions     *mcp.ServerOptions
 	httpOpts          *mcp.StreamableHTTPOptions
+	transport         mcp.Transport
 }
 
 // MCPServer provides an interface to the concrete MCP SDK server instance.
@@ -43,6 +44,9 @@ type MCPServer interface {
 
 	// Transport - run the server with configured transport
 	Run(ctx context.Context) error
+
+	// GetTransport returns the currently configured transport
+	GetTransport() mcp.Transport
 
 	// ServeHTTP implements http.Handler for Streamable HTTP transport
 	ServeHTTP(w http.ResponseWriter, r *http.Request)
@@ -92,9 +96,14 @@ func NewHandler(opts ...Option) (*Handler, error) {
 		cfg.server = mcp.NewServer(impl, cfg.serverOptions)
 	}
 
-	// Create wrapped server with Stdio transport (default)
+	// Use custom transport if provided, otherwise default to StdioTransport
+	if cfg.transport == nil {
+		cfg.transport = &mcp.StdioTransport{}
+	}
+
+	// Create wrapped server with configured transport
 	wrappedServer := mcpwrapper.New(cfg.server, mcpwrapper.WithHTTPOptions(cfg.httpOpts))
-	wrappedServer.SetTransport(&mcp.StdioTransport{})
+	wrappedServer.SetTransport(cfg.transport)
 
 	// Create the handler before registration (needed by registerFunc)
 	handler := &Handler{
@@ -135,6 +144,34 @@ func (h *Handler) GetServer() MCPServer {
 	return h.server
 }
 
+// GetTransport returns the currently configured transport for this handler.
+// Returns nil if no transport has been set.
+//
+// This is useful for advanced use cases where access to the underlying transport
+// is needed, such as when integrating with external MCP client libraries like Google ADK.
+//
+// For common use cases with in-memory transports, consider using NewInMemoryPair()
+// instead, which returns both the handler and client transport in one call.
+//
+// Example:
+//
+//	handler, _ := mcpio.NewHandler(mcpio.WithTool(...))
+//	transport := handler.GetTransport()
+//	// transport can now be used with external MCP clients
+func (h *Handler) GetTransport() mcp.Transport {
+	return h.server.GetTransport()
+}
+
+// Run starts the MCP server with the configured transport.
+// This is the main entry point for starting the server.
+//
+// For stdio transport (default), this reads from os.Stdin and writes to os.Stdout.
+// For in-memory transport (from NewInMemoryPair), this connects to the paired client transport.
+// For HTTP transport, use ServeHTTP instead.
+func (h *Handler) Run(ctx context.Context) error {
+	return h.server.Run(ctx)
+}
+
 // ServeHTTP implements http.Handler for Streamable HTTP transport.
 // Delegates to the MCPServer's ServeHTTP method.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +180,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ServeStdio runs the server using stdio transport for command-line tools.
 // Uses os.Stdin and os.Stdout as configured by the MCP SDK.
+//
+// Deprecated: Use Run() instead. ServeStdio is kept for backward compatibility
+// but Run() is the preferred method as it works with any transport type.
 func (h *Handler) ServeStdio(ctx context.Context) error {
-	// Transport is already set, just run the server
-	return h.server.Run(ctx)
+	return h.Run(ctx)
 }

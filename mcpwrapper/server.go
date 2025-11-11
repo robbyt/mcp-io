@@ -52,6 +52,15 @@ func (s *Server) SetTransport(transport mcpSDK.Transport) {
 	s.transport = transport
 }
 
+// GetTransport returns the currently configured transport for the server.
+// Returns nil if no transport has been set.
+//
+// This is useful for advanced use cases where access to the underlying transport
+// is needed, such as integrating with external MCP client libraries.
+func (s *Server) GetTransport() mcpSDK.Transport {
+	return s.transport
+}
+
 // NewInMemoryServer creates a server with in-memory transport for testing.
 // Returns both the wrapped server and the client transport for connecting test clients.
 // HTTP options default to stateful + SSE, override with WithHTTPOptions().

@@ -368,3 +368,34 @@ func WithCompletion(fn CompletionFunc) Option {
 		return nil
 	}
 }
+
+// WithTransport sets a custom transport for the handler.
+// By default, handlers use StdioTransport. This option allows using
+// in-memory or HTTP transports for testing or integration scenarios.
+//
+// This is primarily useful for:
+//   - Testing with in-memory transports
+//   - Integration with external libraries like Google ADK
+//   - Custom transport implementations
+//
+// For most use cases, consider using NewInMemoryPair() instead,
+// which handles transport setup automatically.
+//
+// Example with custom transport:
+//
+//	serverTransport, clientTransport := mcp.NewInMemoryTransports()
+//	handler, _ := mcpio.NewHandler(
+//	    mcpio.WithTransport(serverTransport),
+//	    mcpio.WithTool("echo", "Echo tool", echoFunc),
+//	)
+//	// Start server with handler.Run(ctx)
+//	// Connect client using clientTransport
+func WithTransport(transport mcp.Transport) Option {
+	return func(cfg *handlerConfig) error {
+		if transport == nil {
+			return fmt.Errorf("transport cannot be nil: %w", ErrNilValue)
+		}
+		cfg.transport = transport
+		return nil
+	}
+}

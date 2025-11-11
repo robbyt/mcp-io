@@ -154,7 +154,7 @@ func main() {
 		log.Fatal(http.ListenAndServe(*listen, nil))
 	} else {
 		// Stdio mode
-		if err := handler.ServeStdio(context.Background()); err != nil {
+		if err := handler.Run(context.Background()); err != nil {
 			log.Fatalf("Server error: %v", err)
 		}
 	}

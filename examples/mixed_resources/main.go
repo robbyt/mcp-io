@@ -164,7 +164,7 @@ func main() {
 	}
 
 	// Serve via stdio (standard for CLI MCP servers)
-	if err := handler.ServeStdio(context.Background()); err != nil {
+	if err := handler.Run(context.Background()); err != nil {
 		log.Fatalf("Failed to serve MCP via stdio: %v", err)
 	}
 }
