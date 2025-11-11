@@ -213,18 +213,12 @@ func TestHandler_GetTransport(t *testing.T) {
 
 // TestHandler_GetTransport_NormalHandler verifies GetTransport on regular handler
 func TestHandler_GetTransport_NormalHandler(t *testing.T) {
-	// Create regular handler (uses StdioTransport by default)
 	handler, err := NewHandler(WithName("test"))
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 
-	// Get transport
 	transport := handler.GetTransport()
-	require.NotNil(t, transport)
-
-	// Should be StdioTransport
-	_, ok := transport.(*mcp.StdioTransport)
-	assert.True(t, ok, "Expected StdioTransport")
+	assert.Nil(t, transport, "GetTransport returns nil when no explicit transport set; Run() defaults to StdioTransport")
 }
 
 // TestWithTransport_CustomTransport verifies WithTransport option works

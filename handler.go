@@ -96,14 +96,13 @@ func NewHandler(opts ...Option) (*Handler, error) {
 		cfg.server = mcp.NewServer(impl, cfg.serverOptions)
 	}
 
-	// Use custom transport if provided, otherwise default to StdioTransport
-	if cfg.transport == nil {
-		cfg.transport = &mcp.StdioTransport{}
-	}
-
 	// Create wrapped server with configured transport
-	wrappedServer := mcpwrapper.New(cfg.server, mcpwrapper.WithHTTPOptions(cfg.httpOpts))
-	wrappedServer.SetTransport(cfg.transport)
+	// Run() will default to StdioTransport if nil
+	wrappedServer := mcpwrapper.New(
+		cfg.server,
+		mcpwrapper.WithHTTPOptions(cfg.httpOpts),
+		mcpwrapper.WithTransport(cfg.transport),
+	)
 
 	// Create the handler before registration (needed by registerFunc)
 	handler := &Handler{
