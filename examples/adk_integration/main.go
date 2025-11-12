@@ -40,14 +40,20 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"sync"
 
+	"charm.land/fantasy/providers/anthropic"
+	"charm.land/fantasy/providers/google"
+	"charm.land/fantasy/providers/openai"
+	adapter "github.com/robbyt/fantasy-adapters/adk"
 	mcpio "github.com/robbyt/mcp-io"
 	"google.golang.org/adk/agent/llmagent"
 	"google.golang.org/adk/cmd/launcher/adk"
 	"google.golang.org/adk/cmd/launcher/full"
+	"google.golang.org/adk/model"
 	"google.golang.org/adk/model/gemini"
 	"google.golang.org/adk/server/restapi/services"
 	"google.golang.org/adk/tool"
@@ -55,9 +61,92 @@ import (
 	"google.golang.org/genai"
 )
 
+func createModel(ctx context.Context, providerName, modelName string) (model.LLM, error) {
+	// Default model names per provider
+	defaultModels := map[string]string{
+		"gemini":    "gemini-2.0-flash-exp",
+		"google":    "gemini-2.0-flash-exp",
+		"anthropic": "claude-3-5-sonnet-20241022",
+		"openai":    "gpt-4o",
+	}
+
+	// Use default if model not specified
+	if modelName == "" {
+		var ok bool
+		modelName, ok = defaultModels[providerName]
+		if !ok {
+			return nil, fmt.Errorf("unknown provider: %s (supported: gemini, google, anthropic, openai)", providerName)
+		}
+	}
+
+	switch providerName {
+	case "gemini":
+		// Native Gemini implementation
+		apiKey := os.Getenv("GOOGLE_API_KEY")
+		if apiKey == "" {
+			return nil, fmt.Errorf("GOOGLE_API_KEY environment variable not set")
+		}
+		return gemini.NewModel(ctx, modelName, &genai.ClientConfig{
+			APIKey: apiKey,
+		})
+
+	case "google":
+		// Fantasy Google provider
+		apiKey := os.Getenv("GOOGLE_API_KEY")
+		if apiKey == "" {
+			return nil, fmt.Errorf("GOOGLE_API_KEY environment variable not set")
+		}
+		provider, err := google.New(google.WithGeminiAPIKey(apiKey))
+		if err != nil {
+			return nil, err
+		}
+		fantasyModel, err := provider.LanguageModel(ctx, modelName)
+		if err != nil {
+			return nil, err
+		}
+		return adapter.NewAdapter(fantasyModel), nil
+
+	case "anthropic":
+		// Fantasy Anthropic provider
+		apiKey := os.Getenv("ANTHROPIC_API_KEY")
+		if apiKey == "" {
+			return nil, fmt.Errorf("ANTHROPIC_API_KEY environment variable not set")
+		}
+		provider, err := anthropic.New(anthropic.WithAPIKey(apiKey))
+		if err != nil {
+			return nil, err
+		}
+		fantasyModel, err := provider.LanguageModel(ctx, modelName)
+		if err != nil {
+			return nil, err
+		}
+		return adapter.NewAdapter(fantasyModel), nil
+
+	case "openai":
+		// Fantasy OpenAI provider
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			return nil, fmt.Errorf("OPENAI_API_KEY environment variable not set")
+		}
+		provider, err := openai.New(openai.WithAPIKey(apiKey))
+		if err != nil {
+			return nil, err
+		}
+		fantasyModel, err := provider.LanguageModel(ctx, modelName)
+		if err != nil {
+			return nil, err
+		}
+		return adapter.NewAdapter(fantasyModel), nil
+
+	default:
+		return nil, fmt.Errorf("unknown provider: %s (supported: gemini, google, anthropic, openai)", providerName)
+	}
+}
+
 func main() {
 	// Parse command-line flags
-	modelName := flag.String("model", "gemini-2.0-flash-exp", "Gemini model name")
+	provider := flag.String("provider", "gemini", "LLM provider (gemini, google, anthropic, openai)")
+	modelName := flag.String("model", "", "Model name (provider-specific, uses defaults if empty)")
 	temperature := flag.Float64("temperature", 0.7, "LLM temperature (0.0-1.0)")
 	maxTokens := flag.Int64("max-tokens", 2000, "Maximum output tokens")
 	flag.Parse()
@@ -84,17 +173,10 @@ func main() {
 	})
 	defer wg.Wait()
 
-	// Create Gemini model
-	apiKey := os.Getenv("GOOGLE_API_KEY")
-	if apiKey == "" {
-		log.Fatal("GOOGLE_API_KEY environment variable not set")
-	}
-
-	model, err := gemini.NewModel(ctx, *modelName, &genai.ClientConfig{
-		APIKey: apiKey,
-	})
+	// Create LLM model based on provider
+	llm, err := createModel(ctx, *provider, *modelName)
 	if err != nil {
-		log.Fatalf("Failed to create Gemini model: %v", err)
+		log.Fatalf("Failed to create model: %v", err)
 	}
 
 	// Create MCP toolset for ADK
@@ -109,7 +191,7 @@ func main() {
 	temp := float32(*temperature)
 	agent, err := llmagent.New(llmagent.Config{
 		Name:        "weather_agent",
-		Model:       model,
+		Model:       llm,
 		Description: "Weather comparison agent for US cities",
 		Instruction: weatherAgentInstruction,
 		Toolsets:    []tool.Toolset{mcpToolSet},

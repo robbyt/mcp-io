@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/codingsince1985/geo-golang/openstreetmap"
+	osm "github.com/codingsince1985/geo-golang/openstreetmap"
 )
 
 // Coordinates represents a geographic location.
@@ -76,7 +76,7 @@ func GetCoordinates(cityName string) (lat, lon float64, source string, err error
 	runtimeCacheMu.RUnlock()
 
 	// Fall back to geocoding API
-	geocoder := openstreetmap.Geocoder()
+	geocoder := osm.Geocoder()
 	location, err := geocoder.Geocode(cityName + ", USA")
 	if err != nil {
 		return 0, 0, "", fmt.Errorf("geocoding failed for '%s': %w", cityName, err)
