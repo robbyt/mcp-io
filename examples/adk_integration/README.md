@@ -47,6 +47,19 @@ go mod download
 go build .
 ```
 
+## Development
+
+### Working with Local mcp-io Changes
+
+This example has its own isolated `go.mod` to avoid polluting the core library with ADK dependencies. To develop this example alongside local mcp-io modifications, create a Go workspace:
+
+```bash
+# From project root
+go work init . ./examples/adk_integration
+```
+
+The `go.work` file is gitignored - create it locally when needed. This enables your IDE and Go tools to understand both modules simultaneously.
+
 ## Usage
 
 ### Terminal Chat (Default)

@@ -1,40 +1,9 @@
-// Package main demonstrates integrating mcp-io with the Google Agent Development Kit (ADK).
+// Package main demonstrates mcp-io integration with Google ADK.
 //
-// # Architecture: MCP Server + ADK Agent
+// The MCP server hosts tools that an ADK agent accesses via mcptoolset.
+// This enables language-agnostic, reusable tool servers.
 //
-// This example uses mcp-io to host tools on an MCP server and exposes them to an ADK
-// agent via mcptoolset. This contrasts with the native ADK functiontool pattern,
-// where tools are defined in-process with the agent.
-//
-// Benefits of the MCP + ADK approach:
-//   - Decoupling: Tools can be developed, deployed, and scaled independently of the agent
-//   - Language Agnostic: A Go agent can use MCP tool servers written in any language
-//   - Reusability: The same MCP tool server can be used by multiple different agents
-//   - Protocol Standard: Tools follow the Model Context Protocol specification
-//
-// When to use each approach:
-//   - MCP tools: Cross-language integration, shared tooling, production deployments
-//   - Native ADK functiontool: Simple in-process tools, prototyping, single-language systems
-//
-// # Usage
-//
-// Terminal chat (default):
-//
-//	export GOOGLE_API_KEY="..."
-//	go run .
-//
-// Web UI at http://localhost:8080:
-//
-//	go run . web api webui
-//
-// Requires GOOGLE_API_KEY environment variable for Gemini API access.
-//
-// Example queries:
-//   - "What's the coldest major US city right now?"
-//   - "Compare weather in Seattle and Miami"
-//   - "Which cities are warmer than 70°F?"
-//
-// See README.md in this directory for complete documentation.
+// See README.md for usage examples and API key setup.
 package main
 
 import (
@@ -43,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"sync"
 
 	"charm.land/fantasy/providers/anthropic"
@@ -66,7 +36,7 @@ func createModel(ctx context.Context, providerName, modelName string) (model.LLM
 	defaultModels := map[string]string{
 		"gemini":    "gemini-2.0-flash-exp",
 		"google":    "gemini-2.0-flash-exp",
-		"anthropic": "claude-3-5-sonnet-20241022",
+		"anthropic": "claude-sonnet-4-5",
 		"openai":    "gpt-4o",
 	}
 
@@ -151,7 +121,8 @@ func main() {
 	maxTokens := flag.Int64("max-tokens", 2000, "Maximum output tokens")
 	flag.Parse()
 
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
 	// Create MCP server with weather tools
 	handler, clientTransport, err := mcpio.NewInMemoryPair(ctx,
@@ -216,31 +187,15 @@ func main() {
 	}
 }
 
-// weatherAgentInstruction defines the agent's behavior and tool usage guidance.
 const weatherAgentInstruction = `You are a weather comparison assistant for US cities.
 
-You have access to two tools:
-1. **geocode_city**: Converts a US city name to geographic coordinates (latitude/longitude)
-2. **get_weather**: Fetches NOAA weather forecast data for specific coordinates
+You have two tools:
+1. geocode_city: Convert city name to coordinates
+2. get_weather: Get NOAA forecast for coordinates
 
-When answering questions about weather:
-1. Identify which cities need to be queried
-2. For each city:
-   - First use geocode_city to get coordinates
-   - Then use get_weather with those coordinates to get forecast data
-3. Compare the results and provide clear, concise answers
-4. Always cite the actual temperature values and conditions from the data
+To answer queries:
+1. Use geocode_city for each city mentioned
+2. Use get_weather with the returned coordinates
+3. Compare results and cite actual temperature values
 
-Example workflow for "What's the coldest city right now?":
-1. Call geocode_city for multiple major cities (New York, Los Angeles, Chicago, etc.)
-2. Call get_weather for each set of coordinates (these can be done in parallel)
-3. Compare the current_temp values
-4. Return the coldest city with its temperature and conditions
-
-When comparing cities:
-- Focus on current_temp for "right now" questions
-- Use the forecast array for future predictions
-- Include relevant details like conditions and windspeed when helpful
-- Be concise but informative
-
-Always show your data sources and reasoning.`
+Focus on current_temp for "right now" questions and forecast array for future predictions.`
