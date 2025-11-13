@@ -15,6 +15,51 @@ This contrasts with the native ADK `functiontool` pattern, where tools are defin
 - **Reusability**: The same MCP tool server can be used by multiple different agents
 - **Protocol Standard**: Tools follow the Model Context Protocol specification
 
+## Integration Pattern
+
+This example demonstrates how to integrate mcp-io servers with external MCP client libraries like [Google's ADK (Agent Development Kit)](https://github.com/google/adk-go). The key is using `NewInMemoryPair()` which creates both a server handler and a client transport for in-memory communication.
+
+**The integration flow:**
+
+1. **Create paired transports** - `NewInMemoryPair()` returns both a server handler and client transport
+2. **Start MCP server** - Run the server in a background goroutine using `handler.Run(ctx)`
+3. **Create ADK toolset** - Pass the client transport to ADK's `mcptoolset.New()`
+4. **Connect lazily** - ADK connects to the MCP server when it first lists or calls tools
+
+**Code pattern:**
+
+```go
+// Create mcp-io server with in-memory transport
+handler, clientTransport, err := mcpio.NewInMemoryPair(ctx,
+    mcpio.WithName("weather-server"),
+    mcpio.WithTool("get_weather", "Get weather", getWeatherTool),
+)
+
+// Start MCP server in background using modern Go waitgroup
+var wg sync.WaitGroup
+wg.Go(func() {
+    _ = handler.Run(ctx)
+})
+defer wg.Wait()
+
+// Create ADK toolset from MCP client transport
+mcpToolSet, err := mcptoolset.New(mcptoolset.Config{
+    Transport: clientTransport,
+})
+
+// Create ADK agent with the toolset
+agent, err := llmagent.New(llmagent.Config{
+    Model:    llmModel,
+    Toolsets: []tool.Toolset{mcpToolSet},
+})
+```
+
+This example implements a complete weather comparison agent including:
+- Real NOAA weather API integration
+- Multi-provider LLM support (Gemini, Anthropic, OpenAI)
+- Terminal and web UI modes via ADK launcher
+- City geocoding with smart caching
+
 ## Prerequisites
 
 ### API Keys

@@ -342,51 +342,6 @@ func main() {
 }
 ```
 
-### Integration with External MCP Clients (Google ADK)
-
-mcp-io servers can be integrated with external MCP client libraries like [Google's ADK (Agent Development Kit)](https://github.com/google/adk-go). The `NewInMemoryPair()` constructor creates both a server handler and a client transport for in-memory communication.
-
-The integration pattern:
-
-1. Create server and client transport with `NewInMemoryPair()`
-2. Start the server in a background goroutine
-3. Pass the client transport to ADK's `mcptoolset.New()`
-4. ADK connects lazily when it first lists or calls tools
-
-```go
-// Create mcp-io server with in-memory transport
-handler, clientTransport, err := mcpio.NewInMemoryPair(ctx,
-    mcpio.WithName("weather-server"),
-    mcpio.WithTool("get_weather", "Get weather", getWeatherTool),
-)
-
-// Start MCP server in background
-var wg sync.WaitGroup
-wg.Go(func() {
-    _ = handler.Run(ctx)
-})
-defer wg.Wait()
-
-// Create ADK toolset from MCP client transport
-mcpToolSet, err := mcptoolset.New(mcptoolset.Config{
-    Transport: clientTransport,
-})
-
-// Use toolset with ADK agent...
-```
-
-**See [examples/adk_integration/](examples/adk_integration/) for a complete working example** including:
-- Real NOAA weather API integration
-- Gemini LLM integration via Google ADK
-- Terminal and web UI modes via ADK launcher
-- City geocoding with caching
-
-Run the example:
-```bash
-export GOOGLE_API_KEY="..."
-go run ./examples/adk_integration
-```
-
 ## Session Capabilities
 
 Session capabilities enable interactive MCP tools with user confirmation, AI delegation, progress reporting, and detailed logging. These capabilities are automatically available in your tool handlers via context without additional setup. Not all MCP clients support all session capabilities, and your tools should gracefully handle unsupported features. The capabilities helpers return sentinel errors (like `mcpio.ErrElicitationNotSupported`) when the feature is available on the client, which can be checked and handled with `errors.Is`.
