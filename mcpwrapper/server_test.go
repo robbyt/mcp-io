@@ -89,8 +89,8 @@ func TestWithHTTPOptions(t *testing.T) {
 	})
 }
 
-func TestSetTransport(t *testing.T) {
-	t.Run("sets transport on server", func(t *testing.T) {
+func TestGetTransport(t *testing.T) {
+	t.Run("returns nil when no transport set", func(t *testing.T) {
 		impl := &mcpSDK.Implementation{
 			Name:    "test-server",
 			Version: "1.0.0",
@@ -98,13 +98,66 @@ func TestSetTransport(t *testing.T) {
 		sdkServer := mcpSDK.NewServer(impl, &mcpSDK.ServerOptions{})
 
 		server := New(sdkServer)
-		assert.Nil(t, server.transport)
 
-		transport := &mcpSDK.StdioTransport{}
-		server.SetTransport(transport)
+		transport := server.GetTransport()
+		assert.Nil(t, transport)
+	})
 
-		assert.NotNil(t, server.transport)
-		assert.Equal(t, transport, server.transport)
+	t.Run("returns transport when set with WithTransport", func(t *testing.T) {
+		impl := &mcpSDK.Implementation{
+			Name:    "test-server",
+			Version: "1.0.0",
+		}
+		sdkServer := mcpSDK.NewServer(impl, &mcpSDK.ServerOptions{})
+
+		customTransport := &mcpSDK.StdioTransport{}
+		server := New(sdkServer, WithTransport(customTransport))
+
+		transport := server.GetTransport()
+		assert.NotNil(t, transport)
+		assert.Equal(t, customTransport, transport)
+	})
+
+	t.Run("returns in-memory transport for NewInMemoryServer", func(t *testing.T) {
+		impl := &mcpSDK.Implementation{
+			Name:    "test-server",
+			Version: "1.0.0",
+		}
+		sdkServer := mcpSDK.NewServer(impl, &mcpSDK.ServerOptions{})
+
+		server, _ := NewInMemoryServer(sdkServer)
+
+		transport := server.GetTransport()
+		assert.NotNil(t, transport)
+		_, ok := transport.(*mcpSDK.InMemoryTransport)
+		assert.True(t, ok)
+	})
+}
+
+func TestWithTransport(t *testing.T) {
+	t.Run("sets custom transport", func(t *testing.T) {
+		impl := &mcpSDK.Implementation{
+			Name:    "test-server",
+			Version: "1.0.0",
+		}
+		sdkServer := mcpSDK.NewServer(impl, &mcpSDK.ServerOptions{})
+
+		customTransport := &mcpSDK.StdioTransport{}
+		server := New(sdkServer, WithTransport(customTransport))
+
+		assert.Equal(t, customTransport, server.GetTransport())
+	})
+
+	t.Run("nil transport is accepted", func(t *testing.T) {
+		impl := &mcpSDK.Implementation{
+			Name:    "test-server",
+			Version: "1.0.0",
+		}
+		sdkServer := mcpSDK.NewServer(impl, &mcpSDK.ServerOptions{})
+
+		server := New(sdkServer, WithTransport(nil))
+
+		assert.Nil(t, server.GetTransport())
 	})
 }
 

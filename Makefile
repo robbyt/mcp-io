@@ -12,20 +12,24 @@ help: Makefile
 	@sed -n 's/^##//p' $< | column -t -s ':' | sed -e 's/^/ /'
 	@echo
 
-## test: Run all tests (unit + integration) with coverage
+## test: Run all tests for core library (unit + integration) with coverage
 .PHONY: test
 test:
 	go test -race -cover -tags $(ALL_BUILD_TAGS) ./...
-
-## test-short: Run tests in short mode (fast, no coverage)
-.PHONY: test-short
-test-short:
-	go test -race -short ./...
 
 ## bench: Run performance benchmarks
 .PHONY: bench
 bench:
 	go test -run=^$$ -bench=. -benchmem ./...
+
+## test-adk: Run tests for ADK integration example
+.PHONY: test-adk
+test-adk:
+	go -C examples/adk_integration test -race -cover ./...
+
+## test-all: Run all tests including isolated modules
+.PHONY: test-all
+test-all: test test-adk
 
 ## lint: Run golangci-lint code quality checks
 .PHONY: lint

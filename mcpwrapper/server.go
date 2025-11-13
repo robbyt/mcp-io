@@ -20,6 +20,13 @@ func WithHTTPOptions(opts *mcpSDK.StreamableHTTPOptions) WrapperOption {
 	}
 }
 
+// WithTransport sets the transport for the wrapper
+func WithTransport(transport mcpSDK.Transport) WrapperOption {
+	return func(s *Server) {
+		s.transport = transport
+	}
+}
+
 type Server struct {
 	server    *mcpSDK.Server
 	transport mcpSDK.Transport
@@ -27,7 +34,7 @@ type Server struct {
 }
 
 // New wraps an SDK server with optional configuration.
-// The transport can be set later using SetTransport.
+// The transport can be configured using WithTransport option.
 // HTTP options default to stateful + SSE, override with WithHTTPOptions().
 func New(server *mcpSDK.Server, opts ...WrapperOption) *Server {
 	s := &Server{
@@ -47,9 +54,13 @@ func New(server *mcpSDK.Server, opts ...WrapperOption) *Server {
 	return s
 }
 
-// SetTransport sets the transport for the server
-func (s *Server) SetTransport(transport mcpSDK.Transport) {
-	s.transport = transport
+// GetTransport returns the currently configured transport for the server.
+// Returns nil if no transport has been set.
+//
+// This is useful for advanced use cases where access to the underlying transport
+// is needed, such as integrating with external MCP client libraries.
+func (s *Server) GetTransport() mcpSDK.Transport {
+	return s.transport
 }
 
 // NewInMemoryServer creates a server with in-memory transport for testing.
@@ -101,8 +112,13 @@ func (s *Server) Unwrap() any {
 }
 
 // Run starts the MCP server with the configured transport.
+// If no transport was set via WithTransport(), defaults to StdioTransport.
 func (s *Server) Run(ctx context.Context) error {
-	return s.server.Run(ctx, s.transport)
+	transport := s.transport
+	if transport == nil {
+		transport = &mcpSDK.StdioTransport{}
+	}
+	return s.server.Run(ctx, transport)
 }
 
 // ServeHTTP implements http.Handler for Streamable HTTP transport.

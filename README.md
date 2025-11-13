@@ -221,7 +221,7 @@ func main() {
     }
 
     // The previous example used a HTTP transport, but you can also use stdio pipes for MCP communication:
-    if err := handler.ServeStdio(context.Background(), nil, nil); err != nil {
+    if err := handler.Run(context.Background()); err != nil {
         log.Fatalf("Server error: %v", err)
     }
 }
@@ -332,7 +332,7 @@ func main() {
     case "stdio":
         // Stdio - for CLI tools and process communication
         log.Printf("Starting stdio transport")
-        if err := handler.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+        if err := handler.Run(context.Background()); err != nil {
             log.Fatal(err)
         }
 

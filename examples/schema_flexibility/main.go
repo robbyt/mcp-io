@@ -109,7 +109,7 @@ func main() {
 	log.Println("  - process_json: WithRawTool with json.RawMessage schema (maximum performance)")
 	log.Println()
 
-	if err := handler.ServeStdio(context.Background()); err != nil {
+	if err := handler.Run(context.Background()); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }
