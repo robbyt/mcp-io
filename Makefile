@@ -49,15 +49,9 @@ workspace-init: go.work
 go.work:
 	go work init . ./examples/adk_integration
 
-## tidy: Clean up go modules (root only, keeps modules independent)
+## tidy: Clean up go modules for all modules in workspace
 .PHONY: tidy
-tidy:
-	go mod tidy
-	go mod verify
-
-## tidy-workspace: Tidy both root and workspace modules independently
-.PHONY: tidy-workspace
-tidy-workspace: workspace-init
+tidy: workspace-init
 	go mod tidy
 	go mod verify
 	go -C examples/adk_integration mod tidy
