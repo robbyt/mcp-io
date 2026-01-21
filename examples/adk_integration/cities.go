@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	osm "github.com/codingsince1985/geo-golang/openstreetmap"
 )
@@ -62,12 +64,10 @@ var (
 func GetCoordinates(cityName string) (lat, lon float64, source string, err error) {
 	normalized := strings.ToLower(strings.TrimSpace(cityName))
 
-	// Check hardcoded cache first
 	if coords, found := cityCache[normalized]; found {
 		return coords.Latitude, coords.Longitude, "cache", nil
 	}
 
-	// Check runtime cache
 	runtimeCacheMu.RLock()
 	if coords, found := runtimeCache[normalized]; found {
 		runtimeCacheMu.RUnlock()
@@ -75,9 +75,11 @@ func GetCoordinates(cityName string) (lat, lon float64, source string, err error
 	}
 	runtimeCacheMu.RUnlock()
 
-	// Fall back to geocoding API
+	start := time.Now()
 	geocoder := osm.Geocoder()
 	location, err := geocoder.Geocode(cityName + ", USA")
+	elapsed := time.Since(start)
+
 	if err != nil {
 		return 0, 0, "", fmt.Errorf("geocoding failed for '%s': %w", cityName, err)
 	}
@@ -91,10 +93,16 @@ func GetCoordinates(cityName string) (lat, lon float64, source string, err error
 		Longitude: location.Lng,
 	}
 
-	// Store in runtime cache for future lookups
 	runtimeCacheMu.Lock()
 	runtimeCache[normalized] = coords
 	runtimeCacheMu.Unlock()
+
+	slog.Info("Geocoded city via OpenStreetMap",
+		"city", cityName,
+		"latitude", coords.Latitude,
+		"longitude", coords.Longitude,
+		"elapsed", elapsed,
+	)
 
 	return coords.Latitude, coords.Longitude, "geocoded", nil
 }

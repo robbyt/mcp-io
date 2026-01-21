@@ -119,6 +119,42 @@ func TestMCPServerIntegration(t *testing.T) {
 	})
 }
 
+// TestGeocodeToolEmptyInput verifies that empty city name returns an error.
+func TestGeocodeToolEmptyInput(t *testing.T) {
+	input := GeocodeInput{CityName: ""}
+	_, err := geocodeTool(t.Context(), nil, input)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "city name is required")
+}
+
+// TestWeatherToolZeroCoordinates verifies that (0,0) coordinates are accepted.
+// The NOAA API will error since 0,0 is in the ocean, but we shouldn't reject it client-side.
+func TestWeatherToolZeroCoordinates(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test with real NOAA API")
+	}
+
+	input := WeatherInput{Latitude: 0, Longitude: 0}
+	_, err := getWeatherTool(t.Context(), nil, input)
+	// Error should come from NOAA, not coordinate validation
+	if err != nil {
+		assert.Contains(t, err.Error(), "NOAA")
+	}
+}
+
+// TestGetCoordinatesUnknownCity verifies geocoding fallback for cities not in cache.
+func TestGetCoordinatesUnknownCity(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test with real geocoding API")
+	}
+
+	lat, lon, source, err := GetCoordinates("Truth or Consequences")
+	require.NoError(t, err)
+	assert.Equal(t, "geocoded", source)
+	assert.InDelta(t, 33.13, lat, 0.1)
+	assert.InDelta(t, -107.25, lon, 0.1)
+}
+
 // TestRuntimeCache verifies that geocoding results are cached.
 func TestRuntimeCache(t *testing.T) {
 	// Clear runtime cache before test

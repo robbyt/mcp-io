@@ -12,24 +12,24 @@ help: Makefile
 	@sed -n 's/^##//p' $< | column -t -s ':' | sed -e 's/^/ /'
 	@echo
 
-## test: Run all tests for core library (unit + integration) with coverage
+## test: Run all tests including isolated modules
 .PHONY: test
-test:
+test: test-core test-adk
+
+## test-core: Run tests for core library (unit + integration) with coverage
+.PHONY: test-core
+test-core:
 	go test -race -cover -tags $(ALL_BUILD_TAGS) ./...
+
+## test-adk: Run tests for ADK integration example
+.PHONY: test-adk
+test-adk: workspace-init
+	go -C examples/adk_integration test -race -cover ./...
 
 ## bench: Run performance benchmarks
 .PHONY: bench
 bench:
 	go test -run=^$$ -bench=. -benchmem ./...
-
-## test-adk: Run tests for ADK integration example
-.PHONY: test-adk
-test-adk:
-	go -C examples/adk_integration test -race -cover ./...
-
-## test-all: Run all tests including isolated modules
-.PHONY: test-all
-test-all: test test-adk
 
 ## lint: Run golangci-lint code quality checks
 .PHONY: lint
@@ -42,11 +42,25 @@ lint-fix:
 	golangci-lint fmt
 	golangci-lint run --build-tags $(ALL_BUILD_TAGS) --fix ./...
 
-## tidy: Clean up go modules
+## workspace-init: Initialize Go workspace for multi-module development
+.PHONY: workspace-init
+workspace-init: go.work
+
+go.work:
+	go work init . ./examples/adk_integration
+
+## tidy: Clean up go modules (root only, keeps modules independent)
 .PHONY: tidy
 tidy:
 	go mod tidy
 	go mod verify
+
+## tidy-workspace: Tidy both root and workspace modules independently
+.PHONY: tidy-workspace
+tidy-workspace: workspace-init
+	go mod tidy
+	go mod verify
+	go -C examples/adk_integration mod tidy
 
 ## fmt: Format Go source code
 .PHONY: fmt
@@ -65,7 +79,7 @@ build:
 
 ## build-examples: Build all example applications
 .PHONY: build-examples
-build-examples: build-cli-simple build-cli-prompt build-cli-resource build-mixed-resources build-cli-elicitation build-simple-dungeon-master
+build-examples: build-cli-simple build-cli-prompt build-cli-resource build-mixed-resources build-cli-elicitation build-simple-dungeon-master build-cli-agent build-cli-completion build-http-multistep build-schema-flexibility build-adk-integration
 
 ## build-cli-simple: Build the simple example (supports both stdio and HTTP)
 .PHONY: build-cli-simple
@@ -102,6 +116,36 @@ build-cli-elicitation:
 build-simple-dungeon-master:
 	@mkdir -p bin/
 	go build -o bin/simple-dungeon-master ./examples/simple_dungeon_master/
+
+## build-cli-agent: Build the CLI agent example
+.PHONY: build-cli-agent
+build-cli-agent:
+	@mkdir -p bin/
+	go build -o bin/cli-agent ./examples/cli_agent/
+
+## build-cli-completion: Build the CLI completion example
+.PHONY: build-cli-completion
+build-cli-completion:
+	@mkdir -p bin/
+	go build -o bin/cli-completion ./examples/cli_completion/
+
+## build-http-multistep: Build the HTTP multistep example
+.PHONY: build-http-multistep
+build-http-multistep:
+	@mkdir -p bin/
+	go build -o bin/http-multistep ./examples/http_multistep/
+
+## build-schema-flexibility: Build the schema flexibility example
+.PHONY: build-schema-flexibility
+build-schema-flexibility:
+	@mkdir -p bin/
+	go build -o bin/schema-flexibility ./examples/schema_flexibility/
+
+## build-adk-integration: Build the ADK integration example
+.PHONY: build-adk-integration
+build-adk-integration: workspace-init
+	@mkdir -p bin/
+	go -C examples/adk_integration build -o ../../bin/adk-integration .
 
 ## clean: Clean up build artifacts and caches
 .PHONY: clean
