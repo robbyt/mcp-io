@@ -112,7 +112,8 @@ func (s *State) BuildTurnPrompt(config PromptConfig) string {
 		prompt.WriteString("Recent turns:")
 		prompt.WriteString("\n<Turns>\n")
 		for _, turn := range s.turns {
-			fmt.Fprintf(&prompt, "- %s -> %s\n", turn.Config.InputAction, turn.Narrative)
+			line := fmt.Sprintf("- %s -> %s\n", turn.Config.InputAction, turn.Narrative)
+			prompt.WriteString(line)
 		}
 		prompt.WriteString("\n</Turns>\n")
 	}
@@ -120,7 +121,8 @@ func (s *State) BuildTurnPrompt(config PromptConfig) string {
 	// Add roll result if there was a pending check (outcome of the skill check from previous turn)
 	// This tells the LLM whether the player succeeded or failed their dice roll
 	if config.PendingCheck {
-		fmt.Fprintf(&prompt, "The player rolled %d", config.PendingCheckResult)
+		rolled := fmt.Sprintf("The player rolled %d", config.PendingCheckResult)
+		prompt.WriteString(rolled)
 		if config.PassedCheck {
 			prompt.WriteString(" - SUCCEEDED!\n")
 			prompt.WriteString("Describe how the player overcomes the challenge successfully.\n\n")
@@ -174,7 +176,8 @@ func (s *State) BuildReviewPrompt(config PromptConfig, draftNarrative string) st
 		prompt.WriteString("Recent turns:")
 		prompt.WriteString("\n<Turns>\n")
 		for _, turn := range s.turns {
-			fmt.Fprintf(&prompt, "- %s -> %s\n", turn.Config.InputAction, turn.Narrative)
+			line := fmt.Sprintf("- %s -> %s\n", turn.Config.InputAction, turn.Narrative)
+			prompt.WriteString(line)
 		}
 		prompt.WriteString("\n</Turns>\n")
 	}
