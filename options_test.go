@@ -247,9 +247,11 @@ func TestWithServerConfig(t *testing.T) {
 			opts: &mcp.ServerOptions{
 				Instructions: "Test instructions",
 				PageSize:     100,
-				HasPrompts:   true,
-				HasResources: true,
-				HasTools:     true,
+				Capabilities: &mcp.ServerCapabilities{
+					Prompts:   &mcp.PromptCapabilities{ListChanged: true},
+					Resources: &mcp.ResourceCapabilities{ListChanged: true},
+					Tools:     &mcp.ToolCapabilities{ListChanged: true},
+				},
 			},
 			wantErr: nil,
 		},
@@ -294,9 +296,7 @@ func TestWithServerOptions(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, cfg.serverOptions.Instructions)
 		assert.Equal(t, 0, cfg.serverOptions.PageSize)
-		assert.False(t, cfg.serverOptions.HasPrompts)
-		assert.False(t, cfg.serverOptions.HasResources)
-		assert.False(t, cfg.serverOptions.HasTools)
+		assert.Nil(t, cfg.serverOptions.Capabilities)
 	})
 
 	t.Run("WithInstructions sub-option modifies defaults", func(t *testing.T) {
@@ -329,7 +329,10 @@ func TestWithServerOptions(t *testing.T) {
 		err := option(cfg)
 
 		require.NoError(t, err)
-		assert.True(t, cfg.serverOptions.HasPrompts)
+		require.NotNil(t, cfg.serverOptions.Capabilities)
+		assert.NotNil(t, cfg.serverOptions.Capabilities.Logging)
+		require.NotNil(t, cfg.serverOptions.Capabilities.Prompts)
+		assert.True(t, cfg.serverOptions.Capabilities.Prompts.ListChanged)
 	})
 
 	t.Run("WithCapabilityResources sub-option modifies defaults", func(t *testing.T) {
@@ -340,7 +343,10 @@ func TestWithServerOptions(t *testing.T) {
 		err := option(cfg)
 
 		require.NoError(t, err)
-		assert.True(t, cfg.serverOptions.HasResources)
+		require.NotNil(t, cfg.serverOptions.Capabilities)
+		assert.NotNil(t, cfg.serverOptions.Capabilities.Logging)
+		require.NotNil(t, cfg.serverOptions.Capabilities.Resources)
+		assert.True(t, cfg.serverOptions.Capabilities.Resources.ListChanged)
 	})
 
 	t.Run("WithCapabilityTools sub-option modifies defaults", func(t *testing.T) {
@@ -351,7 +357,10 @@ func TestWithServerOptions(t *testing.T) {
 		err := option(cfg)
 
 		require.NoError(t, err)
-		assert.True(t, cfg.serverOptions.HasTools)
+		require.NotNil(t, cfg.serverOptions.Capabilities)
+		assert.NotNil(t, cfg.serverOptions.Capabilities.Logging)
+		require.NotNil(t, cfg.serverOptions.Capabilities.Tools)
+		assert.True(t, cfg.serverOptions.Capabilities.Tools.ListChanged)
 	})
 
 	t.Run("multiple sub-options can be combined", func(t *testing.T) {
@@ -370,9 +379,14 @@ func TestWithServerOptions(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "Combined test", cfg.serverOptions.Instructions)
 		assert.Equal(t, 100, cfg.serverOptions.PageSize)
-		assert.True(t, cfg.serverOptions.HasPrompts)
-		assert.True(t, cfg.serverOptions.HasResources)
-		assert.True(t, cfg.serverOptions.HasTools)
+		require.NotNil(t, cfg.serverOptions.Capabilities)
+		assert.NotNil(t, cfg.serverOptions.Capabilities.Logging)
+		require.NotNil(t, cfg.serverOptions.Capabilities.Prompts)
+		require.NotNil(t, cfg.serverOptions.Capabilities.Resources)
+		require.NotNil(t, cfg.serverOptions.Capabilities.Tools)
+		assert.True(t, cfg.serverOptions.Capabilities.Prompts.ListChanged)
+		assert.True(t, cfg.serverOptions.Capabilities.Resources.ListChanged)
+		assert.True(t, cfg.serverOptions.Capabilities.Tools.ListChanged)
 	})
 }
 

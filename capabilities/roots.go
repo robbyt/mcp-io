@@ -19,18 +19,9 @@ type RootsCapabilities struct {
 	ListChanged bool
 }
 
-// SupportsRoots returns true if the client supports filesystem roots with change notifications.
-//
-// NOTE: Due to a Go SDK design limitation, this only detects clients that support
-// both roots AND change notifications (ListChanged=true). Clients that support roots
-// without notifications cannot be distinguished from clients with no roots support.
-//
-// If this returns false, you can still try calling ListRoots() - it may work if the
-// client supports roots but not change notifications. Handle the error appropriately.
-//
-// See: https://github.com/modelcontextprotocol/go-sdk/issues/607
+// SupportsRoots returns true if the client supports filesystem roots.
 func (s *Session) SupportsRoots() bool {
-	return s.session.InitializeParams().Capabilities.Roots.ListChanged
+	return s.session.InitializeParams().Capabilities.RootsV2 != nil
 }
 
 // ListRoots retrieves the filesystem roots exposed by the client.

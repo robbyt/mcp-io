@@ -97,10 +97,9 @@ func (s *Session) ClientCapabilities() *ClientCapabilities {
 	if initParams.Capabilities.Sampling != nil {
 		caps.Sampling = &SamplingCapabilities{}
 	}
-	// Roots capability - check if ListChanged is supported
-	if initParams.Capabilities.Roots.ListChanged {
+	if initParams.Capabilities.RootsV2 != nil {
 		caps.Roots = &RootsCapabilities{
-			ListChanged: true,
+			ListChanged: initParams.Capabilities.RootsV2.ListChanged,
 		}
 	}
 

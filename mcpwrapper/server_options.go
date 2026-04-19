@@ -11,6 +11,15 @@ import (
 // ServerOption is a functional option for configuring mcp.ServerOptions.
 type ServerOption func(*mcpSDK.ServerOptions)
 
+func ensureServerCapabilities(opts *mcpSDK.ServerOptions) *mcpSDK.ServerCapabilities {
+	if opts.Capabilities == nil {
+		opts.Capabilities = &mcpSDK.ServerCapabilities{
+			Logging: &mcpSDK.LoggingCapabilities{},
+		}
+	}
+	return opts.Capabilities
+}
+
 // WithInstructions sets optional instructions for connected clients.
 //
 // Example:
@@ -58,7 +67,7 @@ func WithKeepAlive(duration time.Duration) ServerOption {
 //	mcp.WithCapabilityPrompts()
 func WithCapabilityPrompts() ServerOption {
 	return func(opts *mcpSDK.ServerOptions) {
-		opts.HasPrompts = true
+		ensureServerCapabilities(opts).Prompts = &mcpSDK.PromptCapabilities{ListChanged: true}
 	}
 }
 
@@ -70,7 +79,7 @@ func WithCapabilityPrompts() ServerOption {
 //	mcp.WithCapabilityResources()
 func WithCapabilityResources() ServerOption {
 	return func(opts *mcpSDK.ServerOptions) {
-		opts.HasResources = true
+		ensureServerCapabilities(opts).Resources = &mcpSDK.ResourceCapabilities{ListChanged: true}
 	}
 }
 
@@ -82,7 +91,7 @@ func WithCapabilityResources() ServerOption {
 //	mcp.WithCapabilityTools()
 func WithCapabilityTools() ServerOption {
 	return func(opts *mcpSDK.ServerOptions) {
-		opts.HasTools = true
+		ensureServerCapabilities(opts).Tools = &mcpSDK.ToolCapabilities{ListChanged: true}
 	}
 }
 

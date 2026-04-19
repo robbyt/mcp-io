@@ -6,6 +6,7 @@ package mcpwrapper
 import (
 	"context"
 	"net/http"
+	"sync"
 
 	mcpSDK "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -28,9 +29,11 @@ func WithTransport(transport mcpSDK.Transport) WrapperOption {
 }
 
 type Server struct {
-	server    *mcpSDK.Server
-	transport mcpSDK.Transport
-	httpOpts  *mcpSDK.StreamableHTTPOptions
+	server      *mcpSDK.Server
+	transport   mcpSDK.Transport
+	httpOpts    *mcpSDK.StreamableHTTPOptions
+	httpOnce    sync.Once
+	httpHandler *mcpSDK.StreamableHTTPHandler
 }
 
 // New wraps an SDK server with optional configuration.
@@ -124,9 +127,11 @@ func (s *Server) Run(ctx context.Context) error {
 // ServeHTTP implements http.Handler for Streamable HTTP transport.
 // Creates a StreamableHTTPHandler using the server's configured HTTP options.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	httpHandler := mcpSDK.NewStreamableHTTPHandler(
-		func(*http.Request) *mcpSDK.Server { return s.server },
-		s.httpOpts,
-	)
-	httpHandler.ServeHTTP(w, r)
+	s.httpOnce.Do(func() {
+		s.httpHandler = mcpSDK.NewStreamableHTTPHandler(
+			func(*http.Request) *mcpSDK.Server { return s.server },
+			s.httpOpts,
+		)
+	})
+	s.httpHandler.ServeHTTP(w, r)
 }
