@@ -177,6 +177,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.server.ServeHTTP(w, r)
 }
 
+// ServeSSE implements http.Handler-style serving for SSE-over-HTTP clients.
+//
+// Deprecated: Use ServeHTTP instead. The streamable HTTP transport defaults to
+// SSE streaming unless configured with WithHTTPTransport(mcpwrapper.WithJSONResponse()).
+func (h *Handler) ServeSSE(w http.ResponseWriter, r *http.Request) {
+	h.ServeHTTP(w, r)
+}
+
 // ServeStdio runs the server using stdio transport for command-line tools.
 // Uses os.Stdin and os.Stdout as configured by the MCP SDK.
 //

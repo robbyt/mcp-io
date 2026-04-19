@@ -16,8 +16,25 @@ func TestSupportsRoots(t *testing.T) {
 
 	t.Run("True", func(t *testing.T) {
 		mockSession := testutil.NewMockSession()
-		caps := &mcp.ClientCapabilities{}
-		caps.Roots.ListChanged = true
+		caps := &mcp.ClientCapabilities{
+			RootsV2: &mcp.RootCapabilities{ListChanged: true},
+		}
+		mockSession.On("InitializeParams").Return(&mcp.InitializeParams{
+			Capabilities: caps,
+		})
+
+		session := capabilities.NewSession(mockSession.MockServerSession)
+		supported := session.SupportsRoots()
+
+		assert.True(t, supported)
+		mockSession.AssertExpectations(t)
+	})
+
+	t.Run("TrueWithoutListChanged", func(t *testing.T) {
+		mockSession := testutil.NewMockSession()
+		caps := &mcp.ClientCapabilities{
+			RootsV2: &mcp.RootCapabilities{ListChanged: false},
+		}
 		mockSession.On("InitializeParams").Return(&mcp.InitializeParams{
 			Capabilities: caps,
 		})
@@ -31,10 +48,8 @@ func TestSupportsRoots(t *testing.T) {
 
 	t.Run("False", func(t *testing.T) {
 		mockSession := testutil.NewMockSession()
-		caps := &mcp.ClientCapabilities{}
-		caps.Roots.ListChanged = false
 		mockSession.On("InitializeParams").Return(&mcp.InitializeParams{
-			Capabilities: caps,
+			Capabilities: &mcp.ClientCapabilities{},
 		})
 
 		session := capabilities.NewSession(mockSession.MockServerSession)

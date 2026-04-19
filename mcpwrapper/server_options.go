@@ -11,6 +11,22 @@ import (
 // ServerOption is a functional option for configuring mcp.ServerOptions.
 type ServerOption func(*mcpSDK.ServerOptions)
 
+// ensureServerCapabilities returns opts.Capabilities, allocating it if nil.
+//
+// When opts.Capabilities is nil, the SDK's Server.capabilities() method defaults
+// to advertising logging support. Once Capabilities is non-nil the SDK uses it
+// verbatim and skips that default, so we seed Logging here to preserve the
+// pre-existing behavior for callers that only enable prompts/resources/tools.
+// An existing Capabilities value is never modified by this helper.
+func ensureServerCapabilities(opts *mcpSDK.ServerOptions) *mcpSDK.ServerCapabilities {
+	if opts.Capabilities == nil {
+		opts.Capabilities = &mcpSDK.ServerCapabilities{
+			Logging: &mcpSDK.LoggingCapabilities{},
+		}
+	}
+	return opts.Capabilities
+}
+
 // WithInstructions sets optional instructions for connected clients.
 //
 // Example:
@@ -58,7 +74,10 @@ func WithKeepAlive(duration time.Duration) ServerOption {
 //	mcp.WithCapabilityPrompts()
 func WithCapabilityPrompts() ServerOption {
 	return func(opts *mcpSDK.ServerOptions) {
-		opts.HasPrompts = true
+		caps := ensureServerCapabilities(opts)
+		if caps.Prompts == nil {
+			caps.Prompts = &mcpSDK.PromptCapabilities{}
+		}
 	}
 }
 
@@ -70,7 +89,10 @@ func WithCapabilityPrompts() ServerOption {
 //	mcp.WithCapabilityResources()
 func WithCapabilityResources() ServerOption {
 	return func(opts *mcpSDK.ServerOptions) {
-		opts.HasResources = true
+		caps := ensureServerCapabilities(opts)
+		if caps.Resources == nil {
+			caps.Resources = &mcpSDK.ResourceCapabilities{}
+		}
 	}
 }
 
@@ -82,7 +104,10 @@ func WithCapabilityResources() ServerOption {
 //	mcp.WithCapabilityTools()
 func WithCapabilityTools() ServerOption {
 	return func(opts *mcpSDK.ServerOptions) {
-		opts.HasTools = true
+		caps := ensureServerCapabilities(opts)
+		if caps.Tools == nil {
+			caps.Tools = &mcpSDK.ToolCapabilities{}
+		}
 	}
 }
 

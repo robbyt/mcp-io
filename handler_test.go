@@ -11,6 +11,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/robbyt/mcp-io/mcpwrapper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,6 +27,56 @@ type SimpleOutput struct {
 // Test helper functions for handler-specific tests
 func simpleEchoFunc(ctx context.Context, toolCtx RequestContext, input SimpleInput) (SimpleOutput, error) {
 	return SimpleOutput{Message: input.Text}, nil
+}
+
+// mockMCPServer is a testify/mock implementation of the MCPServer interface,
+// used to verify that Handler delegates correctly to its underlying server
+// without spinning up a real MCP transport.
+type mockMCPServer struct {
+	mock.Mock
+}
+
+func newMockMCPServer() *mockMCPServer {
+	return &mockMCPServer{}
+}
+
+func (m *mockMCPServer) AddTool(tool *mcp.Tool, handler mcp.ToolHandler) {
+	m.Called(tool, handler)
+}
+
+func (m *mockMCPServer) AddPrompt(prompt *mcp.Prompt, handler mcp.PromptHandler) {
+	m.Called(prompt, handler)
+}
+
+func (m *mockMCPServer) AddResource(resource *mcp.Resource, handler mcp.ResourceHandler) {
+	m.Called(resource, handler)
+}
+
+func (m *mockMCPServer) AddResourceTemplate(
+	template *mcp.ResourceTemplate,
+	handler mcp.ResourceHandler,
+) {
+	m.Called(template, handler)
+}
+
+func (m *mockMCPServer) Run(ctx context.Context) error {
+	return m.Called(ctx).Error(0)
+}
+
+func (m *mockMCPServer) GetTransport() mcp.Transport {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(mcp.Transport)
+}
+
+func (m *mockMCPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	m.Called(w, r)
+}
+
+func (m *mockMCPServer) Unwrap() any {
+	return m.Called().Get(0)
 }
 
 func TestServeHTTP(t *testing.T) {
@@ -222,6 +273,221 @@ func TestServeHTTP_BasicResponse(t *testing.T) {
 	assert.NotEqual(t, 0, resp.StatusCode)
 }
 
+func TestServeSSEDelegatesToServeHTTP(t *testing.T) {
+	t.Parallel()
+
+	mockServer := newMockMCPServer()
+	handler := &Handler{server: mockServer}
+	req := httptest.NewRequest(http.MethodGet, "/events", nil)
+	rec := httptest.NewRecorder()
+
+	mockServer.On("ServeHTTP", rec, req).Run(func(args mock.Arguments) {
+		w := args.Get(0).(http.ResponseWriter)
+		w.Header().Set("X-Test-Handler", "serve-http")
+		w.WriteHeader(http.StatusAccepted)
+		_, err := w.Write([]byte("served"))
+		require.NoError(t, err)
+	}).Return()
+
+	handler.ServeSSE(rec, req)
+
+	mockServer.AssertNumberOfCalls(t, "ServeHTTP", 1)
+	mockServer.AssertCalled(t, "ServeHTTP", rec, req)
+	assert.Equal(t, http.StatusAccepted, rec.Code)
+	assert.Equal(t, "serve-http", rec.Header().Get("X-Test-Handler"))
+	assert.Equal(t, "served", rec.Body.String())
+	mockServer.AssertExpectations(t)
+}
+
+func TestHandler_ServeHTTP_DelegatesToServer(t *testing.T) {
+	t.Parallel()
+
+	mockServer := newMockMCPServer()
+	handler := &Handler{server: mockServer}
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	rec := httptest.NewRecorder()
+
+	mockServer.On("ServeHTTP", rec, req).Run(func(args mock.Arguments) {
+		args.Get(0).(http.ResponseWriter).WriteHeader(http.StatusTeapot)
+	}).Return()
+
+	handler.ServeHTTP(rec, req)
+
+	mockServer.AssertCalled(t, "ServeHTTP", rec, req)
+	mockServer.AssertNumberOfCalls(t, "ServeHTTP", 1)
+	assert.Equal(t, http.StatusTeapot, rec.Code)
+	mockServer.AssertExpectations(t)
+}
+
+func TestHandler_Run_DelegatesToServer(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns error from underlying server", func(t *testing.T) {
+		t.Parallel()
+		mockServer := newMockMCPServer()
+		handler := &Handler{server: mockServer}
+		ctx := t.Context()
+		sentinel := errors.New("run failed")
+
+		mockServer.On("Run", ctx).Return(sentinel)
+
+		err := handler.Run(ctx)
+
+		require.ErrorIs(t, err, sentinel)
+		mockServer.AssertCalled(t, "Run", ctx)
+		mockServer.AssertExpectations(t)
+	})
+
+	t.Run("returns nil on success", func(t *testing.T) {
+		t.Parallel()
+		mockServer := newMockMCPServer()
+		handler := &Handler{server: mockServer}
+		ctx := t.Context()
+
+		mockServer.On("Run", ctx).Return(nil)
+
+		require.NoError(t, handler.Run(ctx))
+		mockServer.AssertExpectations(t)
+	})
+}
+
+func TestHandler_ServeStdio_DelegatesToRun(t *testing.T) {
+	t.Parallel()
+
+	mockServer := newMockMCPServer()
+	handler := &Handler{server: mockServer}
+	ctx := t.Context()
+
+	mockServer.On("Run", ctx).Return(nil)
+
+	require.NoError(t, handler.ServeStdio(ctx))
+
+	mockServer.AssertCalled(t, "Run", ctx)
+	mockServer.AssertNumberOfCalls(t, "Run", 1)
+	mockServer.AssertExpectations(t)
+}
+
+func TestHandler_GetTransport_DelegatesToServer(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns transport from server", func(t *testing.T) {
+		t.Parallel()
+		mockServer := newMockMCPServer()
+		handler := &Handler{server: mockServer}
+		transport := &mcp.StdioTransport{}
+
+		mockServer.On("GetTransport").Return(transport)
+
+		assert.Same(t, transport, handler.GetTransport())
+		mockServer.AssertExpectations(t)
+	})
+
+	t.Run("returns nil when server has no transport", func(t *testing.T) {
+		t.Parallel()
+		mockServer := newMockMCPServer()
+		handler := &Handler{server: mockServer}
+
+		mockServer.On("GetTransport").Return(nil)
+
+		assert.Nil(t, handler.GetTransport())
+		mockServer.AssertExpectations(t)
+	})
+}
+
+func TestServeHTTP_StreamableClientLifecycle(t *testing.T) {
+	type EchoInput struct {
+		Text string `json:"text" jsonschema:"Text to echo"`
+	}
+	type EchoOutput struct {
+		Message string `json:"message" jsonschema:"Echoed message"`
+	}
+
+	handler, err := NewHandler(
+		WithName("streamable-test-server"),
+		WithTool("echo", "Echo input", func(ctx context.Context, reqCtx RequestContext, input EchoInput) (EchoOutput, error) {
+			return EchoOutput{Message: input.Text}, nil
+		}),
+		WithTool("fail", "Return a tool error", func(ctx context.Context, reqCtx RequestContext, input struct{}) (EchoOutput, error) {
+			return EchoOutput{}, ValidationError("bad input")
+		}),
+		WithPrompt("prompt1", "Test prompt", func(ctx context.Context, reqCtx RequestContext, args map[string]any) (*PromptResult, error) {
+			return &PromptResult{
+				Messages: []PromptMessage{{Role: "user", Content: "test prompt"}},
+			}, nil
+		}),
+		WithResource("resource://test", "Test resource", func(ctx context.Context, reqCtx RequestContext) (*ResourceContent, error) {
+			return &ResourceContent{
+				Content:  []byte("test content"),
+				MIMEType: "text/plain",
+			}, nil
+		}),
+	)
+	require.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(handler.ServeHTTP))
+	defer server.Close()
+
+	client := mcp.NewClient(&mcp.Implementation{
+		Name:    "streamable-test-client",
+		Version: "1.0.0",
+	}, nil)
+	session, err := client.Connect(t.Context(), &mcp.StreamableClientTransport{
+		Endpoint:   server.URL,
+		HTTPClient: server.Client(),
+	}, nil)
+	require.NoError(t, err)
+	defer func() {
+		err := session.Close()
+		require.NoError(t, err)
+	}()
+
+	tools, err := session.ListTools(t.Context(), nil)
+	require.NoError(t, err)
+	require.Len(t, tools.Tools, 2)
+
+	toolResult, err := session.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "echo",
+		Arguments: map[string]any{"text": "hello"},
+	})
+	require.NoError(t, err)
+	require.False(t, toolResult.IsError)
+	require.NotEmpty(t, toolResult.Content)
+
+	errorResult, err := session.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "fail",
+		Arguments: map[string]any{},
+	})
+	require.NoError(t, err)
+	require.True(t, errorResult.IsError)
+	require.NotEmpty(t, errorResult.Content)
+	errorText, ok := errorResult.Content[0].(*mcp.TextContent)
+	require.True(t, ok)
+	require.Contains(t, errorText.Text, "bad input")
+
+	prompts, err := session.ListPrompts(t.Context(), nil)
+	require.NoError(t, err)
+	require.Len(t, prompts.Prompts, 1)
+
+	promptResult, err := session.GetPrompt(t.Context(), &mcp.GetPromptParams{Name: "prompt1"})
+	require.NoError(t, err)
+	require.Len(t, promptResult.Messages, 1)
+
+	resources, err := session.ListResources(t.Context(), nil)
+	require.NoError(t, err)
+	require.Len(t, resources.Resources, 1)
+
+	resourceResult, err := session.ReadResource(t.Context(), &mcp.ReadResourceParams{URI: "resource://test"})
+	require.NoError(t, err)
+	require.Len(t, resourceResult.Contents, 1)
+	require.Equal(t, "test content", resourceResult.Contents[0].Text)
+
+	_, err = session.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "missing",
+		Arguments: map[string]any{},
+	})
+	require.Error(t, err)
+}
+
 func TestNewHandlerWithCustomServer(t *testing.T) {
 	t.Parallel()
 
@@ -257,31 +523,6 @@ func TestNewHandlerOptionError(t *testing.T) {
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrEmptyValue)
-}
-
-func TestServeStdioExists(t *testing.T) {
-	t.Parallel()
-
-	// Create handler
-	handler, err := NewHandler(
-		WithName("test-server"),
-		WithTool("echo", "Echo input", simpleEchoFunc),
-	)
-	require.NoError(t, err)
-
-	// Test that ServeStdio method exists and has the correct signature
-	// Note: We cannot test ServeStdio execution with coverage enabled because
-	// the MCP SDK's StdioTransport directly uses os.Stdout, which conflicts with
-	// the coverage reporter's output stream, causing "file already closed" errors.
-	// This is a known limitation when testing stdio-based transports.
-
-	// Verify the method exists and is callable (but don't actually call it)
-	assert.NotNil(t, handler.ServeStdio)
-
-	// We can test ServeStdio indirectly by verifying the handler was created properly
-	// and has the server that ServeStdio would use
-	server := handler.GetServer()
-	assert.NotNil(t, server)
 }
 
 func TestNewHandlerWithEmptySlices(t *testing.T) {
@@ -368,61 +609,6 @@ func TestNewHandler_Empty(t *testing.T) {
 }
 
 // Test ServeStdio more thoroughly without actually calling it
-func TestServeStdioDetails(t *testing.T) {
-	t.Parallel()
-
-	handler, err := NewHandler(
-		WithName("stdio-test-server"),
-		WithTool("echo", "Echo input", simpleEchoFunc),
-	)
-	require.NoError(t, err)
-
-	// Verify the method signature and behavior by testing components
-	// that ServeStdio would use internally
-
-	// Test that the method exists with correct signature
-	assert.NotNil(t, handler.ServeStdio)
-
-	// Test that the underlying server exists and can be used
-	server := handler.GetServer()
-	assert.NotNil(t, server)
-
-	// Test ServeStdio exists and has the correct signature
-	assert.NotNil(t, handler.ServeStdio)
-
-	// Verify we can create the transport that ServeStdio uses
-	transport := &mcp.StdioTransport{}
-	assert.NotNil(t, transport)
-}
-
-// Test ServeStdio method by calling it with pre-cancelled context
-func TestServeStdioActualCall(t *testing.T) {
-	// Note: Don't run in parallel to avoid stdio interference
-
-	handler, err := NewHandler(
-		WithName("stdio-test"),
-		WithTool("echo", "Echo input", simpleEchoFunc),
-	)
-	require.NoError(t, err)
-
-	// Skip actual ServeStdio call when running with coverage to avoid stdio conflicts
-	// The coverage reporter uses stdout, which conflicts with ServeStdio's stdio transport
-	if testing.CoverMode() != "" {
-		t.Skip("Skipping ServeStdio call during coverage runs to avoid stdio conflicts")
-	}
-
-	// Use a context that's already cancelled to ensure ServeStdio returns quickly
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel() // Cancel immediately before calling
-
-	// This should return quickly due to cancelled context
-	err = handler.ServeStdio(ctx)
-
-	// Expect context cancellation error
-	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
-}
-
 // Test NewHandler with failing tool registration
 func TestNewHandlerToolRegistrationError(t *testing.T) {
 	t.Parallel()
@@ -566,39 +752,6 @@ func TestNewHandlerMixedRegistrationsSuccess(t *testing.T) {
 }
 
 // Test that ServeStdio creates the correct transport type internally
-func TestServeStdioInternalBehavior(t *testing.T) {
-	t.Parallel()
-
-	handler, err := NewHandler(
-		WithName("stdio-internal-test"),
-		WithTool("echo", "Echo input", simpleEchoFunc),
-	)
-	require.NoError(t, err)
-
-	// We can't directly test ServeStdio execution due to stdio conflicts with coverage,
-	// but we can verify that the handler has all the necessary components
-	// that ServeStdio would use
-
-	// Verify the server exists
-	server := handler.GetServer()
-	assert.NotNil(t, server)
-
-	// Verify the method exists with correct signature
-	assert.NotNil(t, handler.ServeStdio)
-
-	// Test that we can create the transport type that ServeStdio would use
-	transport := &mcp.StdioTransport{}
-	assert.NotNil(t, transport)
-
-	// Verify context handling that ServeStdio would use
-	ctx := t.Context()
-	assert.NotNil(t, ctx)
-
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
-	assert.NotNil(t, ctxWithCancel)
-}
-
 func TestHandlerConstruction(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

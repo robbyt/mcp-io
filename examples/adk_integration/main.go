@@ -18,12 +18,12 @@ import (
 	"sync"
 
 	mcpio "github.com/robbyt/mcp-io"
+	adkagent "google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
-	"google.golang.org/adk/cmd/launcher/adk"
+	"google.golang.org/adk/cmd/launcher"
 	"google.golang.org/adk/cmd/launcher/full"
 	"google.golang.org/adk/model"
 	"google.golang.org/adk/model/gemini"
-	"google.golang.org/adk/server/restapi/services"
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/mcptoolset"
 	"google.golang.org/genai"
@@ -114,13 +114,13 @@ func main() {
 		log.Fatalf("Failed to create ADK agent: %v", err)
 	}
 
-	config := &adk.Config{
-		AgentLoader: services.NewSingleAgentLoader(agent),
+	config := &launcher.Config{
+		AgentLoader: adkagent.NewSingleLoader(agent),
 	}
-	launcher := full.NewLauncher()
+	adkLauncher := full.NewLauncher()
 
-	if err := launcher.Execute(ctx, config, flag.Args()); err != nil {
-		log.Fatalf("Launcher failed: %v (syntax: %s)", err, launcher.CommandLineSyntax())
+	if err := adkLauncher.Execute(ctx, config, flag.Args()); err != nil {
+		log.Fatalf("Launcher failed: %v (syntax: %s)", err, adkLauncher.CommandLineSyntax())
 	}
 }
 
