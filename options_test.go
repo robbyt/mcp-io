@@ -332,7 +332,7 @@ func TestWithServerOptions(t *testing.T) {
 		require.NotNil(t, cfg.serverOptions.Capabilities)
 		assert.NotNil(t, cfg.serverOptions.Capabilities.Logging)
 		require.NotNil(t, cfg.serverOptions.Capabilities.Prompts)
-		assert.True(t, cfg.serverOptions.Capabilities.Prompts.ListChanged)
+		assert.False(t, cfg.serverOptions.Capabilities.Prompts.ListChanged)
 	})
 
 	t.Run("WithCapabilityResources sub-option modifies defaults", func(t *testing.T) {
@@ -346,7 +346,7 @@ func TestWithServerOptions(t *testing.T) {
 		require.NotNil(t, cfg.serverOptions.Capabilities)
 		assert.NotNil(t, cfg.serverOptions.Capabilities.Logging)
 		require.NotNil(t, cfg.serverOptions.Capabilities.Resources)
-		assert.True(t, cfg.serverOptions.Capabilities.Resources.ListChanged)
+		assert.False(t, cfg.serverOptions.Capabilities.Resources.ListChanged)
 	})
 
 	t.Run("WithCapabilityTools sub-option modifies defaults", func(t *testing.T) {
@@ -360,7 +360,7 @@ func TestWithServerOptions(t *testing.T) {
 		require.NotNil(t, cfg.serverOptions.Capabilities)
 		assert.NotNil(t, cfg.serverOptions.Capabilities.Logging)
 		require.NotNil(t, cfg.serverOptions.Capabilities.Tools)
-		assert.True(t, cfg.serverOptions.Capabilities.Tools.ListChanged)
+		assert.False(t, cfg.serverOptions.Capabilities.Tools.ListChanged)
 	})
 
 	t.Run("multiple sub-options can be combined", func(t *testing.T) {
@@ -384,9 +384,9 @@ func TestWithServerOptions(t *testing.T) {
 		require.NotNil(t, cfg.serverOptions.Capabilities.Prompts)
 		require.NotNil(t, cfg.serverOptions.Capabilities.Resources)
 		require.NotNil(t, cfg.serverOptions.Capabilities.Tools)
-		assert.True(t, cfg.serverOptions.Capabilities.Prompts.ListChanged)
-		assert.True(t, cfg.serverOptions.Capabilities.Resources.ListChanged)
-		assert.True(t, cfg.serverOptions.Capabilities.Tools.ListChanged)
+		assert.False(t, cfg.serverOptions.Capabilities.Prompts.ListChanged)
+		assert.False(t, cfg.serverOptions.Capabilities.Resources.ListChanged)
+		assert.False(t, cfg.serverOptions.Capabilities.Tools.ListChanged)
 	})
 }
 

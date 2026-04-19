@@ -67,7 +67,7 @@ func WithKeepAlive(duration time.Duration) ServerOption {
 //	mcp.WithCapabilityPrompts()
 func WithCapabilityPrompts() ServerOption {
 	return func(opts *mcpSDK.ServerOptions) {
-		ensureServerCapabilities(opts).Prompts = &mcpSDK.PromptCapabilities{ListChanged: true}
+		ensureServerCapabilities(opts).Prompts = &mcpSDK.PromptCapabilities{}
 	}
 }
 
@@ -79,7 +79,7 @@ func WithCapabilityPrompts() ServerOption {
 //	mcp.WithCapabilityResources()
 func WithCapabilityResources() ServerOption {
 	return func(opts *mcpSDK.ServerOptions) {
-		ensureServerCapabilities(opts).Resources = &mcpSDK.ResourceCapabilities{ListChanged: true}
+		ensureServerCapabilities(opts).Resources = &mcpSDK.ResourceCapabilities{}
 	}
 }
 
@@ -91,7 +91,7 @@ func WithCapabilityResources() ServerOption {
 //	mcp.WithCapabilityTools()
 func WithCapabilityTools() ServerOption {
 	return func(opts *mcpSDK.ServerOptions) {
-		ensureServerCapabilities(opts).Tools = &mcpSDK.ToolCapabilities{ListChanged: true}
+		ensureServerCapabilities(opts).Tools = &mcpSDK.ToolCapabilities{}
 	}
 }
 

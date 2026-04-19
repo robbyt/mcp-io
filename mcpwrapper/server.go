@@ -125,7 +125,8 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 // ServeHTTP implements http.Handler for Streamable HTTP transport.
-// Creates a StreamableHTTPHandler using the server's configured HTTP options.
+// The StreamableHTTPHandler is created once on first request and reused
+// for subsequent requests so stateful HTTP sessions are preserved.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.httpOnce.Do(func() {
 		s.httpHandler = mcpSDK.NewStreamableHTTPHandler(
