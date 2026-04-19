@@ -1,6 +1,6 @@
 module github.com/robbyt/mcp-io/examples/adk_integration
 
-go 1.25.4
+go 1.26.2
 
 require (
 	github.com/codingsince1985/geo-golang v1.8.5
