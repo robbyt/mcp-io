@@ -867,7 +867,7 @@ The interface decouples handlers from SDK struct layout, enabling dependency inj
 | Feature | MCP SDK | mcp-io (current) | mcp-io (planned) |
 |---------|---------|------------------|------------------|
 | Auto-generate schemas | ✅ Yes | ✅ Yes | ✅ Yes |
-| Simple handler signature | ⚠️ 5 params | ✅ 3 params | ✅ 3 params |
+| Simple handler signature | ⚠️ 3 params, 3 returns | ✅ 3 params | ✅ 3 params |
 | Access session capabilities | ✅ Via request param | ✅ Via toolCtx | ✅ Via toolCtx |
 | Access OAuth tokens | ✅ Via `req.Extra.TokenInfo` | ✅ Via `toolCtx.GetTokenInfo()` | N/A |
 | Access HTTP headers | ✅ Via `req.Extra.Header` | ✅ Via `toolCtx.GetHeaders()` | N/A |
